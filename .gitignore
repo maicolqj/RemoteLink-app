@@ -73,3 +73,13 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Variables de entorno (contienen secretos — nunca versionar)
+.env.development
+.env.staging
+.env.production
+.env.local
+
+# Firebase
+android/app/google-services.json
+ios/GoogleService-Info.plist
