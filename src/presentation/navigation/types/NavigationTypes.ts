@@ -40,14 +40,15 @@ export type ProfileStackParamList = {
 // Tab Params (each tab is a nested stack)
 export type MainTabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
-  FinancesTab: NavigatorScreenParams<FinancesStackParamList>;
-  VisitsTab: NavigatorScreenParams<VisitsStackParamList>;
+  // FinancesTab: NavigatorScreenParams<FinancesStackParamList>;
+  // VisitsTab: NavigatorScreenParams<VisitsStackParamList>;
   MarketplaceTab: NavigatorScreenParams<MarketplaceStackParamList>;
   ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 // Root
 export type RootStackParamList = {
+  Auth: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
 };
 

@@ -28,7 +28,8 @@ export async function scheduleVisit(input: ScheduleVisitInput): Promise<Visit> {
     mutation: SCHEDULE_VISIT,
     variables: { input },
   });
-  return data!.scheduleVisit;
+  if (!data?.scheduleVisit) throw new Error('No se pudo agendar la visita');
+  return data.scheduleVisit;
 }
 
 export async function approveVisit(visitId: string): Promise<Partial<Visit>> {
@@ -36,7 +37,8 @@ export async function approveVisit(visitId: string): Promise<Partial<Visit>> {
     mutation: APPROVE_VISIT,
     variables: { visitId },
   });
-  return data!.approveVisitEntry;
+  if (!data?.approveVisitEntry) throw new Error('No se pudo aprobar la visita');
+  return data.approveVisitEntry;
 }
 
 export async function denyVisit(visitId: string, reason: string): Promise<Partial<Visit>> {
@@ -44,7 +46,8 @@ export async function denyVisit(visitId: string, reason: string): Promise<Partia
     mutation: DENY_VISIT,
     variables: { visitId, reason },
   });
-  return data!.denyVisitEntry;
+  if (!data?.denyVisitEntry) throw new Error('No se pudo denegar la visita');
+  return data.denyVisitEntry;
 }
 
 export async function cancelVisit(visitId: string): Promise<Partial<Visit>> {
@@ -52,7 +55,8 @@ export async function cancelVisit(visitId: string): Promise<Partial<Visit>> {
     mutation: CANCEL_VISIT,
     variables: { visitId },
   });
-  return data!.cancelVisit;
+  if (!data?.cancelVisit) throw new Error('No se pudo cancelar la visita');
+  return data.cancelVisit;
 }
 
 export async function blacklistVisitor(input: BlacklistInput): Promise<Partial<Visitor>> {
@@ -60,7 +64,8 @@ export async function blacklistVisitor(input: BlacklistInput): Promise<Partial<V
     mutation: BLACKLIST_VISITOR,
     variables: { input },
   });
-  return data!.blacklistVisitor;
+  if (!data?.blacklistVisitor) throw new Error('No se pudo agregar a la lista negra');
+  return data.blacklistVisitor;
 }
 
 export async function removeFromBlacklist(visitorId: string): Promise<Partial<Visitor>> {
@@ -68,5 +73,6 @@ export async function removeFromBlacklist(visitorId: string): Promise<Partial<Vi
     mutation: REMOVE_FROM_BLACKLIST,
     variables: { visitorId },
   });
-  return data!.removeVisitorFromBlacklist;
+  if (!data?.removeVisitorFromBlacklist) throw new Error('No se pudo remover de la lista negra');
+  return data.removeVisitorFromBlacklist;
 }

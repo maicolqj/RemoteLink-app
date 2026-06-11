@@ -1,5 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
+
+const THEME_STORAGE_KEY = 'remotelink_theme_mode';
 
 // ─── Palettes ─────────────────────────────────────────────────────────────────
 
@@ -102,7 +105,17 @@ export function useTheme(): ThemeContextType {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
-  const [mode, setMode] = useState<ThemeMode>('system');
+  const [mode, setModeState] = useState<ThemeMode>('system');
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_STORAGE_KEY).then(saved => {
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        setModeState(saved);
+      }
+      setHydrated(true);
+    });
+  }, []);
 
   const isDark = useMemo(
     () => (mode === 'system' ? systemScheme === 'dark' : mode === 'dark'),
@@ -111,17 +124,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const colors = useMemo(() => (isDark ? darkColors : lightColors), [isDark]);
 
+  const setMode = useCallback((newMode: ThemeMode) => {
+    setModeState(newMode);
+    AsyncStorage.setItem(THEME_STORAGE_KEY, newMode);
+  }, []);
+
   const toggleTheme = useCallback(() => {
-    setMode(prev => {
-      if (prev === 'system') return isDark ? 'light' : 'dark';
-      return prev === 'dark' ? 'light' : 'dark';
-    });
-  }, [isDark]);
+    setMode(mode === 'system' ? (isDark ? 'light' : 'dark') : mode === 'dark' ? 'light' : 'dark');
+  }, [isDark, setMode, mode]);
 
   const value = useMemo<ThemeContextType>(
     () => ({ mode, isDark, colors, setMode, toggleTheme }),
-    [mode, isDark, colors, toggleTheme],
+    [mode, isDark, colors, setMode, toggleTheme],
   );
+
+  if (!hydrated) return null;
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
