@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import type { MainTabParamList } from './types/NavigationTypes';
@@ -13,14 +13,16 @@ import MarketplaceStack from './stacks/MarketplaceStack';
 import ProfileStack from './stacks/ProfileStack';
 import { useNotificationsStore } from '../store/notifications.store';
 
+const { width: wp, height: hp } = Dimensions.get('screen');
+
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 type TabIconConfig = { name: string; label: string; icon: string };
 
 const TAB_CONFIG: Record<keyof MainTabParamList, TabIconConfig> = {
   HomeTab:        { name: 'HomeTab',        label: 'Inicio',   icon: 'home' },
-  FinancesTab:    { name: 'FinancesTab',    label: 'Finanzas', icon: 'account-balance-wallet' },
-  VisitsTab:      { name: 'VisitsTab',      label: 'Visitas',  icon: 'people' },
+  // FinancesTab:    { name: 'FinancesTab',    label: 'Finanzas', icon: 'account-balance-wallet' },
+  // VisitsTab:      { name: 'VisitsTab',      label: 'Visitas',  icon: 'people' },
   MarketplaceTab: { name: 'MarketplaceTab', label: 'Tienda',   icon: 'store' },
   ProfileTab:     { name: 'ProfileTab',     label: 'Perfil',   icon: 'person' },
 };
@@ -61,7 +63,7 @@ export default function MainNavigator() {
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
-      <Tab.Screen
+      {/* <Tab.Screen
         name="FinancesTab"
         component={FinancesStack}
         options={{
@@ -76,7 +78,7 @@ export default function MainNavigator() {
           tabBarLabel: TAB_CONFIG.VisitsTab.label,
           tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.VisitsTab.icon} focused={focused} colors={colors} />,
         }}
-      />
+      /> */}
       <Tab.Screen
         name="MarketplaceTab"
         component={MarketplaceStack}
