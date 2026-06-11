@@ -252,7 +252,7 @@ export default function FinancesScreen() {
 
   const load = useCallback(async () => {
     if (!resident) return;
-    await fetchAll(resident.unitId, resident.complexId);
+    await fetchAll(resident.unit.id, resident.complex.id);
   }, [resident, fetchAll]);
 
   useEffect(() => { load(); }, [load]);

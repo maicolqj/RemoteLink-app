@@ -48,9 +48,9 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await apiFetchVisits(
-        resident.complexId,
+        resident.complex.id,
         { page: 1, limit: 50 },
-        { ...filters, unitId: resident.unitId },
+        { ...filters, unitId: resident.unit.id },
       );
       set({ visits: result.items, total: result.pagination.total, isLoading: false });
     } catch (e: any) {
@@ -66,8 +66,8 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
       const visit = await apiScheduleVisit({
         ...partialInput,
         hostResidentId: resident.id,
-        unitId: resident.unitId,
-        complexId: resident.complexId,
+        unitId: resident.unit.id,
+        complexId: resident.complex.id,
       });
       set(s => ({ visits: [visit, ...s.visits], isActionLoading: false }));
       return visit;
