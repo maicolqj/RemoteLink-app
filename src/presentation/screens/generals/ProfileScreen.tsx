@@ -24,13 +24,13 @@ export default function ProfileScreen() {
   const gs = useGlobalStyles();
   const { resident, logout } = useAuthStore();
 
-  const fullName = resident ? `${resident.name} ${resident.lastName}` : '';
+  const fullName = resident ? `${resident.user.name} ${resident.user.lastName}` : '';
 
   const menuItems = [
     { id: 'directory', icon: 'people',  label: 'Directorio de residentes', onPress: () => navigation.navigate('ResidentDirectory') },
-    { id: 'phone',     icon: 'phone',   label: 'Teléfono',                 value: resident?.phone,  onPress: () => {} },
-    { id: 'email',     icon: 'email',   label: 'Correo electrónico',       value: resident?.email,  onPress: () => {} },
-    { id: 'unit',      icon: 'home',    label: 'Unidad',                   value: `Torre ${resident?.tower} · Apto ${resident?.unit}`, onPress: () => {} },
+    { id: 'phone',     icon: 'phone',   label: 'Teléfono',                 value: resident?.user.phoneNumber,  onPress: () => {} },
+    { id: 'email',     icon: 'email',   label: 'Correo electrónico',       value: resident?.user.email,        onPress: () => {} },
+    { id: 'unit',      icon: 'home',    label: 'Unidad',                   value: resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined, onPress: () => {} },
   ];
 
   const dangerItems = [
@@ -51,7 +51,7 @@ export default function ProfileScreen() {
           <View style={[styles.unitBadge, { backgroundColor: colors.primarySurface }]}>
             <Icon name="home" size={14} color={colors.primary} />
             <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
-              Torre {resident?.tower} · Apto {resident?.unit}
+              {resident?.unit.building.name} · Apto {resident?.unit.number}
             </CustomTextComponent>
           </View>
         </View>

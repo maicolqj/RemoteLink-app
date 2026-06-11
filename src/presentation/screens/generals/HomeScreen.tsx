@@ -45,7 +45,7 @@ export default function HomeScreen() {
     navigation.navigate('Main', { screen: tab });
   }, [navigation]);
 
-  const fullName = resident ? `${resident.name} ${resident.lastName}` : '';
+  const fullName = resident ? `${resident.user.name} ${resident.user.lastName}` : '';
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -64,7 +64,7 @@ export default function HomeScreen() {
               {greeting()},
             </CustomTextComponent>
             <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary}>
-              {resident?.name ?? ''}
+              {resident?.user.name ?? ''}
             </CustomTextComponent>
           </View>
           <View style={gs.row}>
@@ -86,7 +86,7 @@ export default function HomeScreen() {
         <View style={styles.unitBadge}>
           <Icon name="home" size={14} color={colors.primary} />
           <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
-            Torre {resident?.tower} · Apto {resident?.unit}
+            {resident?.unit.building.name} · Apto {resident?.unit.number}
           </CustomTextComponent>
         </View>
       </View>
