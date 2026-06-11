@@ -1,42 +1,73 @@
 import { create } from 'zustand';
 
-export interface Resident {
+export interface ResidentUser {
   id: string;
-  unitId: string;      // UUID de la unidad en el backend
-  complexId: string;   // UUID del conjunto residencial
   name: string;
   lastName: string;
   email: string;
-  phone: string;
-  unit: string;        // Número de apto visible (ej. "502")
-  tower: string;
-  avatarUrl?: string;
+  phoneNumber: string;
+  identity: string;
+  rating?: number;
+}
+
+export interface ResidentBuilding {
+  id: string;
+  name: string;
+  floors: number;
+}
+
+export interface ResidentUnit {
+  id: string;
+  number: string;
+  floor: number;
+  building: ResidentBuilding;
+}
+
+export interface ResidentComplex {
+  id: string;
+  name: string;
+}
+
+export interface Resident {
+  id: string;
+  type: string;
+  status: string;
+  isMainResident: boolean;
+  startDate: string;
+  user: ResidentUser;
+  unit: ResidentUnit;
+  complex: ResidentComplex;
 }
 
 interface AuthState {
   resident: Resident | null;
   token: string | null;
+  sessionId: string | null;
   isAuthenticated: boolean;
-  setResident: (resident: Resident, token: string) => void;
+
+  setSession: (accessToken: string, sessionId: string) => void;
+  setResident: (resident: Resident) => void;
   logout: () => void;
+  hasRole: (role: string) => boolean;
 }
 
-export const useAuthStore = create<AuthState>(set => ({
-  // Dev mock — replace with real login flow
-  resident: {
-    id: 'resident-uuid',
-    unitId: 'unit-uuid-here',
-    complexId: 'complex-uuid-here',
-    name: 'Carlos',
-    lastName: 'Mendoza',
-    email: 'carlos.mendoza@email.com',
-    phone: '+57 300 123 4567',
-    unit: '502',
-    tower: 'A',
-  },
+export const useAuthStore = create<AuthState>((set, get) => ({
+  resident: null,
   token: null,
-  isAuthenticated: true,
+  sessionId: null,
+  isAuthenticated: false,
 
-  setResident: (resident, token) => set({ resident, token, isAuthenticated: true }),
-  logout: () => set({ resident: null, token: null, isAuthenticated: false }),
+  setSession: (token, sessionId) =>
+    set({ token, sessionId, isAuthenticated: true }),
+
+  setResident: (resident) =>
+    set({ resident }),
+
+  logout: () =>
+    set({ resident: null, token: null, sessionId: null, isAuthenticated: false }),
+
+  hasRole: (role: string) => {
+    const { isAuthenticated } = get();
+    return isAuthenticated && role === 'RESIDENT';
+  },
 }));

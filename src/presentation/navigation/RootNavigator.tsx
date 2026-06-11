@@ -9,14 +9,18 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'react-native';
 import type { RootStackParamList } from './types/NavigationTypes';
 import MainNavigator from './MainNavigator';
+import LoginScreen from '../screens/auth/LoginScreen';
+import { PanicFAB } from '../components/PanicFAB';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
+import { useAuthStore } from '../store/auth.store';
 import {
   requestNotificationPermission,
   getFCMToken,
   initNotificationListeners,
   handleInitialNotification,
 } from '../../infraestructure/services/NotificationService';
+import { fetchMyResidentProfile } from '../../infraestructure/services/auth.service';
 import { createNotificationChannels } from '../../infraestructure/services/NotifeeService';
 import { useNotificationsStore } from '../store/notifications.store';
 import { lightColors, darkColors } from '../providers/context/ThemeContext';
@@ -49,6 +53,23 @@ const navDarkTheme = {
     notification: darkColors.error,
   },
 };
+
+// ─── Profile bootstrap ────────────────────────────────────────────────────────
+
+function ProfileBootstrap() {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const resident        = useAuthStore(s => s.resident);
+  const setResident     = useAuthStore(s => s.setResident);
+
+  useEffect(() => {
+    if (!isAuthenticated || resident) return;
+    fetchMyResidentProfile()
+      .then(setResident)
+      .catch(err => console.warn('[ProfileBootstrap]', err));
+  }, [isAuthenticated, resident, setResident]);
+
+  return null;
+}
 
 // ─── Notification bootstrap ───────────────────────────────────────────────────
 
@@ -96,6 +117,7 @@ function NotificationBootstrap({
 
 function ThemedNavigator() {
   const { isDark } = useTheme();
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
   return (
@@ -107,11 +129,17 @@ function ThemedNavigator() {
       <NavigationContainer
         ref={navigationRef}
         theme={isDark ? navDarkTheme : navLightTheme}>
+        <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Main" component={MainNavigator} />
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+          {isAuthenticated ? (
+            <Stack.Screen name="Main" component={MainNavigator} />
+          ) : (
+            <Stack.Screen name="Auth" component={LoginScreen} />
+          )}
         </Stack.Navigator>
       </NavigationContainer>
+      {isAuthenticated && <PanicFAB />}
     </>
   );
 }

@@ -9,10 +9,10 @@ import {
 } from 'react-native';
 import { useLazyQuery } from '@apollo/client/react';
 import apolloClientInstance from '../../data/lib/apollo/client';
-import { ACKNOWLEDGE_PANIC_ALERT } from '../../domain/graphql/mutations';
-import { GET_UNIT } from '../../domain/graphql/queries';
+import { ACKNOWLEDGE_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
+import { GET_UNIT } from '../../domain/graphql/panic.queries';
 import { ValidRoles } from '../../domain/interfaces/ValidRoles';
-import { useAuthStore } from '../../shared/store/auth.store';
+import { useAuthStore } from '../store/auth.store';
 import type { GetUnitResponseModel } from '../../domain/responses/UnitResponseModel';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 
