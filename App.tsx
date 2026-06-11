@@ -1,4 +1,4 @@
-import { ApolloProvider } from '@apollo/client';
+import { ApolloProvider } from '@apollo/client/react';
 import { enableFreeze } from 'react-native-screens';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import apolloClient from './src/data/lib/apollo/client';

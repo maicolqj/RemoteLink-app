@@ -9,6 +9,7 @@ const _base = (STAGE === 'production'
 ).trim().replace(/\/graphql\/?$/, '');
 
 export const API_URL      = `${_base}/graphql`;
+console.log(`API URL: ${API_URL}`);
 export const REST_API_URL = _base;
 export const APP_VERSION  = '1.0.0';
 
