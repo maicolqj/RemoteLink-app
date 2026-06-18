@@ -11,6 +11,17 @@ export const LOGIN_RESIDENT = gql`
   }
 `;
 
+export const REFRESH_TOKEN = gql`
+  mutation RefreshToken($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) {
+      accessToken
+      refreshToken
+      expiresIn
+      sessionId
+    }
+  }
+`;
+
 export const GET_MY_RESIDENT_PROFILE = gql`
   query GetMyResidentProfile {
     myResidentProfile {

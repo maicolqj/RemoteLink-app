@@ -27,13 +27,13 @@ export interface AuthResult {
   errorCode?: 'cancelled' | 'locked' | 'not_enrolled' | 'not_available' | 'unknown';
 }
 
-const KEYCHAIN_SERVICE = 'com.remotelink.auth';
+const KEYCHAIN_SERVICE = 'com.alternaqj.remotelink.auth';
 const TOKEN_USERNAME   = 'remotelink_auth_tokens';
-const PROFILE_SERVICE  = 'com.remotelink.profile';
+const PROFILE_SERVICE  = 'com.alternaqj.remotelink.profile';
 const PROFILE_USERNAME = 'user_profile';
-const BIOMETRIC_PREFERENCE_SERVICE = 'com.remotelink.prefs';
+const BIOMETRIC_PREFERENCE_SERVICE = 'com.alternaqj.remotelink.prefs';
 const BIOMETRIC_PREFERENCE_USER    = 'biometric_enabled';
-const VERIFY_SERVICE = 'com.remotelink.verify';
+const VERIFY_SERVICE = 'com.alternaqj.remotelink.verify';
 
 const isDecryptionError = (error: any): boolean => {
   const message = error?.message || String(error);
