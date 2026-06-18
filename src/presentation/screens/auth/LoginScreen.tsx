@@ -20,6 +20,8 @@ import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAuthStore } from '../../store/auth.store';
 import { loginResident } from '../../../infraestructure/services/auth.service';
+import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
+import SecureStorageService from '../../../infraestructure/services/SecureStorageService';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
@@ -125,6 +127,12 @@ export default function LoginScreen() {
     try {
       const systemCode = `RES-${code}`;
       const result = await loginResident(identity.trim(), systemCode);
+      await SecureStorageService.saveTokens({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        sessionId: result.sessionId,
+        accessTokenExpiresAt: result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined,
+      });
       setSession(result.accessToken, result.sessionId);
     } catch (err: any) {
       setCodeError(err?.message ?? 'Identidad o código incorrecto');
@@ -198,7 +206,7 @@ export default function LoginScreen() {
               color={colors.textSecondary}
               textAlign="center"
               style={styles.cardSubtitle}>
-              Ingresa tu identidad y el código que recibiste
+              Ingresa tu identidad y tu código de residente
             </CustomTextComponent>
 
             {/* ── Identity field ── */}
@@ -303,6 +311,11 @@ export default function LoginScreen() {
                 Conexión cifrada · Tus datos están protegidos
               </CustomTextComponent>
             </View>
+
+            {/* TEMP DEBUG — remove after confirming URL */}
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color="red" textAlign="center">
+              {DEBUG_API_URL}
+            </CustomTextComponent>
           </View>
         </View>
 
