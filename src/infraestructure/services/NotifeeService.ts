@@ -1,4 +1,6 @@
 import { useVisitsStore } from '../../presentation/store/visits.store';
+import { usePanicStore } from '../../presentation/store/panic.store';
+import { useSettingsStore } from '../../presentation/store/settings.store';
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -18,6 +20,7 @@ export const CHANNEL = {
   PAYMENTS: 'payments',
   ALERTS: 'alerts',
   GENERAL: 'general',
+  PANIC: 'panic',
 } as const;
 
 // ─── Action IDs ──────────────────────────────────────────────────────────────
@@ -75,7 +78,45 @@ export async function createNotificationChannels(): Promise<void> {
       visibility: AndroidVisibility.PUBLIC,
       sound: 'default',
     }),
+    notifee.createChannel({
+      id: CHANNEL.PANIC,
+      name: 'Alarma de Pánico',
+      description: 'Alertas de emergencia — pánico activado en el conjunto',
+      importance: AndroidImportance.HIGH,
+      visibility: AndroidVisibility.PUBLIC,
+      vibration: true,
+      vibrationPattern: [300, 500, 200, 500, 200, 500],
+      sound: 'default',
+      lights: true,
+    }),
   ]);
+}
+
+// ─── Display panic notification (background / killed state) ──────────────────
+
+export async function displayPanicFCMNotification(
+  remoteMessage: FirebaseMessagingTypes.RemoteMessage,
+): Promise<void> {
+  const data = (remoteMessage.data ?? {}) as FCMData;
+
+  await notifee.displayNotification({
+    id: `panic-${data.complexId ?? remoteMessage.messageId ?? 'alert'}`,
+    title: data.title ?? '🚨 ALERTA DE PÁNICO',
+    body:  data.body  ?? 'Se ha activado una alerta de pánico en el conjunto.',
+    data:  remoteMessage.data as Record<string, string>,
+    android: {
+      channelId:  CHANNEL.PANIC,
+      smallIcon:  'ic_notification',
+      color:      '#cc0000',
+      importance: AndroidImportance.HIGH,
+      visibility: AndroidVisibility.PUBLIC,
+      // Opens app immediately — even from lock screen
+      fullScreenAction: { id: 'default', launchActivity: 'default' },
+      pressAction:      { id: 'default' },
+      vibrationPattern: [300, 500, 200, 500, 200, 500],
+      lights:           ['#cc0000', 500, 500],
+    },
+  });
 }
 
 // ─── Display notification in foreground ──────────────────────────────────────
@@ -142,6 +183,20 @@ function navigateFromData(
   }
 }
 
+// ─── Activate panic modal from a pressed panic notification ──────────────────
+// Panic notifications are displayed by Notifee (data-only FCM), so their press
+// events arrive here — never through messaging().onNotificationOpenedApp.
+
+function showPanicFromNotificationData(data: Record<string, string>) {
+  if (!useSettingsStore.getState().panicAlertsEnabled) return;
+  const d = data as FCMData;
+  usePanicStore.getState().setPanicData({
+    complexId:        d.complexId ?? '',
+    triggeredBy:      d.triggeredBy ?? '',
+    triggeredByLabel: d.triggeredByLabel || undefined,
+  });
+}
+
 // ─── Handle visit action from notification button ─────────────────────────────
 
 async function handleVisitAction(actionId: string, data: Record<string, string>) {
@@ -167,15 +222,20 @@ export function initNotifeeForegroundListener(
 
     switch (type) {
       case EventType.PRESS:
-        navigateFromData(navigationRef, data);
+        if (data.type === 'PANIC_ALERT') {
+          showPanicFromNotificationData(data);
+        } else {
+          navigateFromData(navigationRef, data);
+        }
         break;
       case EventType.ACTION_PRESS: {
         const actionId = detail.pressAction?.id;
         if (actionId === ACTION.VISIT_APPROVE || actionId === ACTION.VISIT_REJECT) {
           handleVisitAction(actionId, data);
-          // Navigate to visits screen after action
+          // Navigate to visits screen after action. The Visits tab is disabled;
+          // the flow lives in HomeStack, so route through HomeTab → Visits.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (navigationRef as any).navigate('Main', { screen: 'VisitsTab' });
+          (navigationRef as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Visits' } });
         }
         break;
       }
@@ -187,6 +247,13 @@ export function initNotifeeForegroundListener(
 
 export async function handleNotifeeBackgroundEvent({ type, detail }: Event): Promise<void> {
   const data = (detail.notification?.data ?? {}) as Record<string, string>;
+
+  // Press on a panic notification while app is background/killed: the press
+  // launches the activity; seed the store so the modal shows as soon as JS mounts.
+  if (type === EventType.PRESS && data.type === 'PANIC_ALERT') {
+    showPanicFromNotificationData(data);
+    return;
+  }
 
   if (type === EventType.ACTION_PRESS) {
     const actionId = detail.pressAction?.id;

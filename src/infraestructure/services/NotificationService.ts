@@ -13,10 +13,17 @@ import {
 // Data payload keys sent from backend FCM messages
 export interface FCMData {
   notificationId?: string;
-  type?: NotificationType;
+  type?: NotificationType | 'PANIC_ALERT';
   targetStack?: string;
   targetScreen?: string;
   params?: string; // JSON string
+  // Panic-specific fields
+  complexId?: string;
+  title?: string;
+  body?: string;
+  triggeredBy?: string;
+  triggeredByLabel?: string;
+  metadata?: string;
 }
 
 function buildNotification(
@@ -94,10 +101,15 @@ export async function getFCMToken(): Promise<string | null> {
 export function initNotificationListeners(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   onNewNotification: (n: Notification) => void,
+  onPanic?: (data: FCMData) => void,
+  onTokenRefresh?: (token: string) => void,
 ): () => void {
   // Foreground messages: app is open
-  // 1. Add to store (badge + list)  2. Show system pop-up via notifee
+  // Panic is handled by Socket.io in foreground — skip FCM display to avoid duplicate.
   const unsubForeground = messaging().onMessage(async remoteMessage => {
+    const data = (remoteMessage.data ?? {}) as FCMData;
+    if (__DEV__) console.log('[FCM] onMessage (foreground):', data.type, '| hasNotificationPayload:', !!remoteMessage.notification);
+    if (data.type === 'PANIC_ALERT') return;
     onNewNotification(buildNotification(remoteMessage));
     await displayForegroundNotification(remoteMessage);
   });
@@ -107,14 +119,17 @@ export function initNotificationListeners(
 
   // Background → foreground: user taps notification while app is in background
   const unsubOpened = messaging().onNotificationOpenedApp(remoteMessage => {
-    onNewNotification(buildNotification(remoteMessage));
-    navigateFromPayload(navigationRef, (remoteMessage.data ?? {}) as FCMData);
+    const data = (remoteMessage.data ?? {}) as FCMData;
+    if (data.type === 'PANIC_ALERT') {
+      onPanic?.(data);
+    } else {
+      onNewNotification(buildNotification(remoteMessage));
+      navigateFromPayload(navigationRef, data);
+    }
   });
 
-  // Token refresh: send updated token to backend
   const unsubTokenRefresh = messaging().onTokenRefresh(token => {
-    // TODO: send token to backend API
-    console.log('[FCM] Token refreshed:', token);
+    onTokenRefresh?.(token);
   });
 
   return () => {
@@ -130,10 +145,15 @@ export function initNotificationListeners(
 export async function handleInitialNotification(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   onNewNotification: (n: Notification) => void,
+  onPanic?: (data: FCMData) => void,
 ): Promise<void> {
   const remoteMessage = await messaging().getInitialNotification();
-  if (remoteMessage) {
+  if (!remoteMessage) return;
+  const data = (remoteMessage.data ?? {}) as FCMData;
+  if (data.type === 'PANIC_ALERT') {
+    onPanic?.(data);
+  } else {
     onNewNotification(buildNotification(remoteMessage));
-    navigateFromPayload(navigationRef, (remoteMessage.data ?? {}) as FCMData);
+    navigateFromPayload(navigationRef, data);
   }
 }
