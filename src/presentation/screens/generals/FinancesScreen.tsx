@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -267,7 +267,7 @@ export default function FinancesScreen() {
 
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
-      <AppHeader title="Finanzas" subtitle={`Torre ${resident?.tower} · Apto ${resident?.unit}`} />
+      <AppHeader title="Finanzas" subtitle={resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined} />
 
       <ScrollView
         style={gs.flex1}
