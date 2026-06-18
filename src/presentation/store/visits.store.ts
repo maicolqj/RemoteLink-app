@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from './auth.store';
 import {
   fetchVisits as apiFetchVisits,
+  fetchVisitById as apiFetchVisitById,
   scheduleVisit as apiScheduleVisit,
   approveVisit as apiApproveVisit,
   denyVisit as apiDenyVisit,
@@ -22,6 +23,7 @@ interface VisitsState {
   error: string | null;
 
   fetchVisits: (filters?: FilterVisitsInput) => Promise<void>;
+  fetchVisitById: (visitId: string) => Promise<Visit>;
   scheduleVisit: (
     input: Omit<ScheduleVisitInput, 'hostResidentId' | 'unitId' | 'complexId'>,
   ) => Promise<Visit>;
@@ -47,15 +49,26 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
     if (!resident) return;
     set({ isLoading: true, error: null });
     try {
-      const result = await apiFetchVisits(
-        resident.complex.id,
-        { page: 1, limit: 50 },
-        { ...filters, unitId: resident.unit.id },
-      );
+      // myVisits is scoped to the authenticated resident via token — no
+      // complexId/unitId needed. Fetch all types so the tab filters work client-side.
+      const result = await apiFetchVisits({ page: 1, limit: 50 }, filters);
       set({ visits: result.items, total: result.pagination.total, isLoading: false });
     } catch (e: any) {
       set({ isLoading: false, error: e.message ?? 'Error cargando visitas' });
     }
+  },
+
+  fetchVisitById: async visitId => {
+    const visit = await apiFetchVisitById(visitId);
+    set(s => {
+      const exists = s.visits.some(v => v.id === visit.id);
+      return {
+        visits: exists
+          ? s.visits.map(v => (v.id === visit.id ? { ...v, ...visit } : v))
+          : [visit, ...s.visits],
+      };
+    });
+    return visit;
   },
 
   scheduleVisit: async partialInput => {
@@ -116,11 +129,19 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
   blacklistVisitor: async (visitorId, reason) => {
     set({ isActionLoading: true });
     try {
-      await apiBlacklist({ visitorId, reason });
+      const updated = await apiBlacklist({ visitorId, reason });
       set(s => ({
         visits: s.visits.map(v =>
           v.visitor.id === visitorId
-            ? { ...v, visitor: { ...v.visitor, isBlacklisted: true, blacklistReason: reason } }
+            ? {
+                ...v,
+                visitor: {
+                  ...v.visitor,
+                  isBlacklisted: updated.isBlacklisted ?? true,
+                  blacklistReason: updated.blacklistReason ?? reason,
+                  blacklistedAt: updated.blacklistedAt,
+                },
+              }
             : v,
         ),
         isActionLoading: false,
@@ -134,11 +155,19 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
   removeFromBlacklist: async visitorId => {
     set({ isActionLoading: true });
     try {
-      await apiRemoveBlacklist(visitorId);
+      const updated = await apiRemoveBlacklist(visitorId);
       set(s => ({
         visits: s.visits.map(v =>
           v.visitor.id === visitorId
-            ? { ...v, visitor: { ...v.visitor, isBlacklisted: false, blacklistReason: undefined } }
+            ? {
+                ...v,
+                visitor: {
+                  ...v.visitor,
+                  isBlacklisted: updated.isBlacklisted ?? false,
+                  blacklistReason: updated.blacklistReason ?? undefined,
+                  blacklistedAt: updated.blacklistedAt ?? undefined,
+                },
+              }
             : v,
         ),
         isActionLoading: false,

@@ -1,9 +1,12 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Share, ScrollView } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import QRCode from 'react-native-qrcode-svg';
+import Share from 'react-native-share';
+
+const QR_LOGO = require('../../assets/system/RemoteLink-sf.png');
 import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import Button from '../../components/Button';
@@ -35,22 +38,51 @@ export default function VisitQRScreen() {
 
   const { qrToken, visitorName, visitorIdentity, visitorIdentityType, expectedArrivalAt } = route.params;
 
+  // react-native-qrcode-svg exposes a ref whose toDataURL() returns the QR as a
+  // base64 PNG — that's what lets us share the image instead of plain text.
+  const qrRef = useRef<{ toDataURL: (cb: (data: string) => void) => void } | null>(null);
+
   const idLabel = visitorIdentityType
     ? `${ID_TYPE_LABEL[visitorIdentityType] ?? visitorIdentityType} ${visitorIdentity ?? ''}`
     : visitorIdentity;
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message:
-          `Tu código de visita RemoteLink: ${qrToken}\n\n` +
-          `Al llegar deberás presentar tu documento de identidad al guardia.\n` +
-          `Este código es de un solo uso y expira en 48 horas.`,
-        title: 'Código de visita',
-      });
-    } catch {
-      showError('No se pudo compartir el código.');
+  const shareMessage =
+    `Al llegar deberás presentar tu documento de identidad al guardia.\n` +
+    `Este código es de un solo uso y expira en 48 horas.`;
+
+  const handleShare = () => {
+    if (!qrRef.current) {
+      showError('El código aún no está listo. Intenta de nuevo.');
+      return;
     }
+    qrRef.current.toDataURL(async (base64) => {
+      if (!base64) {
+        showError('El código aún no está listo. Intenta de nuevo.');
+        return;
+      }
+      try {
+        await Share.open({
+          title: 'Código de visita',
+          subject: 'Código de visita RemoteLink',
+          message: shareMessage,
+          // Android needs a filename to materialize the base64 image as a file.
+          filename: 'visita-qr.png',
+          url: `data:image/png;base64,${base64}`,
+          type: 'image/png',
+          // Write to the internal cache dir — the library's FileProvider only
+          // maps cache-path; the default external cache dir isn't covered and
+          // makes getUriForFile return null (→ "Uri.getScheme() on null").
+          useInternalStorage: true,
+          failOnCancel: false,
+        });
+      } catch (err: any) {
+        // react-native-share rejects on user dismissal — not a real failure.
+        const msg = String(err?.message ?? err ?? '');
+        if (/cancel|dismiss|did not share/i.test(msg)) return;
+        console.warn('[VisitQR] share error:', err);
+        showError('No se pudo compartir el código.');
+      }
+    });
   };
 
   return (
@@ -70,7 +102,22 @@ export default function VisitQRScreen() {
         )}
 
         <View style={[styles.qrContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <QRCode value={qrToken} size={200} color={colors.primary} backgroundColor={colors.surface} />
+          <QRCode
+            value={qrToken}
+            size={200}
+            color={colors.primary}
+            backgroundColor={colors.surface}
+            // Padding around the QR — also included in the exported (shared) PNG.
+            quietZone={24}
+            // Higher error correction so the centered logo doesn't break scanning.
+            ecl="H"
+            logo={QR_LOGO}
+            logoSize={48}
+            logoBackgroundColor={colors.surface}
+            logoBorderRadius={8}
+            logoMargin={4}
+            getRef={(c) => { qrRef.current = c; }}
+          />
         </View>
 
         {/* Identity verification */}

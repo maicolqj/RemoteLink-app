@@ -230,7 +230,7 @@ export default function ScheduleVisitScreen() {
       const visit = await scheduleVisit({
         visitorName: visitorName.trim(),
         visitorLastName: visitorLastName.trim(),
-        visitorIdentityType: identityType,
+        identityType: identityType,
         visitorIdentity: visitorIdentity.trim(),
         visitorPhone: visitorPhone.trim() || undefined,
         expectedArrivalAt: expectedArrivalAt.toISOString(),

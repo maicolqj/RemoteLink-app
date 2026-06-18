@@ -1,10 +1,12 @@
+import { VisitStatus, VisitType } from "../responses/VisitResponseModel";
+
 export type VisitorIdentityType = 'CC' | 'CE' | 'PASSPORT' | 'TI' | 'FOREIGN_ID' | 'OTHER';
 
 export interface ScheduleVisitInput {
   visitorName: string;
   visitorLastName: string;
   visitorIdentity: string;
-  visitorIdentityType?: VisitorIdentityType;
+  identityType?: VisitorIdentityType;
   visitorPhone?: string;
   hostResidentId: string;
   unitId: string;
@@ -22,8 +24,8 @@ export interface BlacklistInput {
 }
 
 export interface FilterVisitsInput {
-  status?: import('./VisitResponseModel').VisitStatus;
-  type?: import('./VisitResponseModel').VisitType;
+  status?: VisitStatus;
+  type?: VisitType;
   dateFrom?: string;
   dateTo?: string;
   unitId?: string;
