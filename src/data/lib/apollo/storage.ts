@@ -1,6 +1,6 @@
 import * as Keychain from 'react-native-keychain';
 
-const SERVICE_PREFIX = 'com.remotelink.';
+const SERVICE_PREFIX = 'com.alternaqj.remotelink.';
 
 export const storage = {
   getItem: async (key: string): Promise<string | null> => {

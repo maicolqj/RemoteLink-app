@@ -1,7 +1,7 @@
 import * as Keychain from 'react-native-keychain';
 import { DEVICE_ID_KEY } from '../../data/lib/constants';
 
-const DEVICE_ID_SERVICE = 'com.remotelink.device_id';
+const DEVICE_ID_SERVICE = 'com.alternaqj.remotelink.device_id';
 
 let cachedDeviceId: string | null = null;
 

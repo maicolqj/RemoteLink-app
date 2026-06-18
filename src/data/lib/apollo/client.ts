@@ -51,6 +51,8 @@ const API_BASE_URL = (
       : PATH_SERVER_LOCAL_IOS
 ).trim().replace(/\/graphql\/?$/, '');
 
+export const DEBUG_API_URL = `STAGE=${STAGE} → ${API_BASE_URL}`;
+
 const WS_BASE_URL = API_BASE_URL
   .replace(/^https/, 'wss')
   .replace(/^http(?!s)/, 'ws');
@@ -208,7 +210,7 @@ export const errorLink = new ErrorLink(({ error, operation, forward }) => {
       );
     });
 
-    if (hasAuthError) {
+    if (hasAuthError && !operation.getContext().skipAuth) {
       return new Observable<FetchResult>(observer => {
         if (!refreshPromise) {
           refreshPromise = attemptTokenRefresh().finally((): void => { refreshPromise = null; });
