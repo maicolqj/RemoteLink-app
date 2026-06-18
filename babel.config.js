@@ -1,8 +1,7 @@
-const nodeEnv = process.env.NODE_ENV || 'development';
-const isProd  = nodeEnv === 'production' || process.env.BABEL_ENV === 'production';
-const isAab   = process.env.BUILD_DIST === 'aab';
+const isAab      = process.env.BUILD_DIST === 'aab';
+const isProdBuild = process.env.BUILD_ENV  === 'production' || isAab;
 
-const envPath = isAab ? '.env.aab' : isProd ? '.env.production' : '.env.development';
+const envPath = isAab ? '.env.aab' : isProdBuild ? '.env.production' : '.env.development';
 
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
@@ -15,7 +14,7 @@ module.exports = {
 
     // 'react-native-worklets/plugin',
 
-    // Strip all console.* calls in production bundles
-    ...(isProd ? ['transform-remove-console'] : []),
+    // Strip console.* only in true production builds
+    ...(isProdBuild ? ['transform-remove-console'] : []),
   ]
 };

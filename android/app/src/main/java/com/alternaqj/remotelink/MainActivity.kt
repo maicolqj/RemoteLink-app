@@ -1,4 +1,4 @@
-package com.remotelink
+package com.alternaqj.remotelink
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
