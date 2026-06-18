@@ -7,20 +7,82 @@ import {
   BLACKLIST_VISITOR,
   REMOVE_FROM_BLACKLIST,
   GET_VISITS,
+  GET_VISIT,
 } from '../../domain/graphql/visits.queries';
-import type { Visit, Visitor, VisitsResponse } from '../../domain/responses/VisitResponseModel';
+import type { Visit, Visitor, VisitsResponse, VisitorIdentityType } from '../../domain/responses/VisitResponseModel';
 import type { ScheduleVisitInput, BlacklistInput, FilterVisitsInput, PaginationInput } from '../../domain/inputs/VisitInput';
 
+// myVisits returns the visitor as name + lastName and a different pagination DTO.
+type RawListVisitor = {
+  id?: string;
+  name?: string;
+  lastName?: string;
+  identity: string;
+  identityType?: VisitorIdentityType;
+  phone?: string;
+};
+type RawListVisit = Omit<Visit, 'visitor'> & { visitor: RawListVisitor };
+type RawMyVisits = {
+  items: RawListVisit[];
+  pagination?: { currentPage?: number; itemsPerPage?: number; totalItems?: number };
+};
+
 export async function fetchVisits(
-  complexId: string,
   pagination: PaginationInput = { page: 1, limit: 50 },
   filters?: FilterVisitsInput,
 ): Promise<VisitsResponse> {
-  const { data } = await apolloClient.query<{ visits: VisitsResponse }>({
+  const { data } = await apolloClient.query<{ myVisits: RawMyVisits }>({
     query: GET_VISITS,
-    variables: { complexId, pagination, ...(filters ? { filters } : {}) },
+    variables: { pagination, ...(filters ? { filters } : {}) },
+    // cache-first would return a stale list after scheduleVisit (the mutation
+    // doesn't patch the list cache), hiding the just-created visit.
+    fetchPolicy: 'network-only',
   });
-  return data.visits;
+
+  const raw = data?.myVisits;
+  const items: Visit[] = (raw?.items ?? []).map(v => {
+    const { name, lastName, ...visitor } = v.visitor;
+    return {
+      ...v,
+      visitor: {
+        ...visitor,
+        id: visitor.id ?? '',
+        fullName: [name, lastName].filter(Boolean).join(' ').trim(),
+      },
+    };
+  });
+
+  return {
+    items,
+    pagination: {
+      total: raw?.pagination?.totalItems ?? items.length,
+      page: raw?.pagination?.currentPage ?? pagination.page,
+      limit: raw?.pagination?.itemsPerPage ?? pagination.limit,
+    },
+  };
+}
+
+// The single-visit query returns the visitor as `name` + `lastName`; the rest of
+// the app expects `visitor.fullName`, so compose it here.
+type RawVisitorById = Omit<Visitor, 'fullName'> & { name?: string; lastName?: string };
+type RawVisitById = Omit<Visit, 'visitor'> & { visitor: RawVisitorById };
+
+export async function fetchVisitById(visitId: string): Promise<Visit> {
+  const { data } = await apolloClient.query<{ visit: RawVisitById }>({
+    query: GET_VISIT,
+    variables: { id: visitId },
+    fetchPolicy: 'network-only',
+  });
+  if (!data?.visit) throw new Error('No se encontró la visita');
+
+  const { name, lastName, ...visitor } = data.visit.visitor;
+  return {
+    ...data.visit,
+    visitor: {
+      ...visitor,
+      fullName: [name, lastName].filter(Boolean).join(' ').trim(),
+    },
+  };
 }
 
 export async function scheduleVisit(input: ScheduleVisitInput): Promise<Visit> {

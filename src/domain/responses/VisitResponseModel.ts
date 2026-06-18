@@ -18,6 +18,7 @@ export interface Visitor {
   identity: string;
   identityType?: VisitorIdentityType;
   phone?: string;
+  photoUrl?: string;
   isBlacklisted?: boolean;
   blacklistReason?: string;
   blacklistedAt?: string;
@@ -42,6 +43,7 @@ export interface Visit {
   deniedByResidentAt?: string;
   createdAt: string;
   visitor: Visitor;
+  unit?: { id: string; building?: { id: string; name: string } };
 }
 
 export interface VisitsPagination {
@@ -54,3 +56,51 @@ export interface VisitsResponse {
   items: Visit[];
   pagination: VisitsPagination;
 }
+
+export interface MyScheduledVisitsResponseModel {
+  myVisits: MyVisits;
+}
+
+export interface MyVisits {
+  items:      Item[];
+  pagination: Pagination;
+}
+
+export interface Item {
+  id:                   string;
+  type:                 string;
+  status:               string;
+  purpose:              null;
+  expectedArrivalAt:    Date;
+  expectedArrivalUntil: Date;
+  qrToken:              string;
+  qrUsed:               boolean;
+  qrExpiresAt:          Date;
+  vehiclePlate:         null;
+  entryTime:            null;
+  exitTime:             null;
+  createdAt:            Date;
+  visitor:              Visitor;
+  unit:                 Unit;
+}
+
+export interface Unit {
+  id:       string;
+  building: Building;
+}
+
+export interface Building {
+  id:   string;
+  name: string;
+}
+
+
+export interface Pagination {
+  currentPage:     number;
+  itemsPerPage:    number;
+  totalItems:      number;
+  totalPages:      number;
+  hasNextPage:     boolean;
+  hasPreviousPage: boolean;
+}
+

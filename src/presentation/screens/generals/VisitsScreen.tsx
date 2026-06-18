@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,15 +17,20 @@ import type { VisitsStackParamList } from '../../navigation/types/NavigationType
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
+// The global PanicFAB sits bottom-right (bottom 80 android / 100 ios, height 56).
+// Stack the "add visit" FAB above it so they don't overlap.
+const PANIC_FAB_BOTTOM = Platform.OS === 'ios' ? 100 : 80;
+const ADD_FAB_BOTTOM = PANIC_FAB_BOTTOM + 56 + SPACING.md;
+
 type VisitsNavProp = NativeStackNavigationProp<VisitsStackParamList, 'Visits'>;
 type FilterTab = 'all' | 'pending' | 'active' | 'scheduled' | 'history';
 
 const FILTERS: { key: FilterTab; label: string }[] = [
   { key: 'all',       label: 'Todas' },
-  { key: 'pending',   label: 'Por aprobar' },
   { key: 'active',    label: 'Activas' },
+  { key: 'pending',   label: 'Por aprobar' },
   { key: 'scheduled', label: 'Agendadas' },
-  { key: 'history',   label: 'Historial' },
+  // { key: 'history',   label: 'Historial' },
 ];
 
 const HISTORY_STATUSES: VisitStatus[] = ['COMPLETED', 'DENIED', 'CANCELLED', 'EXPIRED', 'NO_SHOW'];
@@ -143,7 +148,7 @@ export default function VisitsScreen() {
       )}
 
       <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + SPACING.lg, backgroundColor: colors.primary }]}
+        style={[styles.fab, { bottom: ADD_FAB_BOTTOM, backgroundColor: colors.primary }]}
         onPress={() => navigation.navigate('ScheduleVisit')}
         activeOpacity={0.85}>
         <Icon name="add" size={28} color={colors.textInverse} />
@@ -156,6 +161,7 @@ const styles = StyleSheet.create({
   filterBar: {
     borderBottomWidth: 1,
     maxHeight: 48,
+    minHeight: 48,
   },
   filterBarContent: {
     paddingHorizontal: SPACING.md,
@@ -180,7 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   list: {
-    paddingBottom: SPACING.xxl + 64,
+    paddingBottom: ADD_FAB_BOTTOM + 56 + SPACING.md,
   },
   visitCard: {
     flexDirection: 'row',

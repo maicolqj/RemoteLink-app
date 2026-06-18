@@ -56,6 +56,9 @@ export const BLACKLIST_VISITOR = gql`
   mutation BlacklistVisitor($input: BlacklistVisitorInput!) {
     blacklistVisitor(input: $input) {
       id
+      name
+      lastName
+      identity
       isBlacklisted
       blacklistReason
       blacklistedAt
@@ -64,9 +67,12 @@ export const BLACKLIST_VISITOR = gql`
 `;
 
 export const REMOVE_FROM_BLACKLIST = gql`
-  mutation RemoveFromBlacklist($visitorId: String!) {
+  mutation RemoveVisitorFromBlacklist($visitorId: String!) {
     removeVisitorFromBlacklist(visitorId: $visitorId) {
       id
+      name
+      lastName
+      identity
       isBlacklisted
       blacklistReason
       blacklistedAt
@@ -74,42 +80,87 @@ export const REMOVE_FROM_BLACKLIST = gql`
   }
 `;
 
+// Single visit by id — used when opening a visit from a notification, where the
+// visit may not yet be in the list store. Visitor comes as name + lastName here
+// (the list query returns fullName), so the service composes fullName.
+export const GET_VISIT = gql`
+  query Visit($id: String!) {
+    visit(id: $id) {
+      id
+      type
+      status
+      purpose
+      entryTime
+      exitTime
+      expectedArrivalAt
+      expectedArrivalUntil
+      vehiclePlate
+      denialReason
+      notes
+      approvedByResidentAt
+      deniedByResidentAt
+      createdAt
+      visitor {
+        id
+        name
+        lastName
+        identity
+        identityType
+        phone
+        photoUrl
+        isBlacklisted
+      }
+    }
+  }
+`;
+
+// Resident-scoped list (auth token), not the complex-wide `visits` query. The
+// visitor comes as name + lastName here (service composes fullName) and the
+// pagination DTO uses currentPage/itemsPerPage/totalItems.
 export const GET_VISITS = gql`
-  query GetVisits($complexId: String!, $pagination: PaginationInput, $filters: FilterVisitsInput) {
-    visits(complexId: $complexId, pagination: $pagination, filters: $filters) {
+  query MisVisitas($pagination: PaginationInput, $filters: FilterVisitsInput) {
+    myVisits(pagination: $pagination, filters: $filters) {
       items {
         id
-        status
         type
-        entryTime
-        exitTime
+        status
         purpose
-        vehiclePlate
-        qrToken
-        qrExpiresAt
-        qrUsed
         expectedArrivalAt
         expectedArrivalUntil
+        qrToken
+        qrUsed
+        qrExpiresAt
+        vehiclePlate
+        entryTime
+        exitTime
         createdAt
-        notes
-        denialReason
-        approvedByResidentAt
-        deniedByResidentAt
         visitor {
           id
-          fullName
+          name
+          lastName
           identity
           identityType
           phone
+          photoUrl
           isBlacklisted
           blacklistReason
           blacklistedAt
         }
+        unit {
+          id
+          building {
+            id
+            name
+          }
+        }
       }
       pagination {
-        total
-        page
-        limit
+        currentPage
+        itemsPerPage
+        totalItems
+        totalPages
+        hasNextPage
+        hasPreviousPage
       }
     }
   }

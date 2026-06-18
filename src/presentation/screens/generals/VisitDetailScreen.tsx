@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -6,6 +6,7 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,7 +22,7 @@ import VisitTypeBadge from '../../components/VisitTypeBadge';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useAlert } from '../../providers/context/AlertContext';
-import { useVisitsStore, type Visit, type VisitType } from '../../store/visits.store';
+import { useVisitsStore } from '../../store/visits.store';
 import type { VisitsStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
@@ -120,20 +121,38 @@ export default function VisitDetailScreen() {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
   const { showQuestion, showError, showSuccess } = useAlert();
-  const { visits, isActionLoading, approveVisit, denyVisit, cancelVisit, blacklistVisitor, removeFromBlacklist } = useVisitsStore();
+  const { visits, isActionLoading, fetchVisitById, approveVisit, denyVisit, cancelVisit, blacklistVisitor, removeFromBlacklist } = useVisitsStore();
 
   const visit = visits.find(v => v.id === route.params.visitId);
   const [showDenyModal, setShowDenyModal] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
+  // When opened from a notification the visit may not be in the list store yet.
+  const [loading, setLoading] = useState(!visit);
+
+  useEffect(() => {
+    if (visit) return;
+    let active = true;
+    setLoading(true);
+    fetchVisitById(route.params.visitId)
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params.visitId]);
 
   if (!visit) {
     return (
       <View style={[gs.screen, { paddingTop: insets.top }]}>
         <AppHeader title="Detalle de visita" showBack onBack={() => navigation.goBack()} />
         <View style={[gs.flex1, gs.center]}>
-          <CustomTextComponent fontSize={FONT_SIZE.md} color={colors.textSecondary}>
-            Visita no encontrada
-          </CustomTextComponent>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : (
+            <CustomTextComponent fontSize={FONT_SIZE.md} color={colors.textSecondary}>
+              Visita no encontrada
+            </CustomTextComponent>
+          )}
         </View>
       </View>
     );
@@ -191,11 +210,17 @@ export default function VisitDetailScreen() {
         {/* Visitor header card */}
         <Card elevated style={styles.headerCard}>
           <View style={gs.center}>
-            <View style={[styles.avatar, { backgroundColor: colors.primarySurface }]}>
-              <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.primary}>
-                {getInitials(visit.visitor.fullName)}
-              </CustomTextComponent>
-            </View>
+            {visit.visitor.photoUrl ? (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => setShowPhoto(true)}>
+                <Image source={{ uri: visit.visitor.photoUrl }} style={[styles.avatar, { backgroundColor: colors.border }]} />
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: colors.primarySurface }]}>
+                <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.primary}>
+                  {getInitials(visit.visitor.fullName)}
+                </CustomTextComponent>
+              </View>
+            )}
             <CustomTextComponent fontSize={FONT_SIZE.xl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary} textAlign="center" style={{ marginBottom: SPACING.sm }}>
               {visit.visitor.fullName}
             </CustomTextComponent>
@@ -270,6 +295,17 @@ export default function VisitDetailScreen() {
         )}
       </ScrollView>
 
+      {visit.visitor.photoUrl && (
+        <Modal visible={showPhoto} transparent animationType="fade" onRequestClose={() => setShowPhoto(false)}>
+          <TouchableOpacity style={photoStyles.backdrop} activeOpacity={1} onPress={() => setShowPhoto(false)}>
+            <Image source={{ uri: visit.visitor.photoUrl }} style={photoStyles.image} resizeMode="contain" />
+            <TouchableOpacity style={[photoStyles.close, { top: insets.top + SPACING.sm }]} onPress={() => setShowPhoto(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Icon name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
       <ReasonModal
         visible={showDenyModal}
         title="Motivo de rechazo"
@@ -304,6 +340,12 @@ const styles = StyleSheet.create({
   loadingRow: { alignItems: 'center', paddingVertical: SPACING.sm },
   actionRow: { flexDirection: 'row', gap: SPACING.sm },
   blacklistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs, paddingVertical: SPACING.sm, marginTop: SPACING.xs },
+});
+
+const photoStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  image: { width: '100%', height: '100%' },
+  close: { position: 'absolute', right: SPACING.md, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
 });
 
 const modalStyles = StyleSheet.create({
