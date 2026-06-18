@@ -36,13 +36,19 @@ export default function HomeScreen() {
 
   const QUICK_ACTIONS = useMemo(() => [
     { id: 'pay',     icon: 'payment',   label: 'Pagar',   tab: 'FinancesTab',    color: colors.primary },
-    { id: 'visits',  icon: 'people',    label: 'Visitas', tab: 'VisitsTab',      color: colors.success },
+    // Visits tab is disabled; the flow lives in HomeStack, so navigate to the
+    // local 'Visits' screen instead of a tab.
+    { id: 'visits',  icon: 'people',    label: 'Visitas', screen: 'Visits',      color: colors.success },
     { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
     { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
   ], [colors]);
 
-  const handleQuickAction = useCallback((tab: string) => {
-    navigation.navigate('Main', { screen: tab });
+  const handleQuickAction = useCallback((action: { tab?: string; screen?: string }) => {
+    if (action.screen) {
+      navigation.navigate(action.screen);
+      return;
+    }
+    navigation.navigate('Main', { screen: action.tab });
   }, [navigation]);
 
   const fullName = resident ? `${resident.user.name} ${resident.user.lastName}` : '';
@@ -121,7 +127,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={action.id}
                 style={[styles.quickAction, { backgroundColor: colors.surface }]}
-                onPress={() => handleQuickAction(action.tab)}
+                onPress={() => handleQuickAction(action)}
                 activeOpacity={0.75}>
                 <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
                   <Icon name={action.icon} size={26} color={action.color} />
@@ -137,10 +143,10 @@ export default function HomeScreen() {
         {/* Pending Visits */}
         {pendingVisits.length > 0 && (
           <View style={styles.section}>
-            <SectionHeader title="Alertas de visitas" actionLabel="Ver todas" onAction={() => navigation.navigate('Main', { screen: 'VisitsTab' })} />
+            <SectionHeader title="Alertas de visitas" actionLabel="Ver todas" onAction={() => navigation.navigate('Visits')} />
             <View style={styles.sectionContent}>
               {pendingVisits.map(visit => (
-                <Card key={visit.id} style={styles.visitCard} onPress={() => navigation.navigate('Main', { screen: 'VisitsTab', params: { screen: 'VisitDetail', params: { visitId: visit.id } } })}>
+                <Card key={visit.id} style={styles.visitCard} onPress={() => navigation.navigate('VisitDetail', { visitId: visit.id })}>
                   <View style={gs.row}>
                     <View style={[styles.visitIcon, { backgroundColor: colors.warningLight }]}>
                       <Icon name="person-pin" size={22} color={colors.warning} />

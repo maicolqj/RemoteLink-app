@@ -26,6 +26,53 @@ export enum VisitorIdentityType {
   OTHER      = 'OTHER',
 }
 
+// Package domain
+export enum PackageStatus {
+  RECEIVED  = 'RECEIVED',
+  NOTIFIED  = 'NOTIFIED',
+  DELIVERED = 'DELIVERED',
+  RETURNED  = 'RETURNED',
+  PENDING   = 'PENDING',
+}
+
+export enum PackageType {
+  PACKAGE  = 'PACKAGE',
+  DOCUMENT = 'DOCUMENT',
+  FOOD     = 'FOOD',
+  FLOWERS  = 'FLOWERS',
+  OTHER    = 'OTHER',
+}
+
+// Vehicle domain
+export enum VehicleStatus {
+  PENDING  = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export enum VehicleType {
+  CAR        = 'CAR',
+  MOTORCYCLE = 'MOTORCYCLE',
+  TRUCK      = 'TRUCK',
+  BICYCLE    = 'BICYCLE',
+  OTHER      = 'OTHER',
+}
+
+export enum FuelType {
+  GASOLINE = 'GASOLINE',
+  DIESEL   = 'DIESEL',
+  ELECTRIC = 'ELECTRIC',
+  HYBRID   = 'HYBRID',
+  GAS      = 'GAS',
+}
+
+// Access request domain
+export enum AccessRequestStatus {
+  PENDING  = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 // Notification domain
 export enum NotificationType {
   VISITOR_WALK_IN          = 'VISITOR_WALK_IN',
