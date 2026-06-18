@@ -57,6 +57,8 @@ react {
     // hermesFlags = ["-O", "-output-source-map"]
 
     /* Autolinking */
+    // Bundle JS in ALL variants — debug APK works without Metro running
+    debuggableVariants = []
     autolinkLibrariesWithApp()
 }
 
@@ -83,9 +85,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.remotelink"
+    namespace "com.alternaqj.remotelink"
     defaultConfig {
-        applicationId "com.remotelink"
+        applicationId "com.alternaqj.remotelink"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -102,6 +104,8 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // Allow HTTP to local dev backend
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
@@ -109,6 +113,7 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
         }
     }
 }
