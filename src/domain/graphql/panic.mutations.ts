@@ -1,18 +1,16 @@
 import { gql } from '@apollo/client';
 
 export const TRIGGER_PANIC_ALERT = gql`
-  mutation TriggerPanicAlert($input: TriggerPanicAlertInput!) {
-    triggerPanicAlert(input: $input) {
-      id
-      complexId
-      triggeredBy
+  mutation TriggerPanicAlert($complexId: String!) {
+    triggerPanicAlert(complexId: $complexId) {
+      success
     }
   }
 `;
 
 export const ACKNOWLEDGE_PANIC_ALERT = gql`
-  mutation AcknowledgePanicAlert($complexId: String!) {
-    acknowledgePanicAlert(complexId: $complexId) {
+  mutation AcknowledgePanicAlert($notificationId: String!) {
+    acknowledgePanicAlert(notificationId: $notificationId) {
       id
       complexId
     }

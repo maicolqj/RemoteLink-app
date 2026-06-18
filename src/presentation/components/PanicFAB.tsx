@@ -64,16 +64,13 @@ export function PanicFAB() {
     setModalVisible(true);
   }, []);
 
-  const handleConfirm = useCallback(async (message: string) => {
+  // Backend triggerPanicAlert only takes complexId — routing and labels are
+  // derived server-side from the authenticated user's role/unit.
+  const handleConfirm = useCallback(async (_message: string) => {
     if (!resident?.complex?.id) return;
     try {
       await triggerPanic({
-        variables: {
-          input: {
-            complexId: resident.complex.id,
-            message:   message || undefined,
-          },
-        },
+        variables: { complexId: resident.complex.id },
       });
     } catch (err) {
       console.warn('[PanicFAB] trigger error:', err);
