@@ -27,10 +27,9 @@ export default function ProfileScreen() {
   const fullName = resident ? `${resident.user.name} ${resident.user.lastName}` : '';
 
   const menuItems = [
-    { id: 'directory', icon: 'people',  label: 'Directorio de residentes', onPress: () => navigation.navigate('ResidentDirectory') },
-    { id: 'phone',     icon: 'phone',   label: 'Teléfono',                 value: resident?.user.phoneNumber,  onPress: () => {} },
-    { id: 'email',     icon: 'email',   label: 'Correo electrónico',       value: resident?.user.email,        onPress: () => {} },
-    { id: 'unit',      icon: 'home',    label: 'Unidad',                   value: resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined, onPress: () => {} },
+    { id: 'phone',    icon: 'phone',    label: 'Teléfono',           value: resident?.user.phoneNumber, onPress: () => {} },
+    { id: 'email',    icon: 'email',    label: 'Correo electrónico', value: resident?.user.email,       onPress: () => {} },
+    { id: 'settings', icon: 'settings', label: 'Ajustes',                                               onPress: () => navigation.navigate('Settings') },
   ];
 
   const dangerItems = [
@@ -45,9 +44,14 @@ export default function ProfileScreen() {
         {/* Profile header */}
         <View style={styles.profileHeader}>
           <Avatar name={fullName} size="xl" />
-          <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary} style={{ marginTop: SPACING.md, marginBottom: SPACING.xs }}>
+          <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary} style={{ marginTop: SPACING.md, marginBottom: 2 }}>
             {fullName}
           </CustomTextComponent>
+          {resident?.complex?.name && (
+            <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginBottom: SPACING.xs }}>
+              {resident.complex.name}
+            </CustomTextComponent>
+          )}
           <View style={[styles.unitBadge, { backgroundColor: colors.primarySurface }]}>
             <Icon name="home" size={14} color={colors.primary} />
             <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>

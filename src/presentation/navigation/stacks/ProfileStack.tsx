@@ -4,6 +4,7 @@ import type { ProfileStackParamList } from '../types/NavigationTypes';
 import ProfileScreen from '../../screens/generals/ProfileScreen';
 import ResidentDirectoryScreen from '../../screens/generals/ResidentDirectoryScreen';
 import ResidentDetailScreen from '../../screens/generals/ResidentDetailScreen';
+import SettingsScreen from '../../screens/generals/SettingsScreen';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
@@ -13,6 +14,7 @@ export default function ProfileStack() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="ResidentDirectory" component={ResidentDirectoryScreen} />
       <Stack.Screen name="ResidentDetail" component={ResidentDetailScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
