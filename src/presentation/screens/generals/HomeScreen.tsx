@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@apollo/client/react';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -12,6 +12,7 @@ import SectionHeader from '../../components/SectionHeader';
 import StatusChip from '../../components/StatusChip';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
+import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
 import { useAuthStore } from '../../store/auth.store';
@@ -24,6 +25,32 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
+
+// First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
+const HOME_TOUR_STEPS: CoachStep[] = [
+  {
+    targetId: 'home.securityCall',
+    title: 'Llamar a portería',
+    text: 'Toca aquí para pedirle a seguridad que se comunique con tu unidad.',
+    radius: RADIUS.full,
+  },
+  {
+    targetId: 'home.notifications',
+    title: 'Notificaciones',
+    text: 'Avisos de visitas, paquetes y pagos. El número rojo indica cuántos sin leer.',
+    radius: RADIUS.full,
+  },
+  {
+    targetId: 'home.balance',
+    title: 'Tu saldo',
+    text: 'Consulta cuánto debes y entra a Finanzas para ver el detalle y pagar.',
+  },
+  {
+    targetId: 'home.quickActions',
+    title: 'Acciones rápidas',
+    text: 'Accede a tus paquetes y visitas sin buscar en los menús.',
+  },
+];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -40,6 +67,13 @@ export default function HomeScreen() {
   const fetchBalance = useFinancesStore(s => s.fetchBalance);
 
   const [requestSecurityCall, { loading: requestingCall }] = useMutation(REQUEST_SECURITY_CALL);
+
+  // First-run walkthrough targets + trigger.
+  const { startTour } = useCoachmark();
+  const securityCallRef = useCoachmarkTarget('home.securityCall');
+  const notificationsRef = useCoachmarkTarget('home.notifications');
+  const balanceRef = useCoachmarkTarget('home.balance');
+  const quickActionsRef = useCoachmarkTarget('home.quickActions');
 
   // Ask the gatehouse to call this unit. Backend resolves the unit from the
   // authenticated user and fans out push + socket to the SECURITY role.
@@ -88,6 +122,17 @@ export default function HomeScreen() {
     fetchNotifications();
     if (unitId && complexId) fetchBalance(unitId, complexId);
   }, [unitId, complexId, fetchPackages, fetchVisits, fetchNotifications, fetchBalance]);
+
+  // Kick off the walkthrough when Home gains focus. startTour self-guards on the
+  // persistKey, so it shows only on the first open — unless "Ver tutorial" in
+  // Ajustes clears the flag, in which case it replays on the next focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (!resident) return;
+      const t = setTimeout(() => startTour(HOME_TOUR_STEPS, { persistKey: 'home_v1' }), 700);
+      return () => clearTimeout(t);
+    }, [resident, startTour]),
+  );
 
   const recentNotifications = notifications.slice(0, 3);
   const pendingVisits = visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
@@ -138,6 +183,7 @@ export default function HomeScreen() {
           </View>
           <View style={gs.row}>
             <TouchableOpacity
+              ref={securityCallRef}
               style={[styles.callBtn, { backgroundColor: colors.primarySurface }]}
               onPress={handleRequestSecurityCall}
               disabled={requestingCall}
@@ -146,7 +192,7 @@ export default function HomeScreen() {
               accessibilityLabel="Solicitar que portería llame a tu unidad">
               <Icon name="support-agent" size={ICON_SIZE.md} color={colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity ref={notificationsRef} style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Icon name="notifications" size={ICON_SIZE.md} color={colors.textPrimary} />
               {unreadCount > 0 && (
                 <View style={gs.badgeContainer}>
@@ -182,7 +228,7 @@ export default function HomeScreen() {
                 ${(balanceData?.totalDebt ?? 0).toLocaleString('es-CO')}
               </CustomTextComponent>
             </View>
-            <TouchableOpacity style={styles.payBtn} onPress={() => navigation.navigate('Finances')}>
+            <TouchableOpacity ref={balanceRef} style={styles.payBtn} onPress={() => navigation.navigate('Finances')}>
               <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.textInverse}>
                 Ver finanzas
               </CustomTextComponent>
@@ -194,7 +240,7 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View style={styles.section}>
           <SectionHeader title="Acciones rápidas" />
-          <View style={styles.quickActions}>
+          <View ref={quickActionsRef} collapsable={false} style={styles.quickActions}>
             {QUICK_ACTIONS.map(action => (
               <TouchableOpacity
                 key={action.id}

@@ -7,6 +7,7 @@ import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import Card from '../../components/Card';
 import { useTheme } from '../../providers/context/ThemeContext';
+import { useCoachmark } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useSettingsStore } from '../../store/settings.store';
 import { SPACING } from '../../constants/spacing';
@@ -18,6 +19,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { resetTour } = useCoachmark();
   const { showError, showSuccess, showInfo, showQuestion, showWarning } = useAlert()
   const gs = useGlobalStyles();
   const {
@@ -67,6 +69,12 @@ export default function SettingsScreen() {
     await PanicSound?.requestIgnoreBatteryOptimizations();
     refreshPermissions();
   };
+
+  // Clear the "seen" flag and jump to Home, where useFocusEffect replays the tour.
+  const handleReplayTutorial = useCallback(async () => {
+    await resetTour('home_v1');
+    (navigation as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Home' } });
+  }, [resetTour, navigation]);
 
   return (
     <View style={gs.screen}>
@@ -171,6 +179,35 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               </>
             )}
+          </Card>
+        </View>
+
+        {/* Ayuda */}
+        <View style={{ marginTop: SPACING.md }}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.xs}
+            fontWeight={FONT_WEIGHT.semibold as any}
+            color={colors.textTertiary}
+            style={styles.sectionLabel}
+          >
+            AYUDA
+          </CustomTextComponent>
+
+          <Card style={styles.card}>
+            <TouchableOpacity style={styles.row} onPress={handleReplayTutorial} activeOpacity={0.7}>
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="school" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  Ver tutorial
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Repasa la guía rápida de la pantalla de inicio
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
           </Card>
         </View>
       </ScrollView>
