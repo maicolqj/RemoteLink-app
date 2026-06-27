@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMutation } from '@apollo/client/react';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import Avatar from '../../components/Avatar';
@@ -10,37 +11,99 @@ import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import StatusChip from '../../components/StatusChip';
 import { useTheme } from '../../providers/context/ThemeContext';
+import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
+import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationsStore } from '../../store/notifications.store';
 import { useVisitsStore } from '../../store/visits.store';
+import { usePackagesStore } from '../../store/packages.store';
 import { useFinancesStore } from '../../store/finances.store';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
+const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HomeNavProp>();
   const { colors } = useTheme();
+  const { showAlert, showSuccess, showError } = useAlert();
   const gs = useGlobalStyles();
 
   const resident = useAuthStore(s => s.resident);
-  const { notifications, unreadCount } = useNotificationsStore();
-  const { visits } = useVisitsStore();
+  const { notifications, unreadCount, fetchNotifications } = useNotificationsStore();
+  const { visits, fetchVisits } = useVisitsStore();
+  const { packages, fetchPackages } = usePackagesStore();
   const balanceData = useFinancesStore(s => s.balance);
+  const fetchBalance = useFinancesStore(s => s.fetchBalance);
+
+  const [requestSecurityCall, { loading: requestingCall }] = useMutation(REQUEST_SECURITY_CALL);
+
+  // Ask the gatehouse to call this unit. Backend resolves the unit from the
+  // authenticated user and fans out push + socket to the SECURITY role.
+  const handleRequestSecurityCall = useCallback(() => {
+    const complexId = resident?.complex?.id;
+    if (!complexId || requestingCall) return;
+    showAlert({
+      type: 'question',
+      title: 'Solicitar llamada de portería',
+      description: '¿Pedir a seguridad que se comunique con tu unidad?',
+      buttons: [
+        { text: 'Cancelar', style: 'text', onPress: () => {} },
+        {
+          text: 'Solicitar',
+          style: 'primary',
+          onPress: async () => {
+            try {
+              const { data } = await requestSecurityCall({ variables: { complexId } });
+              const res = (data as any)?.requestSecurityCall;
+              if (res?.success === false) {
+                showError(res.message ?? 'No hay personal de seguridad disponible en este momento.');
+                return;
+              }
+              showSuccess('Portería recibió tu solicitud y te llamará en breve.', 'Solicitud enviada');
+            } catch (err) {
+              if (__DEV__) console.warn('[Home] requestSecurityCall error:', err);
+              showError('No se pudo enviar la solicitud. Intenta de nuevo.');
+            }
+          },
+        },
+      ],
+    });
+  }, [resident, requestingCall, requestSecurityCall, showAlert, showSuccess, showError]);
+
+  // Resident hydrates asynchronously after the screen mounts, and every fetch
+  // below needs it (balance needs unit/complex ids; notifications self-guard on
+  // resident). Key the effect on the resident ids so it re-runs once the session
+  // is ready — otherwise the first cold open fires while resident is still null,
+  // leaving the balance empty and the notification list unrefreshed after restart.
+  const unitId = resident?.unit?.id;
+  const complexId = resident?.complex?.id;
+
+  useEffect(() => {
+    fetchPackages();
+    fetchVisits();
+    fetchNotifications();
+    if (unitId && complexId) fetchBalance(unitId, complexId);
+  }, [unitId, complexId, fetchPackages, fetchVisits, fetchNotifications, fetchBalance]);
 
   const recentNotifications = notifications.slice(0, 3);
   const pendingVisits = visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
+  // The store already holds only pending packages (resident endpoint), but keep
+  // the status guard so a future "all packages" source still surfaces pending.
+  const pendingPackages = packages.filter(p => p.status === 'RECEIVED' || p.status === 'NOTIFIED' || p.status === 'READY_FOR_PICKUP').slice(0, 3);
 
   const QUICK_ACTIONS = useMemo(() => [
-    { id: 'pay',     icon: 'payment',   label: 'Pagar',   tab: 'FinancesTab',    color: colors.primary },
+    // Packages tab/flow lives in HomeStack; navigate to the local 'Packages' screen.
+    { id: 'packages', icon: 'inventory-2', label: 'Paquetes', screen: 'Packages',     color: colors.primary },
     // Visits tab is disabled; the flow lives in HomeStack, so navigate to the
     // local 'Visits' screen instead of a tab.
     { id: 'visits',  icon: 'people',    label: 'Visitas', screen: 'Visits',      color: colors.success },
-    { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
-    { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
+    // Comentado temporalmente — pendiente para actualizaciones futuras.
+    // { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
+    // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
   ], [colors]);
 
   const handleQuickAction = useCallback((action: { tab?: string; screen?: string }) => {
@@ -74,6 +137,15 @@ export default function HomeScreen() {
             </CustomTextComponent>
           </View>
           <View style={gs.row}>
+            <TouchableOpacity
+              style={[styles.callBtn, { backgroundColor: colors.primarySurface }]}
+              onPress={handleRequestSecurityCall}
+              disabled={requestingCall}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Solicitar que portería llame a tu unidad">
+              <Icon name="support-agent" size={ICON_SIZE.md} color={colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Icon name="notifications" size={ICON_SIZE.md} color={colors.textPrimary} />
               {unreadCount > 0 && (
@@ -84,9 +156,9 @@ export default function HomeScreen() {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.avatarBtn} onPress={() => navigation.navigate('Main', { screen: 'ProfileTab' })}>
+            {/* <TouchableOpacity style={styles.avatarBtn} onPress={() => navigation.navigate('Main', { screen: 'ProfileTab' })}>
               <Avatar name={fullName} size="sm" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
         <View style={styles.unitBadge}>
@@ -110,7 +182,7 @@ export default function HomeScreen() {
                 ${(balanceData?.totalDebt ?? 0).toLocaleString('es-CO')}
               </CustomTextComponent>
             </View>
-            <TouchableOpacity style={styles.payBtn} onPress={() => navigation.navigate('Main', { screen: 'FinancesTab' })}>
+            <TouchableOpacity style={styles.payBtn} onPress={() => navigation.navigate('Finances')}>
               <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.textInverse}>
                 Ver finanzas
               </CustomTextComponent>
@@ -167,6 +239,33 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Pending Packages */}
+        {pendingPackages.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader title="Paquetes por recoger" actionLabel="Ver todos" onAction={() => navigation.navigate('Packages')} />
+            <View style={styles.sectionContent}>
+              {pendingPackages.map(pkg => (
+                <Card key={pkg.id} style={styles.visitCard} onPress={() => navigation.navigate('PackageDetail', { packageId: pkg.id })}>
+                  <View style={gs.row}>
+                    <View style={[styles.visitIcon, { backgroundColor: colors.primarySurface }]}>
+                      <Icon name="inventory-2" size={22} color={colors.primary} />
+                    </View>
+                    <View style={gs.flex1}>
+                      <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary} numberOfLines={1} style={{ marginBottom: 2 }}>
+                        {pkg.description || pkg.trackingCode || 'Paquete'}
+                      </CustomTextComponent>
+                      <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} numberOfLines={1}>
+                        {pkg.senderName ?? 'Listo en portería'}
+                      </CustomTextComponent>
+                    </View>
+                    <StatusChip label={pkg.status === 'DELIVERED' ? 'Entregado' : 'Por recoger'} variant="info" />
+                  </View>
+                </Card>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Recent Notifications */}
         {recentNotifications.length > 0 && (
           <View style={styles.section}>
@@ -191,7 +290,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {recentNotifications.length === 0 && pendingVisits.length === 0 && (
+        {recentNotifications.length === 0 && pendingVisits.length === 0 && pendingPackages.length === 0 && (
           <Card style={styles.emptyCard}>
             <View style={gs.center}>
               <Icon name="check-circle" size={40} color={colors.success} />
@@ -220,6 +319,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.xs,
     gap: 4,
+  },
+  callBtn: {
+    marginRight: SPACING.sm,
+    // padding: SPACING.xs,
+    height: 36,
+    width: wp * 0.3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.full,
   },
   notifBtn: {
     position: 'relative',

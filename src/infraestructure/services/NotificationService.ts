@@ -1,4 +1,14 @@
-import messaging, {
+import {
+  getMessaging,
+  getToken,
+  getInitialNotification,
+  onMessage,
+  onNotificationOpenedApp,
+  onTokenRefresh,
+  requestPermission,
+  registerDeviceForRemoteMessages,
+  isDeviceRegisteredForRemoteMessages,
+  AuthorizationStatus,
   type FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
 import { Platform, PermissionsAndroid } from 'react-native';
@@ -77,20 +87,22 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 
   // iOS
-  const authStatus = await messaging().requestPermission();
+  const messaging = getMessaging();
+  const authStatus = await requestPermission(messaging);
   return (
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-    authStatus === messaging.AuthorizationStatus.PROVISIONAL
+    authStatus === AuthorizationStatus.AUTHORIZED ||
+    authStatus === AuthorizationStatus.PROVISIONAL
   );
 }
 
 // Get FCM registration token for backend subscription
 export async function getFCMToken(): Promise<string | null> {
   try {
-    if (!messaging().isDeviceRegisteredForRemoteMessages) {
-      await messaging().registerDeviceForRemoteMessages();
+    const messaging = getMessaging();
+    if (!isDeviceRegisteredForRemoteMessages(messaging)) {
+      await registerDeviceForRemoteMessages(messaging);
     }
-    return await messaging().getToken();
+    return await getToken(messaging);
   } catch {
     return null;
   }
@@ -102,11 +114,13 @@ export function initNotificationListeners(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   onNewNotification: (n: Notification) => void,
   onPanic?: (data: FCMData) => void,
-  onTokenRefresh?: (token: string) => void,
+  onTokenRefreshCb?: (token: string) => void,
 ): () => void {
+  const messaging = getMessaging();
+
   // Foreground messages: app is open
   // Panic is handled by Socket.io in foreground — skip FCM display to avoid duplicate.
-  const unsubForeground = messaging().onMessage(async remoteMessage => {
+  const unsubForeground = onMessage(messaging, async remoteMessage => {
     const data = (remoteMessage.data ?? {}) as FCMData;
     if (__DEV__) console.log('[FCM] onMessage (foreground):', data.type, '| hasNotificationPayload:', !!remoteMessage.notification);
     if (data.type === 'PANIC_ALERT') return;
@@ -118,7 +132,7 @@ export function initNotificationListeners(
   const unsubNotifeeFg = initNotifeeForegroundListener(navigationRef);
 
   // Background → foreground: user taps notification while app is in background
-  const unsubOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+  const unsubOpened = onNotificationOpenedApp(messaging, remoteMessage => {
     const data = (remoteMessage.data ?? {}) as FCMData;
     if (data.type === 'PANIC_ALERT') {
       onPanic?.(data);
@@ -128,8 +142,8 @@ export function initNotificationListeners(
     }
   });
 
-  const unsubTokenRefresh = messaging().onTokenRefresh(token => {
-    onTokenRefresh?.(token);
+  const unsubTokenRefresh = onTokenRefresh(messaging, token => {
+    onTokenRefreshCb?.(token);
   });
 
   return () => {
@@ -147,7 +161,7 @@ export async function handleInitialNotification(
   onNewNotification: (n: Notification) => void,
   onPanic?: (data: FCMData) => void,
 ): Promise<void> {
-  const remoteMessage = await messaging().getInitialNotification();
+  const remoteMessage = await getInitialNotification(getMessaging());
   if (!remoteMessage) return;
   const data = (remoteMessage.data ?? {}) as FCMData;
   if (data.type === 'PANIC_ALERT') {

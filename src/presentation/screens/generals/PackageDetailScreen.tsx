@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, ActivityIndicator, Modal, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,15 +22,16 @@ type NavProp = NativeStackNavigationProp<HomeStackParamList, 'PackageDetail'>;
 // Package status uses the shared badge with a package-specific palette; unknown
 // values fall back to the raw label (handled inside VisitStatusBadge).
 const PACKAGE_STATUS_CFG: Record<string, StatusBadgeCfg> = {
-  RECEIVED:  { label: 'Recibido',   color: '#55C2DA', bg: 'rgba(85,194,218,0.18)'  },
-  NOTIFIED:  { label: 'Notificado', color: '#F59E0B', bg: 'rgba(245,158,11,0.18)'  },
-  DELIVERED: { label: 'Entregado',  color: '#10B981', bg: 'rgba(16,185,129,0.18)'  },
-  RETURNED:  { label: 'Devuelto',   color: '#EF4444', bg: 'rgba(239,68,68,0.18)'   },
-  PENDING:   { label: 'Pendiente',  color: '#64748B', bg: 'rgba(100,116,139,0.18)' },
+  RECEIVED:         { label: 'Recibido',    color: '#55C2DA', bg: 'rgba(85,194,218,0.18)'  },
+  NOTIFIED:         { label: 'Notificado',  color: '#F59E0B', bg: 'rgba(245,158,11,0.18)'  },
+  READY_FOR_PICKUP: { label: 'Por recoger', color: '#3B82F6', bg: 'rgba(59,130,246,0.18)'  },
+  DELIVERED:        { label: 'Entregado',   color: '#10B981', bg: 'rgba(16,185,129,0.18)'  },
+  RETURNED:         { label: 'Devuelto',    color: '#EF4444', bg: 'rgba(239,68,68,0.18)'   },
+  LOST:             { label: 'Extraviado',  color: '#EF4444', bg: 'rgba(239,68,68,0.12)'   },
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  PACKAGE: 'Paquete', DOCUMENT: 'Documento', FOOD: 'Comida', FLOWERS: 'Flores', OTHER: 'Otro',
+  PARCEL: 'Paquete', ENVELOPE: 'Sobre', FOOD: 'Comida', FRAGILE: 'Frágil', DOCUMENT: 'Documento', OTHER: 'Otro',
 };
 
 function formatDT(iso?: string | null): string | null {
@@ -62,6 +63,7 @@ export default function PackageDetailScreen() {
   const [pkg, setPkg] = useState<Package | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -114,10 +116,15 @@ export default function PackageDetailScreen() {
           </View>
         </Card>
 
-        {/* Photo */}
+        {/* Photo — tap to open fullscreen */}
         {pkg.photoUrl && (
           <Card padding={0} style={styles.photoCard}>
-            <Image source={{ uri: pkg.photoUrl }} style={styles.photo} resizeMode="cover" />
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setPhotoOpen(true)}>
+              <Image source={{ uri: pkg.photoUrl }} style={styles.photo} resizeMode="cover" />
+              <View style={styles.zoomHint}>
+                <Icon name="zoom-out-map" size={16} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
           </Card>
         )}
 
@@ -146,6 +153,22 @@ export default function PackageDetailScreen() {
           {pkg.returnReason && (<><View style={gs.divider} /><DetailRow label="Motivo devolución" value={pkg.returnReason} colors={colors} /></>)}
         </Card>
       </ScrollView>
+
+      {/* Fullscreen photo viewer */}
+      {pkg.photoUrl && (
+        <Modal visible={photoOpen} transparent animationType="fade" onRequestClose={() => setPhotoOpen(false)} statusBarTranslucent>
+          <View style={styles.viewerOverlay}>
+            <TouchableOpacity style={styles.viewerBackdrop} activeOpacity={1} onPress={() => setPhotoOpen(false)} />
+            <Image source={{ uri: pkg.photoUrl }} style={styles.viewerImage} resizeMode="contain" />
+            <TouchableOpacity
+              style={[styles.viewerClose, { top: insets.top + SPACING.sm }]}
+              onPress={() => setPhotoOpen(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Icon name="close" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -157,6 +180,30 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap', justifyContent: 'center' },
   photoCard: { overflow: 'hidden' },
   photo: { width: '100%', height: 200, borderRadius: RADIUS.md },
+  zoomHint: {
+    position: 'absolute',
+    right: SPACING.sm,
+    bottom: SPACING.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' },
+  viewerBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  viewerImage: { width: '100%', height: '100%' },
+  viewerClose: {
+    position: 'absolute',
+    right: SPACING.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sectionLabel: { letterSpacing: 0.8, marginBottom: SPACING.sm },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: SPACING.xs, gap: SPACING.md },
   detailLabel: { flexShrink: 0 },

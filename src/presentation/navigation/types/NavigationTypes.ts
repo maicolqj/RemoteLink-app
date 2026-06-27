@@ -17,6 +17,7 @@ export type HomeStackParamList = {
     visitorIdentityType?: string;
     expectedArrivalAt?: string;
   };
+  Packages: undefined;
   PackageDetail: { packageId: string };
   VehicleDetail: { vehicleId: string };
   AccessRequestDetail: { accessRequestId: string };
@@ -60,9 +61,11 @@ export type ProfileStackParamList = {
 // Tab Params (each tab is a nested stack)
 export type MainTabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
-  // FinancesTab: NavigatorScreenParams<FinancesStackParamList>;
+  // FinancesTab removed: the Finances flow now lives inside HomeStack (reachable
+  // from the Home balance card), so it no longer needs its own bottom tab.
   // VisitsTab: NavigatorScreenParams<VisitsStackParamList>;
-  MarketplaceTab: NavigatorScreenParams<MarketplaceStackParamList>;
+  // Tienda comentada temporalmente — pendiente para actualizaciones futuras.
+  // MarketplaceTab: NavigatorScreenParams<MarketplaceStackParamList>;
   ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
 };
 
