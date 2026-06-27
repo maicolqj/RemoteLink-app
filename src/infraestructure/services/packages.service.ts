@@ -1,6 +1,21 @@
 import apolloClient from '../../data/lib/apollo/client';
-import { GET_PACKAGE } from '../../domain/graphql/packages.queries';
+import { GET_PACKAGE, GET_MY_UNIT_PACKAGES } from '../../domain/graphql/packages.queries';
 import type { Package } from '../../domain/responses/PackageResponseModel';
+
+type RawMyUnitPackages = { items: Package[] };
+
+// Resident-facing list: all packages of the resident's unit (backend forces the
+// scope to their own unit). network-only so a freshly registered package shows
+// on refresh instead of a stale cache. Fetches a large page; chip filtering is
+// done client-side like the visits list.
+export async function fetchMyUnitPackages(complexId: string): Promise<Package[]> {
+  const { data } = await apolloClient.query<{ myUnitPackages: RawMyUnitPackages }>({
+    query: GET_MY_UNIT_PACKAGES,
+    variables: { complexId, pagination: { page: 1, limit: 100 } },
+    fetchPolicy: 'network-only',
+  });
+  return data?.myUnitPackages?.items ?? [];
+}
 
 export async function fetchPackageById(packageId: string): Promise<Package> {
   const { data } = await apolloClient.query<{ package: Package }>({

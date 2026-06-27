@@ -7,9 +7,9 @@ import { FONT_SIZE, FONT_WEIGHT } from '../constants/typography';
 import { SPACING } from '../constants/spacing';
 import { useTheme } from '../providers/context/ThemeContext';
 import HomeStack from './stacks/HomeStack';
-import FinancesStack from './stacks/FinancesStack';
 import VisitsStack from './stacks/VisitsStack';
-import MarketplaceStack from './stacks/MarketplaceStack';
+// Tienda comentada temporalmente — pendiente para actualizaciones futuras.
+// import MarketplaceStack from './stacks/MarketplaceStack';
 import ProfileStack from './stacks/ProfileStack';
 import { useNotificationsStore } from '../store/notifications.store';
 
@@ -21,9 +21,10 @@ type TabIconConfig = { name: string; label: string; icon: string };
 
 const TAB_CONFIG: Record<keyof MainTabParamList, TabIconConfig> = {
   HomeTab:        { name: 'HomeTab',        label: 'Inicio',   icon: 'home' },
-  // FinancesTab:    { name: 'FinancesTab',    label: 'Finanzas', icon: 'account-balance-wallet' },
+  // Finanzas moved into HomeStack — no longer a bottom tab.
   // VisitsTab:      { name: 'VisitsTab',      label: 'Visitas',  icon: 'people' },
-  MarketplaceTab: { name: 'MarketplaceTab', label: 'Tienda',   icon: 'store' },
+  // Tienda comentada temporalmente — pendiente para actualizaciones futuras.
+  // MarketplaceTab: { name: 'MarketplaceTab', label: 'Tienda',   icon: 'store' },
   ProfileTab:     { name: 'ProfileTab',     label: 'Perfil',   icon: 'person' },
 };
 
@@ -64,14 +65,6 @@ export default function MainNavigator() {
         }}
       />
       {/* <Tab.Screen
-        name="FinancesTab"
-        component={FinancesStack}
-        options={{
-          tabBarLabel: TAB_CONFIG.FinancesTab.label,
-          tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.FinancesTab.icon} focused={focused} colors={colors} />,
-        }}
-      />
-      <Tab.Screen
         name="VisitsTab"
         component={VisitsStack}
         options={{
@@ -79,6 +72,7 @@ export default function MainNavigator() {
           tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.VisitsTab.icon} focused={focused} colors={colors} />,
         }}
       /> */}
+      {/* Tienda comentada temporalmente — pendiente para actualizaciones futuras.
       <Tab.Screen
         name="MarketplaceTab"
         component={MarketplaceStack}
@@ -86,7 +80,7 @@ export default function MainNavigator() {
           tabBarLabel: TAB_CONFIG.MarketplaceTab.label,
           tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.MarketplaceTab.icon} focused={focused} colors={colors} />,
         }}
-      />
+      /> */}
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStack}

@@ -38,7 +38,7 @@ function parseMetadata(raw: unknown): Record<string, any> | undefined {
   return undefined;
 }
 
-function NotificationItem({ item, onPress, busy }: { item: Notification; onPress: (item: Notification) => void; busy: boolean }) {
+function NotificationItem({ item, onPress, onLongPress, busy }: { item: Notification; onPress: (item: Notification) => void; onLongPress: (item: Notification) => void; busy: boolean }) {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
@@ -55,6 +55,8 @@ function NotificationItem({ item, onPress, busy }: { item: Notification; onPress
     <TouchableOpacity
       style={[styles.item, { backgroundColor: item.isRead ? colors.surface : colors.primarySurface }]}
       onPress={() => onPress(item)}
+      onLongPress={() => onLongPress(item)}
+      delayLongPress={300}
       disabled={busy}
       activeOpacity={0.75}>
       <View style={[styles.iconBox, { backgroundColor: cfg.bg }]}>
@@ -80,12 +82,29 @@ function NotificationItem({ item, onPress, busy }: { item: Notification; onPress
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<NavProp>();
+  const { colors } = useTheme();
   const gs = useGlobalStyles();
-  const { showError, showInfo } = useAlert();
-  const { notifications, markAsRead, markAllAsRead, unreadCount } = useNotificationsStore();
+  const { showError, showInfo, showAlert, hideAlert } = useAlert();
+  const {
+    notifications, markAsRead, markAllAsRead, unreadCount, removeNotification,
+    fetchMoreNotifications, isLoadingMore, hasMore,
+  } = useNotificationsStore();
 
   // id of the notification currently being resolved (shows a spinner on its row)
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  // Long-press a row to confirm + soft-delete it from the list.
+  const handleLongPress = useCallback((item: Notification) => {
+    showAlert({
+      type: 'question',
+      title: 'Eliminar notificación',
+      description: '¿Quieres eliminar esta notificación? Esta acción no se puede deshacer.',
+      buttons: [
+        { text: 'Cancelar', style: 'secondary', onPress: hideAlert },
+        { text: 'Eliminar', style: 'danger', onPress: () => { removeNotification(item.id); hideAlert(); } },
+      ],
+    });
+  }, [showAlert, hideAlert, removeNotification]);
 
   // Route to the entity screen the notification points at. Visits, packages and
   // finances have screens today; anything else just surfaces its content.
@@ -170,10 +189,13 @@ export default function NotificationsScreen() {
       <FlatList
         data={notifications}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <NotificationItem item={item} onPress={handlePress} busy={resolvingId === item.id} />}
+        renderItem={({ item }) => <NotificationItem item={item} onPress={handlePress} onLongPress={handleLongPress} busy={resolvingId === item.id} />}
         contentContainerStyle={notifications.length === 0 ? gs.flex1 : styles.list}
         ListEmptyComponent={<EmptyState icon="notifications-none" title="Sin notificaciones" description="Aquí verás tus alertas y mensajes del conjunto." />}
         ItemSeparatorComponent={() => <View style={gs.divider} />}
+        onEndReached={() => { if (hasMore) fetchMoreNotifications(); }}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={isLoadingMore ? <ActivityIndicator size="small" color={colors.primary} style={styles.footer} /> : null}
       />
     </View>
   );
@@ -208,5 +230,8 @@ const styles = StyleSheet.create({
   },
   trailing: {
     marginTop: 4,
+  },
+  footer: {
+    paddingVertical: SPACING.md,
   },
 });

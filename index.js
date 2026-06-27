@@ -1,5 +1,5 @@
 import { AppRegistry } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
 import App from './App';
 import { name as appName } from './app.json';
@@ -23,7 +23,7 @@ import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
 // and crash the app. USAGE_ALARM audio plays from the background without one; the
 // sound runs while the headless task is alive, and the notification tap launches
 // the app where the modal keeps the alarm looping until acknowledged.
-messaging().setBackgroundMessageHandler(async remoteMessage => {
+setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
   if (remoteMessage.data?.type === 'PANIC_ALERT') {
     // Respect the user's opt-out — don't blare if they disabled panic alerts.
     if (!(await getPanicAlertsEnabled())) return;

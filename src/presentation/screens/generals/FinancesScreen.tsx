@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -172,6 +172,14 @@ function StatementList({ statement, navigation }: { statement: ReturnType<typeof
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
+  // Backend returns movements oldest→newest (running balance is accrued in that
+  // order). Display newest first; each row keeps its own balance snapshot, so a
+  // copy-then-sort is presentation-only and safe.
+  const movements = useMemo(
+    () => (statement ? [...statement.movements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : []),
+    [statement],
+  );
+
   if (!statement) return <EmptyState icon="receipt-long" title="Sin movimientos" description="Tu estado de cuenta aparecerá aquí." />;
 
   return (
@@ -183,11 +191,11 @@ function StatementList({ statement, navigation }: { statement: ReturnType<typeof
           <TotalRow label="Saldo actual" value={statement.currentBalance} color={statement.currentBalance > 0 ? colors.error : colors.success} />
         </View>
       </Card>
-      {statement.movements.length === 0 ? (
+      {movements.length === 0 ? (
         <EmptyState icon="receipt" title="Sin movimientos" description="No hay movimientos en este período." />
       ) : (
         <View>
-          {statement.movements.map(mov => (
+          {movements.map(mov => (
             <React.Fragment key={mov.id}>
               <MovementRow item={mov} onPress={() => navigation.navigate('PaymentDetail', { movementId: mov.id })} />
               <View style={[gs.divider, { marginVertical: 0, marginLeft: 64 }]} />
@@ -244,7 +252,7 @@ export default function FinancesScreen() {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
   const resident = useAuthStore(s => s.resident);
-  const { statement, wallet, isLoadingStatement, isLoadingWallet, fetchAll } = useFinancesStore();
+  const { statement, wallet, isLoadingStatement, isLoadingWallet, fetchBalance, fetchStatement, fetchWallet } = useFinancesStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>('statement');
   const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(undefined);
@@ -252,9 +260,17 @@ export default function FinancesScreen() {
 
   const load = useCallback(async () => {
     if (!resident) return;
-    await fetchAll(resident.unit.id, resident.complex.id);
-  }, [resident, fetchAll]);
+    const unitId = resident.unit.id;
+    const complexId = resident.complex.id;
+    // Statement honors the selected period chip; balance/wallet are period-agnostic.
+    await Promise.all([
+      fetchBalance(unitId, complexId),
+      fetchStatement(unitId, complexId, selectedPeriod),
+      fetchWallet(unitId, complexId),
+    ]);
+  }, [resident, selectedPeriod, fetchBalance, fetchStatement, fetchWallet]);
 
+  // Re-runs on mount and whenever selectedPeriod changes (load identity depends on it).
   useEffect(() => { load(); }, [load]);
 
   const onRefresh = useCallback(async () => {

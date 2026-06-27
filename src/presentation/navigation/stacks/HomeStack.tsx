@@ -7,6 +7,7 @@ import VisitsScreen from '../../screens/generals/VisitsScreen';
 import ScheduleVisitScreen from '../../screens/generals/ScheduleVisitScreen';
 import VisitDetailScreen from '../../screens/generals/VisitDetailScreen';
 import VisitQRScreen from '../../screens/generals/VisitQRScreen';
+import PackagesScreen from '../../screens/generals/PackagesScreen';
 import PackageDetailScreen from '../../screens/generals/PackageDetailScreen';
 import VehicleDetailScreen from '../../screens/generals/VehicleDetailScreen';
 import AccessRequestDetailScreen from '../../screens/generals/AccessRequestDetailScreen';
@@ -26,6 +27,7 @@ export default function HomeStack() {
       <Stack.Screen name="ScheduleVisit" component={ScheduleVisitScreen} />
       <Stack.Screen name="VisitDetail" component={VisitDetailScreen} />
       <Stack.Screen name="VisitQR" component={VisitQRScreen} />
+      <Stack.Screen name="Packages" component={PackagesScreen} />
       <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
       <Stack.Screen name="AccessRequestDetail" component={AccessRequestDetailScreen} />

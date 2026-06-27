@@ -11,6 +11,11 @@ import {
 import { useAuthStore } from '../store/auth.store';
 import { usePanicStore } from '../store/panic.store';
 import { useSettingsStore } from '../store/settings.store';
+import { useNotificationsStore } from '../store/notifications.store';
+import {
+  mapSocketNotification,
+  type SocketNotificationPayload,
+} from '../../infraestructure/services/notifications.service';
 
 interface Props {
   children: React.ReactNode;
@@ -124,9 +129,19 @@ export function SocketProvider({ children }: Props) {
       setAcknowledged(payload);
     });
 
+    // Real-time notifications (charges, payments, WALLET_APPLIED, etc.). Emitted
+    // to this user's room, so every payload is already addressed to us; guard the
+    // complex anyway. The store dedups against the FCM-foreground copy by UUID.
+    socket.on('notification:new', (payload: SocketNotificationPayload) => {
+      if (__DEV__) console.log('[Socket] notification:new', payload?.type);
+      if (payload.complexId && payload.complexId !== cid) return;
+      useNotificationsStore.getState().addNotification(mapSocketNotification(payload));
+    });
+
     return () => {
       socket.off('panic:alert:new');
       socket.off('panic:alert:acknowledged');
+      socket.off('notification:new');
       socket.disconnect();
       socketRef.current = null;
     };

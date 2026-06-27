@@ -26,20 +26,22 @@ export enum VisitorIdentityType {
   OTHER      = 'OTHER',
 }
 
-// Package domain
+// Package domain — must mirror backend enums (packages module)
 export enum PackageStatus {
-  RECEIVED  = 'RECEIVED',
-  NOTIFIED  = 'NOTIFIED',
-  DELIVERED = 'DELIVERED',
-  RETURNED  = 'RETURNED',
-  PENDING   = 'PENDING',
+  RECEIVED         = 'RECEIVED',          // Registrado en portería, aún no notificado
+  NOTIFIED         = 'NOTIFIED',          // Residente notificado, pendiente retiro
+  READY_FOR_PICKUP = 'READY_FOR_PICKUP',  // Confirmado, listo para recoger
+  DELIVERED        = 'DELIVERED',         // Entregado al residente
+  RETURNED         = 'RETURNED',          // Devuelto al remitente
+  LOST             = 'LOST',              // Reportado como extraviado
 }
 
 export enum PackageType {
-  PACKAGE  = 'PACKAGE',
-  DOCUMENT = 'DOCUMENT',
-  FOOD     = 'FOOD',
-  FLOWERS  = 'FLOWERS',
+  PARCEL   = 'PARCEL',    // Paquete / caja
+  ENVELOPE = 'ENVELOPE',  // Sobre / documento
+  FOOD     = 'FOOD',      // Domicilio de comida
+  FRAGILE  = 'FRAGILE',   // Frágil
+  DOCUMENT = 'DOCUMENT',  // Documentos legales
   OTHER    = 'OTHER',
 }
 
