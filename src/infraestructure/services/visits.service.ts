@@ -9,6 +9,7 @@ import {
   GET_VISITS,
   GET_VISIT,
 } from '../../domain/graphql/visits.queries';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { Visit, Visitor, VisitsResponse, VisitorIdentityType } from '../../domain/responses/VisitResponseModel';
 import type { ScheduleVisitInput, BlacklistInput, FilterVisitsInput, PaginationInput } from '../../domain/inputs/VisitInput';
 
@@ -68,11 +69,12 @@ type RawVisitorById = Omit<Visitor, 'fullName'> & { name?: string; lastName?: st
 type RawVisitById = Omit<Visit, 'visitor'> & { visitor: RawVisitorById };
 
 export async function fetchVisitById(visitId: string): Promise<Visit> {
-  const { data } = await apolloClient.query<{ visit: RawVisitById }>({
+  const { data, error } = await apolloClient.query<{ visit: RawVisitById }>({
     query: GET_VISIT,
     variables: { id: visitId },
     fetchPolicy: 'network-only',
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se encontró la visita'));
   if (!data?.visit) throw new Error('No se encontró la visita');
 
   const { name, lastName, ...visitor } = data.visit.visitor;
@@ -86,55 +88,61 @@ export async function fetchVisitById(visitId: string): Promise<Visit> {
 }
 
 export async function scheduleVisit(input: ScheduleVisitInput): Promise<Visit> {
-  const { data } = await apolloClient.mutate<{ scheduleVisit: Visit }>({
+  const { data, error } = await apolloClient.mutate<{ scheduleVisit: Visit }>({
     mutation: SCHEDULE_VISIT,
     variables: { input },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo agendar la visita'));
   if (!data?.scheduleVisit) throw new Error('No se pudo agendar la visita');
   return data.scheduleVisit;
 }
 
 export async function approveVisit(visitId: string): Promise<Partial<Visit>> {
-  const { data } = await apolloClient.mutate<{ approveVisitEntry: Partial<Visit> }>({
+  const { data, error } = await apolloClient.mutate<{ approveVisitEntry: Partial<Visit> }>({
     mutation: APPROVE_VISIT,
     variables: { visitId },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo aprobar la visita'));
   if (!data?.approveVisitEntry) throw new Error('No se pudo aprobar la visita');
   return data.approveVisitEntry;
 }
 
 export async function denyVisit(visitId: string, reason: string): Promise<Partial<Visit>> {
-  const { data } = await apolloClient.mutate<{ denyVisitEntry: Partial<Visit> }>({
+  const { data, error } = await apolloClient.mutate<{ denyVisitEntry: Partial<Visit> }>({
     mutation: DENY_VISIT,
     variables: { visitId, reason },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo denegar la visita'));
   if (!data?.denyVisitEntry) throw new Error('No se pudo denegar la visita');
   return data.denyVisitEntry;
 }
 
 export async function cancelVisit(visitId: string): Promise<Partial<Visit>> {
-  const { data } = await apolloClient.mutate<{ cancelVisit: Partial<Visit> }>({
+  const { data, error } = await apolloClient.mutate<{ cancelVisit: Partial<Visit> }>({
     mutation: CANCEL_VISIT,
     variables: { visitId },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo cancelar la visita'));
   if (!data?.cancelVisit) throw new Error('No se pudo cancelar la visita');
   return data.cancelVisit;
 }
 
 export async function blacklistVisitor(input: BlacklistInput): Promise<Partial<Visitor>> {
-  const { data } = await apolloClient.mutate<{ blacklistVisitor: Partial<Visitor> }>({
+  const { data, error } = await apolloClient.mutate<{ blacklistVisitor: Partial<Visitor> }>({
     mutation: BLACKLIST_VISITOR,
     variables: { input },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo agregar a la lista negra'));
   if (!data?.blacklistVisitor) throw new Error('No se pudo agregar a la lista negra');
   return data.blacklistVisitor;
 }
 
 export async function removeFromBlacklist(visitorId: string): Promise<Partial<Visitor>> {
-  const { data } = await apolloClient.mutate<{ removeVisitorFromBlacklist: Partial<Visitor> }>({
+  const { data, error } = await apolloClient.mutate<{ removeVisitorFromBlacklist: Partial<Visitor> }>({
     mutation: REMOVE_FROM_BLACKLIST,
     variables: { visitorId },
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo remover de la lista negra'));
   if (!data?.removeVisitorFromBlacklist) throw new Error('No se pudo remover de la lista negra');
   return data.removeVisitorFromBlacklist;
 }
