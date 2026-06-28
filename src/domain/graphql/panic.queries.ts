@@ -25,26 +25,3 @@ export const ACTIVE_PANIC_ALERTS = gql`
     }
   }
 `;
-
-export const GET_RESIDENT_BY_USER_ID = gql`
-  query GetResidentByUserId($userId: String!) {
-    residentByUserId(userId: $userId) {
-      id
-      user {
-        id
-        name
-        lastName
-        phoneNumber
-      }
-      unit {
-        id
-        number
-        floor
-        building {
-          id
-          name
-        }
-      }
-    }
-  }
-`;
