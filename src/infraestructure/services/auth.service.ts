@@ -1,6 +1,7 @@
 import apolloClient from '../../data/lib/apollo/client';
 import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN } from '../../domain/graphql/auth.queries';
 import SecureStorageService from './SecureStorageService';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { Resident } from '../../presentation/store/auth.store';
 
 export interface LoginResult {
@@ -33,14 +34,14 @@ export async function refreshSession(): Promise<string | null> {
   if (!tokens?.refreshToken) return null;
 
   try {
-    const { data, errors } = await apolloClient.mutate<RefreshTokenResponse>({
+    const { data, error } = await apolloClient.mutate<RefreshTokenResponse>({
       mutation: REFRESH_TOKEN,
       variables: { refreshToken: tokens.refreshToken },
       context: { skipAuth: true },   // no adjuntar Authorization ni reintentar refresh sobre sí mismo
       fetchPolicy: 'no-cache',
     });
 
-    if (errors?.length || !data?.refreshToken) return null;
+    if (error || !data?.refreshToken) return null;
 
     const r = data.refreshToken;
     await SecureStorageService.saveTokens({
@@ -70,21 +71,21 @@ export async function loginResident(
       mutation: LOGIN_RESIDENT,
       variables: { input: { identity, systemCode } },
     });
-  } catch (e: any) {
-    throw new Error(e?.networkError?.message ?? e?.message ?? 'No se pudo conectar al servidor');
+  } catch (e: unknown) {
+    throw new Error(getApiErrorMessage(e, 'No se pudo conectar al servidor'));
   }
-  const { data, errors } = mutationResult;
-  if (errors?.length) throw new Error(errors[0].message);
+  const { data, error } = mutationResult;
+  if (error) throw new Error(getApiErrorMessage(error, 'Identidad o código incorrecto'));
   if (!data?.loginResident) throw new Error('Respuesta inválida del servidor');
   return data.loginResident;
 }
 
 export async function fetchMyResidentProfile(): Promise<Resident> {
-  const { data, errors } = await apolloClient.query<MyResidentProfileResponse>({
+  const { data, error } = await apolloClient.query<MyResidentProfileResponse>({
     query: GET_MY_RESIDENT_PROFILE,
     fetchPolicy: 'network-only',
   });
-  if (errors?.length) throw new Error(errors[0].message);
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo cargar tu perfil'));
   if (!data?.myResidentProfile) throw new Error('Perfil no encontrado');
   return data.myResidentProfile;
 }

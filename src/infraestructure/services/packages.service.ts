@@ -1,5 +1,6 @@
 import apolloClient from '../../data/lib/apollo/client';
 import { GET_PACKAGE, GET_MY_UNIT_PACKAGES } from '../../domain/graphql/packages.queries';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { Package } from '../../domain/responses/PackageResponseModel';
 
 type RawMyUnitPackages = { items: Package[] };
@@ -18,11 +19,12 @@ export async function fetchMyUnitPackages(complexId: string): Promise<Package[]>
 }
 
 export async function fetchPackageById(packageId: string): Promise<Package> {
-  const { data } = await apolloClient.query<{ package: Package }>({
+  const { data, error } = await apolloClient.query<{ package: Package }>({
     query: GET_PACKAGE,
     variables: { packageId },
     fetchPolicy: 'network-only',
   });
+  if (error) throw new Error(getApiErrorMessage(error, 'No se encontró el paquete'));
   if (!data?.package) throw new Error('No se encontró el paquete');
   return data.package;
 }
