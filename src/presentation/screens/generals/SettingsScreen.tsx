@@ -72,7 +72,7 @@ export default function SettingsScreen() {
 
   // Clear the "seen" flag and jump to Home, where useFocusEffect replays the tour.
   const handleReplayTutorial = useCallback(async () => {
-    await resetTour('home_v1');
+    await resetTour('home_v2');
     (navigation as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Home' } });
   }, [resetTour, navigation]);
 

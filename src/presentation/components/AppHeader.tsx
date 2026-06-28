@@ -78,7 +78,7 @@ export default function AppHeader({ title, subtitle, showBack, onBack, rightActi
         <View style={styles.side}>
           {showBack && (
             <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name="arrow-back" size={24} color={colors.textPrimary} />
+              <Icon name="keyboard-arrow-left" size={28} color={colors.textPrimary} />
             </TouchableOpacity>
           )}
         </View>

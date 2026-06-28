@@ -94,7 +94,7 @@ export default function VisitsScreen() {
 
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
-      <AppHeader title="Visitas" />
+      <AppHeader title="Visitas" showBack onBack={() => navigation.goBack()} />
 
       <ScrollView
         horizontal

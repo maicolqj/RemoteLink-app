@@ -133,7 +133,13 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
   const [steps, setSteps] = useState<CoachStep[]>([]);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [frame, setFrame] = useState<Rect | null>(null);
   const [visible, setVisible] = useState(false);
+
+  // Always-mounted invisible anchor used as the coordinate origin. The target's
+  // measureInWindow coords are translated relative to this so the overlay aligns
+  // regardless of status-bar height / window insets (which vary per device).
+  const hostRef = useRef<View>(null);
 
   const persistKeyRef = useRef<string | undefined>(undefined);
   const onFinishRef = useRef<(() => void) | undefined>(undefined);
@@ -149,9 +155,20 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
   const goToStep = useCallback(async (stepList: CoachStep[], i: number) => {
     const step = stepList[i];
     if (!step) return false;
-    const r = await measureWithRetry(registry.current.get(step.targetId));
-    if (!r) return false;
-    setRect(r);
+    const target = await measureWithRetry(registry.current.get(step.targetId));
+    if (!target) return false;
+    // Translate the target into the overlay's own coordinate frame. Both the
+    // target and the host anchor are measured with measureInWindow in the same
+    // frame, so any window/status-bar offset cancels out across devices.
+    const host = await measureNode(hostRef);
+    const origin = host ?? { x: 0, y: 0, width: SCREEN_W, height: SCREEN_H };
+    setRect({
+      x: target.x - origin.x,
+      y: target.y - origin.y,
+      width: target.width,
+      height: target.height,
+    });
+    setFrame({ x: 0, y: 0, width: origin.width, height: origin.height });
     setIndex(i);
     return true;
   }, []);
@@ -169,6 +186,7 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
       setVisible(false);
       setSteps([]);
       setRect(null);
+      setFrame(null);
       setIndex(0);
       const cb = onFinishRef.current;
       onFinishRef.current = undefined;
@@ -242,6 +260,11 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
 
   let overlay: React.ReactNode = null;
   if (visible && rect && step) {
+    // Use the measured overlay frame as the reference box (falls back to the
+    // window dimensions). Coordinates here are already relative to that frame.
+    const FW = frame?.width || SCREEN_W;
+    const FH = frame?.height || SCREEN_H;
+
     const ringRadius = step.radius ?? RADIUS.md;
     const hx = rect.x - RING_PADDING;
     const hy = rect.y - RING_PADDING;
@@ -249,12 +272,12 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
     const hh = rect.height + RING_PADDING * 2;
 
     // Place tooltip on the side with more room (or forced by step.placement).
-    const spaceBelow = SCREEN_H - (hy + hh);
-    const below = step.placement ? step.placement === 'bottom' : spaceBelow > SCREEN_H * 0.4;
+    const spaceBelow = FH - (hy + hh);
+    const below = step.placement ? step.placement === 'bottom' : spaceBelow > FH * 0.4;
 
     const cardLeft = Math.max(
       SPACING.md,
-      Math.min(rect.x + rect.width / 2 - TOOLTIP_W / 2, SCREEN_W - TOOLTIP_W - SPACING.md),
+      Math.min(rect.x + rect.width / 2 - TOOLTIP_W / 2, FW - TOOLTIP_W - SPACING.md),
     );
     const targetCenterX = rect.x + rect.width / 2;
     const arrowLeft = Math.max(
@@ -263,7 +286,7 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
     );
 
     const dim = colors.overlay ?? 'rgba(0,0,0,0.6)';
-    const cardPos = below ? { top: hy + hh + TOOLTIP_GAP } : { bottom: SCREEN_H - hy + TOOLTIP_GAP };
+    const cardPos = below ? { top: hy + hh + TOOLTIP_GAP } : { bottom: FH - hy + TOOLTIP_GAP };
 
     overlay = (
       <Animated.View style={[styles.overlayRoot, { opacity: fade }]} pointerEvents="box-none">
@@ -358,8 +381,16 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
   return (
     <CoachmarkContext.Provider value={value}>
       {children}
-      {/* In-tree overlay (not a Modal): shares the same coordinate space as
-          measureInWindow, so the spotlight aligns with the targets. */}
+      {/* Always-mounted, invisible anchor. Measured each step to translate the
+          target coords into this exact box, so the spotlight stays aligned no
+          matter the device's status-bar height / window insets. */}
+      <View
+        ref={hostRef}
+        pointerEvents="none"
+        collapsable={false}
+        style={styles.hostAnchor}
+      />
+      {/* In-tree overlay (not a Modal): shares the anchor's coordinate space. */}
       {visible && overlay}
     </CoachmarkContext.Provider>
   );
@@ -377,6 +408,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     elevation: 9999,
   },
+  hostAnchor: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   dim: { position: 'absolute' },
   card: {
