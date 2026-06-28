@@ -14,6 +14,8 @@ import { useAuthStore } from '../../store/auth.store';
 import type { ProfileStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+// Versión enlazada a package.json (se actualiza con `yarn version`).
+import { version as APP_VERSION } from '../../../../package.json';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList, 'Profile'>;
 
@@ -103,7 +105,7 @@ export default function ProfileScreen() {
         </Card>
 
         <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
-          RemoteLink v1.0.0
+          RemoteLink v{APP_VERSION}
         </CustomTextComponent>
       </ScrollView>
     </View>
