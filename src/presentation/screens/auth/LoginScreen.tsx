@@ -51,6 +51,7 @@ export default function LoginScreen() {
   const [code, setCode] = useState('');
   const [identityError, setIdentityError] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [identityTouched, setIdentityTouched] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,6 +125,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     setIdentityError('');
     setCodeError('');
+    setSubmitError('');
     try {
       const systemCode = `RES-${code}`;
       const result = await loginResident(identity.trim(), systemCode);
@@ -135,7 +137,9 @@ export default function LoginScreen() {
       });
       setSession(result.accessToken, result.sessionId);
     } catch (err: any) {
-      setCodeError(err?.message ?? 'Identidad o código incorrecto');
+      // El mensaje ya viene normalizado y legible desde la capa de servicio
+      // (auth.service → getApiErrorMessage). Lo mostramos en el banner.
+      setSubmitError(err?.message ?? 'No se pudo iniciar sesión. Intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -214,7 +218,7 @@ export default function LoginScreen() {
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); if (requestState === 'error') setRequestState('idle'); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); if (requestState === 'error') setRequestState('idle'); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -237,7 +241,7 @@ export default function LoginScreen() {
 
               <CodeSegmentInput
                 value={code}
-                onChange={v => { setCode(v); setCodeError(''); }}
+                onChange={v => { setCode(v); setCodeError(''); setSubmitError(''); }}
                 error={codeError}
                 editable={!isSubmitting}
               />
@@ -277,6 +281,21 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* ── Error banner ── */}
+            {submitError ? (
+              <View
+                style={[styles.errorBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}
+                accessibilityRole="alert">
+                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  color={colors.error}
+                  style={styles.errorBannerText}>
+                  {submitError}
+                </CustomTextComponent>
+              </View>
+            ) : null}
 
             {/* ── Submit button ── */}
             <CustomButtonComponent
@@ -429,6 +448,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     marginTop: SPACING.xs,
+  },
+
+  // Error banner
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  errorBannerText: {
+    flex: 1,
+    lineHeight: FONT_SIZE.sm * 1.4,
   },
 
   // Security

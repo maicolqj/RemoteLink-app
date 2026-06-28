@@ -11,6 +11,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TRIGGER_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
 import { useAuthStore } from '../store/auth.store';
 import { useAlert } from '../providers/context/AlertContext';
+import { useCoachmarkTarget } from '../providers/context/CoachmarkContext';
 import { PanicTriggerModal } from './PanicTriggerModal';
 
 const FAB_SIZE = 56;
@@ -21,6 +22,8 @@ export function PanicFAB() {
   const resident = useAuthStore(s => s.resident);
   const { showInfo } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
+  // First-run walkthrough target (the tour itself lives in HomeScreen).
+  const coachRef = useCoachmarkTarget('home.panic');
 
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const pulseScale  = useRef(new Animated.Value(1)).current;
@@ -91,6 +94,7 @@ export function PanicFAB() {
           ]}
         />
         <TouchableOpacity
+          ref={coachRef}
           onPress={handlePress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}

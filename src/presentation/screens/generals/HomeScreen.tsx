@@ -50,6 +50,13 @@ const HOME_TOUR_STEPS: CoachStep[] = [
     title: 'Acciones rápidas',
     text: 'Accede a tus paquetes y visitas sin buscar en los menús.',
   },
+  {
+    targetId: 'home.panic',
+    title: 'Botón de pánico',
+    text: 'En una emergencia, mantén presionado este botón unos segundos para enviar una alerta inmediata a portería y seguridad de tu conjunto.',
+    radius: RADIUS.full,
+    placement: 'top',
+  },
 ];
 
 export default function HomeScreen() {
@@ -129,7 +136,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!resident) return;
-      const t = setTimeout(() => startTour(HOME_TOUR_STEPS, { persistKey: 'home_v1' }), 700);
+      const t = setTimeout(() => startTour(HOME_TOUR_STEPS, { persistKey: 'home_v2' }), 700);
       return () => clearTimeout(t);
     }, [resident, startTour]),
   );

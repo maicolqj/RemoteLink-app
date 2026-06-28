@@ -38,7 +38,7 @@ function parseMetadata(raw: unknown): Record<string, any> | undefined {
   return undefined;
 }
 
-function NotificationItem({ item, onPress, onLongPress, busy }: { item: Notification; onPress: (item: Notification) => void; onLongPress: (item: Notification) => void; busy: boolean }) {
+function NotificationItem({ item, onPress, onDelete, busy }: { item: Notification; onPress: (item: Notification) => void; onDelete: (item: Notification) => void; busy: boolean }) {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
@@ -55,7 +55,7 @@ function NotificationItem({ item, onPress, onLongPress, busy }: { item: Notifica
     <TouchableOpacity
       style={[styles.item, { backgroundColor: item.isRead ? colors.surface : colors.primarySurface }]}
       onPress={() => onPress(item)}
-      onLongPress={() => onLongPress(item)}
+      onLongPress={() => onDelete(item)}
       delayLongPress={300}
       disabled={busy}
       activeOpacity={0.75}>
@@ -63,9 +63,12 @@ function NotificationItem({ item, onPress, onLongPress, busy }: { item: Notifica
         <Icon name={cfg.icon} size={22} color={cfg.color} />
       </View>
       <View style={gs.flex1}>
-        <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary} style={{ marginBottom: 2 }}>
-          {item.title}
-        </CustomTextComponent>
+        <View style={styles.titleRow}>
+          {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+          <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary} style={gs.flex1}>
+            {item.title}
+          </CustomTextComponent>
+        </View>
         <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} numberOfLines={2} style={styles.body}>
           {item.body}
         </CustomTextComponent>
@@ -73,9 +76,19 @@ function NotificationItem({ item, onPress, onLongPress, busy }: { item: Notifica
           {new Date(item.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </CustomTextComponent>
       </View>
-      {busy
-        ? <ActivityIndicator size="small" color={colors.primary} style={styles.trailing} />
-        : !item.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+      {busy ? (
+        <ActivityIndicator size="small" color={colors.primary} style={styles.trailingBtn} />
+      ) : (
+        <TouchableOpacity
+          onPress={() => onDelete(item)}
+          disabled={busy}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={styles.trailingBtn}
+          accessibilityLabel="Eliminar notificación"
+          accessibilityRole="button">
+          <Icon name="delete-outline" size={22} color={colors.textTertiary} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -93,8 +106,8 @@ export default function NotificationsScreen() {
   // id of the notification currently being resolved (shows a spinner on its row)
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  // Long-press a row to confirm + soft-delete it from the list.
-  const handleLongPress = useCallback((item: Notification) => {
+  // Tap the trash icon (or long-press the row) to confirm + soft-delete it.
+  const handleDelete = useCallback((item: Notification) => {
     showAlert({
       type: 'question',
       title: 'Eliminar notificación',
@@ -189,7 +202,7 @@ export default function NotificationsScreen() {
       <FlatList
         data={notifications}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <NotificationItem item={item} onPress={handlePress} onLongPress={handleLongPress} busy={resolvingId === item.id} />}
+        renderItem={({ item }) => <NotificationItem item={item} onPress={handlePress} onDelete={handleDelete} busy={resolvingId === item.id} />}
         contentContainerStyle={notifications.length === 0 ? gs.flex1 : styles.list}
         ListEmptyComponent={<EmptyState icon="notifications-none" title="Sin notificaciones" description="Aquí verás tus alertas y mensajes del conjunto." />}
         ItemSeparatorComponent={() => <View style={gs.divider} />}
@@ -218,6 +231,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: 2,
+  },
   body: {
     lineHeight: FONT_SIZE.sm * 1.4,
     marginBottom: 4,
@@ -226,10 +245,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginTop: 4,
   },
-  trailing: {
-    marginTop: 4,
+  trailingBtn: {
+    padding: SPACING.xs,
+    alignSelf: 'center',
   },
   footer: {
     paddingVertical: SPACING.md,

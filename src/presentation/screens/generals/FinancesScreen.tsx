@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,7 +67,7 @@ function SummaryCard() {
         <View style={styles.statDivider} />
         <StatBox value={balance.pendingCount} label="Pendientes" />
         <View style={styles.statDivider} />
-        <StatBox value={formatCOP(statement?.walletBalance ?? 0)} label="Wallet" color={(statement?.walletBalance ?? 0) > 0 ? colors.accentLight : 'rgba(255,255,255,0.8)'} />
+        <StatBox value={formatCOP(statement?.walletBalance ?? 0)} label="Saldo a favor" color={(statement?.walletBalance ?? 0) > 0 ? colors.accentLight : 'rgba(255,255,255,0.8)'} />
       </View>
     </View>
   );
@@ -168,17 +168,22 @@ function TabBtn({ label, active, onPress, badge }: { label: string; active: bool
   );
 }
 
-function StatementList({ statement, navigation }: { statement: ReturnType<typeof useFinancesStore.getState>['statement']; navigation: FinancesNavProp }) {
+function StatementList({ statement, navigation, onLoadMore, visibleCount }: {
+  statement: ReturnType<typeof useFinancesStore.getState>['statement'];
+  navigation: FinancesNavProp;
+  onLoadMore: () => void;
+  visibleCount: number;
+}) {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
-  // Backend returns movements oldest→newest (running balance is accrued in that
-  // order). Display newest first; each row keeps its own balance snapshot, so a
-  // copy-then-sort is presentation-only and safe.
-  const movements = useMemo(
-    () => (statement ? [...statement.movements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : []),
-    [statement],
-  );
+  // The backend returns every movement of the period already sorted newest→oldest;
+  // pagination is client-side, so we just reveal a growing slice. Each row carries
+  // its own running-balance snapshot, so order is presentation-only.
+  const allMovements = statement?.movements ?? [];
+  const movements = allMovements.slice(0, visibleCount);
+  const totalMovements = allMovements.length;
+  const hasMore = visibleCount < totalMovements;
 
   if (!statement) return <EmptyState icon="receipt-long" title="Sin movimientos" description="Tu estado de cuenta aparecerá aquí." />;
 
@@ -201,6 +206,22 @@ function StatementList({ statement, navigation }: { statement: ReturnType<typeof
               <View style={[gs.divider, { marginVertical: 0, marginLeft: 64 }]} />
             </React.Fragment>
           ))}
+
+          {hasMore ? (
+            <TouchableOpacity
+              onPress={onLoadMore}
+              activeOpacity={0.8}
+              style={[styles.loadMoreBtn, { borderColor: colors.border }]}>
+              <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
+                Cargar más
+              </CustomTextComponent>
+            </TouchableOpacity>
+          ) : (
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} style={styles.endOfList}>
+              {`${totalMovements} ${totalMovements === 1 ? 'movimiento' : 'movimientos'}`}
+            </CustomTextComponent>
+          )}
+
           <View style={gs.spacerLg} />
         </View>
       )}
@@ -212,7 +233,7 @@ function WalletList({ wallet }: { wallet: ReturnType<typeof useFinancesStore.get
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
-  if (!wallet) return <EmptyState icon="account-balance-wallet" title="Sin datos de wallet" description="Tu saldo disponible aparecerá aquí." />;
+  if (!wallet) return <EmptyState icon="account-balance-wallet" title="Sin saldo a favor" description="Tu saldo disponible aparecerá aquí." />;
 
   return (
     <View>
@@ -230,7 +251,7 @@ function WalletList({ wallet }: { wallet: ReturnType<typeof useFinancesStore.get
         </View>
       </View>
       {wallet.entries.length === 0 ? (
-        <EmptyState icon="history" title="Sin movimientos" description="No hay movimientos en tu wallet." />
+        <EmptyState icon="history" title="Sin movimientos" description="No hay movimientos en tu saldo a favor." />
       ) : (
         <View>
           {wallet.entries.map(entry => (
@@ -252,7 +273,10 @@ export default function FinancesScreen() {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
   const resident = useAuthStore(s => s.resident);
-  const { statement, wallet, isLoadingStatement, isLoadingWallet, fetchBalance, fetchStatement, fetchWallet } = useFinancesStore();
+  const {
+    statement, statementVisibleCount, wallet, isLoadingStatement, isLoadingWallet,
+    fetchBalance, fetchStatement, fetchMoreStatement, fetchWallet,
+  } = useFinancesStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>('statement');
   const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(undefined);
@@ -281,20 +305,35 @@ export default function FinancesScreen() {
 
   const isLoading = activeTab === 'statement' ? isLoadingStatement : isLoadingWallet;
 
+  const loadMore = useCallback(() => {
+    if (!resident) return;
+    fetchMoreStatement(resident.unit.id, resident.complex.id, selectedPeriod);
+  }, [resident, selectedPeriod, fetchMoreStatement]);
+
+  // Auto-load the next page when the user scrolls near the bottom (statement tab).
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (activeTab !== 'statement') return;
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 320;
+    if (nearBottom) loadMore();
+  }, [activeTab, loadMore]);
+
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
-      <AppHeader title="Finanzas" subtitle={resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined} />
+      <AppHeader title="Finanzas" showBack onBack={() => navigation.goBack()} subtitle={resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined} />
 
       <ScrollView
         style={gs.flex1}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}>
 
         <SummaryCard />
 
         <View style={styles.tabBar}>
           <TabBtn label="Estado de cuenta" active={activeTab === 'statement'} onPress={() => setActiveTab('statement')} />
-          <TabBtn label="Wallet" active={activeTab === 'wallet'} onPress={() => setActiveTab('wallet')} badge={(wallet?.currentBalance ?? 0) > 0 ? formatCOP(wallet?.currentBalance ?? 0) : undefined} />
+          <TabBtn label="Saldo a favor" active={activeTab === 'wallet'} onPress={() => setActiveTab('wallet')} badge={(wallet?.currentBalance ?? 0) > 0 ? formatCOP(wallet?.currentBalance ?? 0) : undefined} />
         </View>
 
         {activeTab === 'statement' && (
@@ -319,7 +358,7 @@ export default function FinancesScreen() {
           </ScrollView>
         )}
 
-        {isLoading ? <LoadingSpinner fullScreen /> : activeTab === 'statement' ? <StatementList statement={statement} navigation={navigation} /> : <WalletList wallet={wallet} />}
+        {isLoading ? <LoadingSpinner fullScreen /> : activeTab === 'statement' ? <StatementList statement={statement} navigation={navigation} onLoadMore={loadMore} visibleCount={statementVisibleCount} /> : <WalletList wallet={wallet} />}
       </ScrollView>
     </View>
   );
@@ -398,5 +437,17 @@ const styles = StyleSheet.create({
     margin: SPACING.md,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
+  },
+  loadMoreBtn: {
+    alignSelf: 'center',
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+  },
+  endOfList: {
+    textAlign: 'center',
+    paddingVertical: SPACING.md,
   },
 });

@@ -16,9 +16,15 @@ import {
 export type { UnitBalanceResponse, UnitAccountStatementResponse, UnitWalletResponse, Payment };
 export type { AccountMovement, WalletEntry } from '../../domain/responses/FinanceResponseModel';
 
+// Movements revealed per "Cargar más" tap. The backend returns every movement
+// of the period in a single response, so pagination is purely client-side.
+export const STATEMENT_PAGE_SIZE = 20;
+
 interface FinancesState {
   balance: UnitBalanceResponse | null;
   statement: UnitAccountStatementResponse | null;
+  // How many of statement.movements are currently revealed (client-side slice).
+  statementVisibleCount: number;
   wallet: UnitWalletResponse | null;
   chargePayments: Record<string, Payment[]>; // keyed by chargeId
   isLoadingBalance: boolean;
@@ -28,6 +34,7 @@ interface FinancesState {
 
   fetchBalance: (unitId: string, complexId: string) => Promise<void>;
   fetchStatement: (unitId: string, complexId: string, period?: string) => Promise<void>;
+  fetchMoreStatement: (unitId: string, complexId: string, period?: string) => Promise<void>;
   fetchWallet: (unitId: string, complexId: string) => Promise<void>;
   fetchAll: (unitId: string, complexId: string) => Promise<void>;
   fetchChargePayments: (chargeId: string) => Promise<void>;
@@ -37,6 +44,7 @@ interface FinancesState {
 export const useFinancesStore = create<FinancesState>((set, get) => ({
   balance: null,
   statement: null,
+  statementVisibleCount: STATEMENT_PAGE_SIZE,
   wallet: null,
   chargePayments: {},
   isLoadingBalance: false,
@@ -59,15 +67,24 @@ export const useFinancesStore = create<FinancesState>((set, get) => ({
   },
 
   fetchStatement: async (unitId, complexId, period) => {
+    // Loads the full statement for the period; resets the client-side reveal.
     set({ isLoadingStatement: true, error: null });
     try {
       const statement = await fetchUnitAccountStatement(unitId, complexId, period);
-      set({ statement });
+      set({ statement, statementVisibleCount: STATEMENT_PAGE_SIZE });
     } catch (e) {
       set({ error: (e as Error).message });
     } finally {
       set({ isLoadingStatement: false });
     }
+  },
+
+  // Client-side "load more": reveals the next slice of already-fetched movements.
+  // No network call — backend returned every movement of the period at once.
+  fetchMoreStatement: async () => {
+    const { statement, statementVisibleCount } = get();
+    if (!statement || statementVisibleCount >= statement.movements.length) return;
+    set({ statementVisibleCount: statementVisibleCount + STATEMENT_PAGE_SIZE });
   },
 
   fetchWallet: async (unitId, complexId) => {
