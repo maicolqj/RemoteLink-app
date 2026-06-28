@@ -80,6 +80,16 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// Release signing credentials live OUTSIDE the repo in android/keystore.properties
+// (gitignored). If the file is absent (e.g. CI without secrets, fresh clone),
+// release/aab fall back to the debug keystore so local builds still work.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasReleaseSigning = keystorePropertiesFile.exists()
+if (hasReleaseSigning) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -100,6 +110,14 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(keystoreProperties['RELEASE_STORE_FILE'])
+                storePassword keystoreProperties['RELEASE_STORE_PASSWORD']
+                keyAlias keystoreProperties['RELEASE_KEY_ALIAS']
+                keyPassword keystoreProperties['RELEASE_KEY_PASSWORD']
+            }
+        }
     }
     buildTypes {
         debug {
@@ -108,12 +126,20 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Uses the real release keystore when keystore.properties is present
+            // (required for Play Store); otherwise falls back to debug signing.
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             manifestPlaceholders = [usesCleartextTraffic: "false"]
+        }
+        staging {
+            // Release-like build pointing at the staging backend (see .env.staging).
+            // Keeps console logs (babel only strips console on production builds).
+            // Signed with the debug keystore for sideload/QA, not for Play Store.
+            initWith release
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
         }
     }
 }
