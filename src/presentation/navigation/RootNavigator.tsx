@@ -33,6 +33,8 @@ import { useSettingsStore } from '../store/settings.store';
 import apolloClientInstance from '../../data/lib/apollo/client';
 import { SAVE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations';
 import PanicSound from '../../shared/modules/PanicSoundModule';
+import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
+import { useAlert } from '../providers/context/AlertContext';
 
 // Conecta el refresh real al authLink/errorLink de Apollo. Sin esto,
 // tokenRefreshService.refreshToken() retorna null y cualquier 401 fuerza logout.
@@ -133,6 +135,9 @@ function NotificationBootstrap({
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const complexId       = useAuthStore(s => s.resident?.complex?.id);
   const setPanicData    = usePanicStore(s => s.setPanicData);
+  const settingsHydrated      = useSettingsStore(s => s.hydrated);
+  const autostartPromptShown  = useSettingsStore(s => s.autostartPromptShown);
+  const { showQuestion } = useAlert();
 
   const [fcmToken, setFcmToken] = useState<string | null>(null);
 
@@ -210,7 +215,7 @@ function NotificationBootstrap({
     if (__DEV__) console.log('[FCM] registro check → auth:', isAuthenticated, '| complex:', complexId, '| token:', fcmToken ? fcmToken.slice(0, 20) + '…' : 'null');
     if (!isAuthenticated || !complexId || !fcmToken) return;
     if (__DEV__) console.log('[FCM] enviando token al backend…');
-    apolloClientInstance.mutate({
+    apolloClientInstance.mutate<{ saveMobileToken: { success: boolean } }>({
       mutation: SAVE_MOBILE_TOKEN,
       variables: {
         input: {
@@ -220,9 +225,49 @@ function NotificationBootstrap({
         },
       },
     })
-      .then(() => { if (__DEV__) console.log('[FCM] saveMobileToken OK'); })
-      .catch(err => console.warn('[FCM] saveMobileToken error:', err?.message));
+      .then(({ data, error }) => {
+        // errorPolicy 'all' (default del cliente) NO rechaza la promesa en errores
+        // GraphQL — quedan en `error` (singular) y el .then() de "éxito" igual corre.
+        // Sin este chequeo el token nunca queda registrado en el backend y el push
+        // por FCM (notificaciones con la app cerrada) falla en silencio para siempre.
+        if (error || data?.saveMobileToken?.success === false) {
+          console.warn('[FCM] saveMobileToken falló:', getApiErrorMessage(error, 'sin detalle'));
+          return;
+        }
+        if (__DEV__) console.log('[FCM] saveMobileToken OK');
+      })
+      .catch(err => console.warn('[FCM] saveMobileToken error:', getApiErrorMessage(err)));
   }, [isAuthenticated, complexId, fcmToken]);
+
+  // One-time nudge to the OEM autostart/background-launch whitelist (MIUI, ColorOS,
+  // FuntouchOS, EMUI, …). Without it, killed apps never get to process the FCM
+  // broadcast that would show a notification — see openAutostartSettings() in
+  // PanicSoundModule for why. There's no public API to check current state, so we
+  // only ask once per install and let the user re-open it from Settings later.
+  // Gated on isAutostartRelevant() — Samsung/Pixel/stock-AOSP devices have no such
+  // screen, so nudging them there would just dump them on a useless App Info page.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!isAuthenticated || !settingsHydrated || autostartPromptShown) return;
+    let cancelled = false;
+    (async () => {
+      const relevant = await PanicSound?.isAutostartRelevant();
+      if (cancelled) return;
+      useSettingsStore.getState().markAutostartPromptShown();
+      if (!relevant) return;
+      showQuestion(
+        'Activa el inicio automático',
+        'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
+        {
+          buttons: [
+            { text: 'Ahora no', style: 'secondary', onPress: () => {} },
+            { text: 'Activar', style: 'primary', onPress: () => { PanicSound?.openAutostartSettings(); } },
+          ],
+        },
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, settingsHydrated, autostartPromptShown, showQuestion]);
 
   return null;
 }

@@ -100,7 +100,7 @@ export default function NotificationsScreen() {
   const { showError, showInfo, showAlert, hideAlert } = useAlert();
   const {
     notifications, markAsRead, markAllAsRead, unreadCount, removeNotification,
-    fetchMoreNotifications, isLoadingMore, hasMore,
+    removeAllNotifications, isDeletingAll, fetchMoreNotifications, isLoadingMore, hasMore,
   } = useNotificationsStore();
 
   // id of the notification currently being resolved (shows a spinner on its row)
@@ -118,6 +118,28 @@ export default function NotificationsScreen() {
       ],
     });
   }, [showAlert, hideAlert, removeNotification]);
+
+  // Header trash icon: confirm + wipe the whole history (pages through the rest
+  // of the backend list first — see removeAllNotifications in the store).
+  const handleDeleteAll = useCallback(() => {
+    if (isDeletingAll) return;
+    showAlert({
+      type: 'question',
+      title: 'Eliminar todas las notificaciones',
+      description: '¿Quieres eliminar todas tus notificaciones? Esta acción no se puede deshacer.',
+      buttons: [
+        { text: 'Cancelar', style: 'secondary', onPress: hideAlert },
+        {
+          text: 'Eliminar todas',
+          style: 'danger',
+          onPress: () => {
+            hideAlert();
+            removeAllNotifications().catch(() => showError('No se pudieron eliminar todas las notificaciones.'));
+          },
+        },
+      ],
+    });
+  }, [showAlert, hideAlert, removeAllNotifications, isDeletingAll, showError]);
 
   // Route to the entity screen the notification points at. Visits, packages and
   // finances have screens today; anything else just surfaces its content.
@@ -191,14 +213,31 @@ export default function NotificationsScreen() {
     openEntity({ entityType, entityId, type, metadata, item });
   }, [resolvingId, markAsRead, openEntity, showError]);
 
+  const headerActions = [
+    ...(unreadCount > 0
+      ? [{ icon: 'done-all', onPress: markAllAsRead, accessibilityLabel: 'Marcar todas como leídas' }]
+      : []),
+    ...(notifications.length > 0
+      ? [{ icon: 'delete-sweep', onPress: handleDeleteAll, accessibilityLabel: 'Eliminar todas las notificaciones' }]
+      : []),
+  ];
+
   return (
     <View style={gs.screen}>
       <AppHeader
         title="Notificaciones"
         showBack
         onBack={() => navigation.goBack()}
-        rightAction={unreadCount > 0 ? { icon: 'done-all', onPress: markAllAsRead } : undefined}
+        rightActions={headerActions}
       />
+      {isDeletingAll && (
+        <View style={[styles.deletingOverlay, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: SPACING.xs }}>
+            Eliminando notificaciones…
+          </CustomTextComponent>
+        </View>
+      )}
       <FlatList
         data={notifications}
         keyExtractor={item => item.id}
@@ -217,6 +256,16 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   list: {
     paddingBottom: SPACING.xxl,
+  },
+  deletingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   item: {
     flexDirection: 'row',

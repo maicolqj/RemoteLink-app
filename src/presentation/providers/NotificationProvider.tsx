@@ -20,15 +20,22 @@ interface Props {
 }
 
 export function NotificationProvider({ children }: Props) {
-  const notifications = useNotificationsStore(s => s.notifications);
+  // `lastAddedId` only changes when addNotification genuinely appends a live
+  // push/socket arrival — unlike notifications[0], it's untouched by deleting
+  // the top row or by a background fetch replacing the list, so neither of
+  // those can be misread as "a new notification just arrived" and banner it.
+  const lastAddedId = useNotificationsStore(s => s.lastAddedId);
   const [banner, setBanner] = useState<BannerNotification | null>(null);
   const lastShownId = useRef<string | null>(null);
 
-  // Show banner when a new notification arrives at the top of the list
+  // Show banner when a notification is actually added, not just when the
+  // list's head changes for any other reason.
   useEffect(() => {
-    const latest = notifications[0];
-    if (!latest || latest.id === lastShownId.current) return;
-    lastShownId.current = latest.id;
+    if (!lastAddedId || lastAddedId === lastShownId.current) return;
+    lastShownId.current = lastAddedId;
+
+    const latest = useNotificationsStore.getState().notifications.find(n => n.id === lastAddedId);
+    if (!latest) return;
 
     // Replace previous banner immediately
     setBanner(null);
@@ -43,7 +50,7 @@ export function NotificationProvider({ children }: Props) {
         entityId:     (latest.data?.visitId as string) ?? null,
       });
     }, 50);
-  }, [notifications]);
+  }, [lastAddedId]);
 
   const handleDismiss = useCallback(() => setBanner(null), []);
 

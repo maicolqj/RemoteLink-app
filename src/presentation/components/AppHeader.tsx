@@ -8,16 +8,22 @@ import { useGlobalStyles } from '../styles/useGlobalStyles';
 import { SPACING } from '../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../constants/typography';
 
+export interface HeaderAction {
+  icon: string;
+  onPress: () => void;
+  badge?: number;
+  accessibilityLabel?: string;
+}
+
 interface AppHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
-  rightAction?: {
-    icon: string;
-    onPress: () => void;
-    badge?: number;
-  };
+  /** Single right-side action. Ignored when `rightActions` is provided. */
+  rightAction?: HeaderAction;
+  /** Multiple right-side actions, rendered left-to-right before the theme toggle. */
+  rightActions?: HeaderAction[];
   transparent?: boolean;
 }
 
@@ -55,12 +61,13 @@ function ThemeToggleButton() {
   );
 }
 
-export default function AppHeader({ title, subtitle, showBack, onBack, rightAction, transparent }: AppHeaderProps) {
+export default function AppHeader({ title, subtitle, showBack, onBack, rightAction, rightActions, transparent }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const gs = useGlobalStyles();
 
   const showThemeToggle = !showBack;
+  const actions = rightActions ?? (rightAction ? [rightAction] : []);
 
   return (
     <View style={[
@@ -100,20 +107,26 @@ export default function AppHeader({ title, subtitle, showBack, onBack, rightActi
         </View>
 
         {/* Right side */}
-        <View style={[styles.side, (showThemeToggle && rightAction) && styles.sideDouble]}>
+        <View style={[styles.rightSide, (showThemeToggle || actions.length > 0) && styles.sideDouble]}>
           {showThemeToggle && <ThemeToggleButton />}
-          {rightAction && (
-            <TouchableOpacity onPress={rightAction.onPress} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name={rightAction.icon} size={24} color={colors.textPrimary} />
-              {!!rightAction.badge && rightAction.badge > 0 && (
+          {actions.map((action, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={action.onPress}
+              style={styles.actionBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={action.accessibilityLabel}
+              accessibilityRole="button">
+              <Icon name={action.icon} size={24} color={colors.textPrimary} />
+              {!!action.badge && action.badge > 0 && (
                 <View style={gs.badgeContainer}>
                   <CustomTextComponent style={gs.badgeText as any}>
-                    {rightAction.badge > 9 ? '9+' : String(rightAction.badge)}
+                    {action.badge > 9 ? '9+' : String(action.badge)}
                   </CustomTextComponent>
                 </View>
               )}
             </TouchableOpacity>
-          )}
+          ))}
         </View>
       </View>
     </View>
@@ -138,10 +151,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rightSide: {
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sideDouble: {
-    width: 80,
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     gap: 4,
   },
   backBtn: {

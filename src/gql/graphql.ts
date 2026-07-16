@@ -579,6 +579,7 @@ export type ComplexFinancialSummaryResponse = {
   __typename?: 'ComplexFinancialSummaryResponse';
   collectionRate: Scalars['Float']['output'];
   complexId: Scalars['String']['output'];
+  directIncome: Scalars['Float']['output'];
   netCashFlow: Scalars['Float']['output'];
   period: Scalars['String']['output'];
   periodOutstanding: Scalars['Float']['output'];
@@ -882,6 +883,8 @@ export type CreateResidentInput = {
   endDate?: InputMaybe<Scalars['String']['input']>;
   /** Número de documento de identidad del residente */
   identityNumber: Scalars['String']['input'];
+  /** Tipo de documento de identidad del residente */
+  identityType?: UserIdentityType;
   isMainResident?: Scalars['Boolean']['input'];
   /** Apellido del residente */
   lastName: Scalars['String']['input'];
@@ -951,6 +954,8 @@ export type CreateStaffMemberInput = {
   email: Scalars['String']['input'];
   identity: Scalars['String']['input'];
   identityNumber?: InputMaybe<Scalars['String']['input']>;
+  /** Tipo de documento de identidad */
+  identityType?: InputMaybe<UserIdentityType>;
   lastName: Scalars['String']['input'];
   name: Scalars['String']['input'];
   password?: InputMaybe<Scalars['String']['input']>;
@@ -1024,6 +1029,28 @@ export type DeviceInfo = {
   ip: Scalars['String']['output'];
   platform: Scalars['String']['output'];
   userAgent: Scalars['String']['output'];
+};
+
+export type DirectIncome = {
+  __typename?: 'DirectIncome';
+  amount: Scalars['Float']['output'];
+  category: IncomeCategory;
+  complex: ResidentialComplex;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  description: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  incomeDate: Scalars['DateTime']['output'];
+  isReversed: Scalars['Boolean']['output'];
+  notes?: Maybe<Scalars['String']['output']>;
+  period: Scalars['String']['output'];
+  receiptUrl?: Maybe<Scalars['String']['output']>;
+  registeredByUserId?: Maybe<Scalars['String']['output']>;
+  reversalReason?: Maybe<Scalars['String']['output']>;
+  reversedAt?: Maybe<Scalars['DateTime']['output']>;
+  reversedByUserId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** Categoría del gasto operativo del complejo */
@@ -1214,6 +1241,14 @@ export type FilterExpensesInput = {
   startDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
+export type FilterIncomesInput = {
+  category?: InputMaybe<IncomeCategory>;
+  endDate?: InputMaybe<Scalars['DateTime']['input']>;
+  includeReversed?: InputMaybe<Scalars['Boolean']['input']>;
+  period?: InputMaybe<Scalars['String']['input']>;
+  startDate?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
 export type FilterNotesInput = {
   /** Filtrar por uno o varios roles creadores. Cada rol solo puede filtrar dentro de los roles que tiene visibilidad */
   createdByRoles?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -1339,6 +1374,30 @@ export type HierarchyStats = {
   directPermissionCount: Scalars['Int']['output'];
   /** Number of effective permissions */
   effectivePermissionCount: Scalars['Int']['output'];
+};
+
+/** Categoría de ingreso directo (caja/banco) del complejo */
+export type IncomeCategory =
+  /** Donaciones y aportes */
+  | 'DONATION'
+  /** Multas y sanciones */
+  | 'FINES'
+  /** Alquiler de salón / zonas comunes */
+  | 'HALL_RENTAL'
+  /** Rendimientos financieros */
+  | 'INTEREST'
+  /** Otros ingresos */
+  | 'OTHER'
+  /** Parqueadero de visitantes */
+  | 'PARKING'
+  /** Venta de activos */
+  | 'SALE';
+
+export type IncomeCategoryBreakdown = {
+  __typename?: 'IncomeCategoryBreakdown';
+  category: IncomeCategory;
+  count: Scalars['Float']['output'];
+  total: Scalars['Float']['output'];
 };
 
 export type LogCallInput = {
@@ -1524,6 +1583,7 @@ export type Mutation = {
   /** Renueva el access token usando el refresh token. Implementa rotación de tokens. */
   refreshToken: AuthResponse;
   registerBulkPayment: RegisterBulkPaymentResponse;
+  registerDirectIncome: DirectIncome;
   registerExpense: ComplexExpense;
   registerPackage: Package;
   registerPayment: Payment;
@@ -1573,6 +1633,7 @@ export type Mutation = {
   /** Restaura un usuario previamente eliminado (soft delete), dejándolo activo */
   restoreUser: User;
   returnPackage: Package;
+  reverseDirectIncome: DirectIncome;
   reverseExpense: ComplexExpense;
   reversePayment: Payment;
   /** Revierte una acción registrada en el historial a su estado anterior. Solo disponible para SUPER_ADMIN_ROL. Una acción solo puede revertirse una vez. */
@@ -1992,6 +2053,11 @@ export type MutationRegisterBulkPaymentArgs = {
 };
 
 
+export type MutationRegisterDirectIncomeArgs = {
+  input: RegisterDirectIncomeInput;
+};
+
+
 export type MutationRegisterExpenseArgs = {
   input: RegisterExpenseInput;
 };
@@ -2167,6 +2233,12 @@ export type MutationRestoreUserArgs = {
 
 export type MutationReturnPackageArgs = {
   packageId: Scalars['String']['input'];
+  reason: Scalars['String']['input'];
+};
+
+
+export type MutationReverseDirectIncomeArgs = {
+  incomeId: Scalars['String']['input'];
   reason: Scalars['String']['input'];
 };
 
@@ -2551,6 +2623,7 @@ export type NotificationType =
   | 'PAYMENT_OVERDUE'
   | 'PAYMENT_RECEIVED'
   | 'PAYMENT_REVERSED'
+  | 'PROFILE_UPDATED'
   | 'RESIDENT_APPROVED'
   | 'RESIDENT_PENDING'
   | 'RESIDENT_REJECTED'
@@ -2679,6 +2752,14 @@ export type PaginatedExpensesResponse = {
   __typename?: 'PaginatedExpensesResponse';
   byCategory: Array<ExpenseCategoryBreakdown>;
   items: Array<ComplexExpense>;
+  pagination: PaginationReponse;
+  totalAmount: Scalars['Float']['output'];
+};
+
+export type PaginatedIncomesResponse = {
+  __typename?: 'PaginatedIncomesResponse';
+  byCategory: Array<IncomeCategoryBreakdown>;
+  items: Array<DirectIncome>;
   pagination: PaginationReponse;
   totalAmount: Scalars['Float']['output'];
 };
@@ -3079,6 +3160,7 @@ export type Query = {
   complexExpenses: PaginatedExpensesResponse;
   complexFinanceConfig: ComplexFinanceConfig;
   complexFinancialSummary: ComplexFinancialSummaryResponse;
+  complexIncomes: PaginatedIncomesResponse;
   complexNotifications: PaginatedNotificationsResponse;
   complexes: PaginatedComplexesResponse;
   feeConfigs: Array<FeeConfig>;
@@ -3267,6 +3349,13 @@ export type QueryComplexFinanceConfigArgs = {
 export type QueryComplexFinancialSummaryArgs = {
   complexId: Scalars['String']['input'];
   period: Scalars['String']['input'];
+};
+
+
+export type QueryComplexIncomesArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterIncomesInput>;
+  pagination?: InputMaybe<PaginationInput>;
 };
 
 
@@ -3513,6 +3602,7 @@ export type QueryUnitsArgs = {
   buildingId?: InputMaybe<Scalars['String']['input']>;
   complexId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
+  search?: InputMaybe<Scalars['String']['input']>;
   status?: InputMaybe<UnitStatus>;
 };
 
@@ -3668,6 +3758,17 @@ export type RegisterBulkPaymentResponse = {
   __typename?: 'RegisterBulkPaymentResponse';
   created: Scalars['Int']['output'];
   paid: Scalars['Int']['output'];
+};
+
+export type RegisterDirectIncomeInput = {
+  amount: Scalars['Float']['input'];
+  category: IncomeCategory;
+  complexId: Scalars['String']['input'];
+  description: Scalars['String']['input'];
+  incomeDate: Scalars['DateTime']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  period: Scalars['String']['input'];
+  receiptUrl?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type RegisterExpenseInput = {
@@ -5424,6 +5525,8 @@ export type VehicleStatus =
 export type VehicleType =
   /** Bicicleta (no ocupa parqueadero vehicular) */
   | 'BICYCLE'
+  /** CAMIONETA o furgoneta */
+  | 'CAMIONETA'
   /** Automóvil / carro */
   | 'CAR'
   /** Patineta eléctrica */
@@ -5433,9 +5536,7 @@ export type VehicleType =
   /** Otro tipo de vehículo */
   | 'OTHER'
   /** Camioneta o camión */
-  | 'TRUCK'
-  /** Van o furgoneta */
-  | 'VAN';
+  | 'TRUCK';
 
 /** Verificación de OTP para completar el login del residente */
 export type VerifyOtpInput = {
@@ -5686,7 +5787,7 @@ export type VisitorVehicle = {
   /** Usuario que registró el ingreso */
   registeredByUser?: Maybe<User>;
   /** Usuario que registró el ingreso */
-  registeredByUserId: Scalars['String']['output'];
+  registeredByUserId?: Maybe<Scalars['String']['output']>;
   /** Estado actual del registro */
   status: ParkingRecordStatus;
   updatedAt: Scalars['DateTime']['output'];

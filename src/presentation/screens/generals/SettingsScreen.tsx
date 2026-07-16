@@ -7,7 +7,7 @@ import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import Card from '../../components/Card';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { useCoachmark } from '../../providers/context/CoachmarkContext';
+import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useSettingsStore } from '../../store/settings.store';
 import { SPACING } from '../../constants/spacing';
@@ -15,11 +15,39 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import PanicSound from '../../../shared/modules/PanicSoundModule';
 import { useAlert } from '../../providers/context/AlertContext';
 
+// First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
+// Battery/autostart targets only render on Android — on iOS their refs never
+// attach to a node, so the tour skips them automatically (see goToStep/next
+// in CoachmarkContext, which measure-and-skip unmeasurable targets).
+const SETTINGS_TOUR_STEPS: CoachStep[] = [
+  {
+    targetId: 'settings.biometric',
+    title: 'Biometría',
+    text: 'Actívala para pedir tu huella o Face ID cada vez que abras RemoteLink.',
+  },
+  {
+    targetId: 'settings.panicAlerts',
+    title: 'Alertas de pánico',
+    text: 'Con esto activo, tu teléfono sonará una alarma si alguien activa el botón de pánico en el conjunto.',
+  },
+  {
+    targetId: 'settings.battery',
+    title: 'Optimización de batería',
+    text: 'Evita que el sistema mate la app en segundo plano, para que la alarma de pánico te llegue con la app cerrada.',
+  },
+  {
+    targetId: 'settings.autostart',
+    title: 'Inicio automático',
+    text: 'Requerido por tu fabricante (Xiaomi, Huawei, Oppo…) para que las notificaciones lleguen con la app cerrada.',
+    placement: 'top',
+  },
+];
+
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { resetTour } = useCoachmark();
+  const { resetTour, startTour } = useCoachmark();
   const { showError, showSuccess, showInfo, showQuestion, showWarning } = useAlert()
   const gs = useGlobalStyles();
   const {
@@ -29,6 +57,12 @@ export default function SettingsScreen() {
 
   const isAndroid = Platform.OS === 'android';
   const [batteryExempt, setBatteryExempt] = useState(true);
+
+  // First-run walkthrough targets + trigger.
+  const biometricRef = useCoachmarkTarget('settings.biometric');
+  const panicAlertsRef = useCoachmarkTarget('settings.panicAlerts');
+  const batteryRef = useCoachmarkTarget('settings.battery');
+  const autostartRef = useCoachmarkTarget('settings.autostart');
 
   const refreshPermissions = useCallback(() => {
     if (!isAndroid) return;
@@ -41,6 +75,13 @@ export default function SettingsScreen() {
 
   // Re-check on focus — the user may return from the battery settings screen.
   useFocusEffect(refreshPermissions);
+
+  useFocusEffect(
+    useCallback(() => {
+      const t = setTimeout(() => startTour(SETTINGS_TOUR_STEPS, { persistKey: 'settings_v1' }), 700);
+      return () => clearTimeout(t);
+    }, [startTour]),
+  );
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value && !biometricSupported) {
@@ -70,9 +111,11 @@ export default function SettingsScreen() {
     refreshPermissions();
   };
 
-  // Clear the "seen" flag and jump to Home, where useFocusEffect replays the tour.
+  // Clear all "seen" flags and jump to Home — its useFocusEffect replays the
+  // Home tour immediately; Profile and this screen's own tour replay next time
+  // each is opened.
   const handleReplayTutorial = useCallback(async () => {
-    await resetTour('home_v2');
+    await Promise.all([resetTour('home_v2'), resetTour('profile_v1'), resetTour('settings_v1')]);
     (navigation as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Home' } });
   }, [resetTour, navigation]);
 
@@ -96,7 +139,7 @@ export default function SettingsScreen() {
           </CustomTextComponent>
 
           <Card style={styles.card}>
-            <View style={styles.row}>
+            <View ref={biometricRef} collapsable={false} style={styles.row}>
               <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
                 <Icon name="fingerprint" size={20} color={colors.primary} />
               </View>
@@ -134,7 +177,7 @@ export default function SettingsScreen() {
 
           <Card style={styles.card}>
             {/* Recibir alertas */}
-            <View style={styles.row}>
+            <View ref={panicAlertsRef} collapsable={false} style={styles.row}>
               <View style={[styles.iconBox, { backgroundColor: '#fdecec' }]}>
                 <Icon name="notifications-active" size={20} color="#c00" />
               </View>
@@ -154,11 +197,13 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* Batería: ayuda a que la alarma llegue con la app cerrada */}
-            {isAndroid && panicAlertsEnabled && (
+            {/* Batería + autoinicio: entrega de notificaciones (no solo pánico)
+                con la app cerrada. No dependen de panicAlertsEnabled. */}
+            {isAndroid && (
               <>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <TouchableOpacity
+                  ref={batteryRef}
                   style={styles.row}
                   onPress={requestBattery}
                   disabled={batteryExempt}
@@ -176,6 +221,30 @@ export default function SettingsScreen() {
                     </CustomTextComponent>
                   </View>
                   <PermissionStatus granted={batteryExempt} colors={colors} />
+                </TouchableOpacity>
+
+                {/* Autoinicio: el fabricante (MIUI/ColorOS/EMUI/…) bloquea que la
+                    app despierte para procesar el push si no está activado —
+                    sin API pública para verificar el estado, así que no hay check. */}
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  ref={autostartRef}
+                  style={styles.row}
+                  onPress={() => PanicSound?.openAutostartSettings()}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                    <Icon name="power-settings-new" size={20} color={colors.primary} />
+                  </View>
+                  <View style={gs.flex1}>
+                    <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                      Permitir inicio automático
+                    </CustomTextComponent>
+                    <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                      Requerido por tu fabricante para recibir notificaciones con la app cerrada
+                    </CustomTextComponent>
+                  </View>
+                  <Icon name="chevron-right" size={24} color={colors.textTertiary} />
                 </TouchableOpacity>
               </>
             )}
