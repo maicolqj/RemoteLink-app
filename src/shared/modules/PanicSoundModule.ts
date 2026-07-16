@@ -14,6 +14,7 @@ interface PanicSoundNative {
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
   openAutostartSettings: () => Promise<boolean>;
+  isAutostartRelevant: () => Promise<boolean>;
 }
 
 const native = NativeModules.PanicSound as PanicSoundNative | undefined;
@@ -43,6 +44,13 @@ export interface PanicSoundApi {
    * if an OEM-specific screen was opened, false on fallback.
    */
   openAutostartSettings: () => Promise<boolean>;
+  /**
+   * True when this device's manufacturer has a known OEM autostart screen
+   * (Xiaomi, Huawei/Honor, Oppo, Vivo, Letv, Asus). False on Samsung, Pixel,
+   * other stock/AOSP devices, or iOS — use this to skip nudging users toward
+   * a setting that doesn't exist on their phone.
+   */
+  isAutostartRelevant: () => Promise<boolean>;
 }
 
 const PanicSound: PanicSoundApi | null = native
@@ -83,6 +91,11 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return false;
         try { return await native.openAutostartSettings(); }
         catch (e) { console.error('[PanicSound] openAutostartSettings error:', e); return false; }
+      },
+      isAutostartRelevant: async () => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.isAutostartRelevant(); }
+        catch (e) { console.error('[PanicSound] isAutostartRelevant error:', e); return false; }
       },
     }
   : null;

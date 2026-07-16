@@ -87,11 +87,12 @@ export function PanicFAB() {
       if (data?.triggerPanicAlert?.success === false) {
         throw new Error('El servidor no pudo activar la alerta.');
       }
-      setModalVisible(false);
       showSuccess('Se notificó a seguridad y a los residentes del conjunto.', 'Alerta de pánico activada');
     } catch (err) {
       console.warn('[PanicFAB] trigger error:', err);
       showError(getApiErrorMessage(err, 'No se pudo activar la alerta de pánico. Intenta de nuevo.'), 'Alerta no enviada');
+    } finally {
+      setModalVisible(false);
     }
   }, [resident, triggerPanic, showError, showSuccess]);
 

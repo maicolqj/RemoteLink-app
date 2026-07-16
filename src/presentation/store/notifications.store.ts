@@ -31,12 +31,22 @@ interface NotificationsState {
   unreadCount: number;
   isLoading: boolean;
   isLoadingMore: boolean;
+  isDeletingAll: boolean;
   page: number;
   hasMore: boolean;
+  /**
+   * id of the last notification genuinely appended by `addNotification` (a live
+   * push/socket arrival) — distinct from `notifications[0]`, which also changes
+   * when the top row is removed or the list is replaced by a fetch. Consumers
+   * (the in-app banner) must key off this instead of the array's head so that
+   * deleting the top notification doesn't get misread as a new one arriving.
+   */
+  lastAddedId: string | null;
   addNotification: (notification: Notification) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
+  removeAllNotifications: () => Promise<void>;
   setNotifications: (notifications: Notification[]) => void;
   fetchNotifications: () => Promise<void>;
   fetchMoreNotifications: () => Promise<void>;
@@ -48,8 +58,10 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   unreadCount: 0,
   isLoading: false,
   isLoadingMore: false,
+  isDeletingAll: false,
   page: 1,
   hasMore: false,
+  lastAddedId: null,
 
   addNotification: notification => {
     set(state => {
@@ -60,6 +72,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
       return {
         notifications: [notification, ...state.notifications],
         unreadCount: state.unreadCount + (notification.isRead ? 0 : 1),
+        lastAddedId: notification.id,
       };
     });
   },
@@ -108,6 +121,27 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     // Persist the soft-delete (fire-and-forget; backend is idempotent for non-UUIDs).
     const realId = target?.data?.notificationId ?? id;
     if (UUID_RE.test(realId)) apiDeleteNotification(realId).catch(() => {});
+  },
+
+  // Bulk delete. There's no backend "delete all" mutation, so this (1) pages
+  // through the rest of the resident's history first — otherwise older pages
+  // the user hasn't scrolled to yet would silently survive the wipe and
+  // resurface via infinite scroll — then (2) soft-deletes every row individually.
+  removeAllNotifications: async () => {
+    set({ isDeletingAll: true });
+    try {
+      while (get().hasMore) {
+        await get().fetchMoreNotifications();
+      }
+      const targets = get().notifications;
+      set({ notifications: [], unreadCount: 0, page: 1, hasMore: false });
+      const realIds = targets
+        .map(n => n.data?.notificationId ?? n.id)
+        .filter(id => UUID_RE.test(id));
+      await Promise.allSettled(realIds.map(id => apiDeleteNotification(id)));
+    } finally {
+      set({ isDeletingAll: false });
+    }
   },
 
   setNotifications: notifications => {

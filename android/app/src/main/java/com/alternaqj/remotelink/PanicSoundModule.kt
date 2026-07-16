@@ -327,10 +327,13 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
     // — the OS never lets the app wake up to handle them. No public API exists to
     // read current state, so callers can't tell if it's already granted; only that
     // a screen was found and opened (or the generic app-details page as fallback).
-    @ReactMethod
-    fun openAutostartSettings(promise: Promise) {
+
+    /** OEM package/activity pairs known to gate background launch. Empty on
+     *  manufacturers (Samsung, Pixel, generic AOSP…) with no such screen — callers
+     *  use that to skip nagging users a step that doesn't apply to their device. */
+    private fun autostartCandidates(): List<Pair<String, String>> {
         val manufacturer = Build.MANUFACTURER.lowercase()
-        val candidates: List<Pair<String, String>> = when {
+        return when {
             manufacturer.contains("xiaomi") -> listOf(
                 "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
             )
@@ -353,12 +356,22 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
             )
             else -> emptyList()
         }
+    }
 
+    /** True when this device's manufacturer has a known autostart-gating screen —
+     *  used to decide whether the onboarding nudge is worth showing at all. */
+    @ReactMethod
+    fun isAutostartRelevant(promise: Promise) {
+        promise.resolve(autostartCandidates().isNotEmpty())
+    }
+
+    @ReactMethod
+    fun openAutostartSettings(promise: Promise) {
         // Intent.resolveActivity() is a no-op once a component is set explicitly —
         // it hands the component straight back without checking it exists, so it
         // can't tell candidates apart. Verify via getActivityInfo() instead, which
         // throws NameNotFoundException when the target ROM doesn't ship that screen.
-        for ((pkg, cls) in candidates) {
+        for ((pkg, cls) in autostartCandidates()) {
             try {
                 val component = android.content.ComponentName(pkg, cls)
                 reactApplicationContext.packageManager.getActivityInfo(component, 0)
@@ -374,8 +387,8 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
             }
         }
 
-        // No OEM-specific screen found (or resolveActivity failed) — send the user
-        // to the app's own details page so they can dig manually.
+        // No OEM-specific screen found (or getActivityInfo rejected every
+        // candidate) — send the user to the app's own details page to dig manually.
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 .setData(Uri.parse("package:${reactApplicationContext.packageName}"))

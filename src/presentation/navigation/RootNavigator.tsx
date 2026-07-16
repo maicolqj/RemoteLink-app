@@ -244,20 +244,29 @@ function NotificationBootstrap({
   // broadcast that would show a notification — see openAutostartSettings() in
   // PanicSoundModule for why. There's no public API to check current state, so we
   // only ask once per install and let the user re-open it from Settings later.
+  // Gated on isAutostartRelevant() — Samsung/Pixel/stock-AOSP devices have no such
+  // screen, so nudging them there would just dump them on a useless App Info page.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     if (!isAuthenticated || !settingsHydrated || autostartPromptShown) return;
-    useSettingsStore.getState().markAutostartPromptShown();
-    showQuestion(
-      'Activa el inicio automático',
-      'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
-      {
-        buttons: [
-          { text: 'Ahora no', style: 'secondary', onPress: () => {} },
-          { text: 'Activar', style: 'primary', onPress: () => { PanicSound?.openAutostartSettings(); } },
-        ],
-      },
-    );
+    let cancelled = false;
+    (async () => {
+      const relevant = await PanicSound?.isAutostartRelevant();
+      if (cancelled) return;
+      useSettingsStore.getState().markAutostartPromptShown();
+      if (!relevant) return;
+      showQuestion(
+        'Activa el inicio automático',
+        'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
+        {
+          buttons: [
+            { text: 'Ahora no', style: 'secondary', onPress: () => {} },
+            { text: 'Activar', style: 'primary', onPress: () => { PanicSound?.openAutostartSettings(); } },
+          ],
+        },
+      );
+    })();
+    return () => { cancelled = true; };
   }, [isAuthenticated, settingsHydrated, autostartPromptShown, showQuestion]);
 
   return null;
