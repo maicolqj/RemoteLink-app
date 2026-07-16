@@ -225,6 +225,11 @@ export default function HomeScreen() {
       <ScrollView style={gs.flex1} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Balance Card */}
+        {resident?.complex?.name && (
+          <CustomTextComponent fontSize={FONT_SIZE.lg} fontWeight={FONT_WEIGHT.bold as any} color={colors.textSecondary} textAlign="center" style={styles.complexLabel}>
+            {resident.complex.name.toUpperCase()}
+          </CustomTextComponent>
+        )}
         <Card elevated style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
           <View style={gs.rowBetween}>
             <View>
@@ -393,6 +398,10 @@ const styles = StyleSheet.create({
   scroll: {
     padding: SPACING.md,
     paddingBottom: SPACING.xxl,
+  },
+  complexLabel: {
+    marginBottom: SPACING.xxl,
+    marginLeft: SPACING.xs,
   },
   balanceCard: {
     marginBottom: SPACING.lg,

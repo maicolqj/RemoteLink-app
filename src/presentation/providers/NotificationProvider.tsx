@@ -23,11 +23,20 @@ export function NotificationProvider({ children }: Props) {
   const notifications = useNotificationsStore(s => s.notifications);
   const [banner, setBanner] = useState<BannerNotification | null>(null);
   const lastShownId = useRef<string | null>(null);
+  // First non-empty snapshot is persisted history (fetchNotifications on app
+  // open), not a live push — never banner it, just mark it as already seen.
+  const isFirstLoad = useRef(true);
 
   // Show banner when a new notification arrives at the top of the list
   useEffect(() => {
     const latest = notifications[0];
-    if (!latest || latest.id === lastShownId.current) return;
+    if (!latest) return;
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      lastShownId.current = latest.id;
+      return;
+    }
+    if (latest.id === lastShownId.current) return;
     lastShownId.current = latest.id;
 
     // Replace previous banner immediately

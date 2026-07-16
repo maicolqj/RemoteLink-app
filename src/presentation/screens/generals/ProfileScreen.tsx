@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -9,6 +9,7 @@ import AppHeader from '../../components/AppHeader';
 import Avatar from '../../components/Avatar';
 import Card from '../../components/Card';
 import { useTheme } from '../../providers/context/ThemeContext';
+import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useAuthStore } from '../../store/auth.store';
 import type { ProfileStackParamList } from '../../navigation/types/NavigationTypes';
@@ -19,6 +20,31 @@ import { version as APP_VERSION } from '../../../../package.json';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList, 'Profile'>;
 
+// First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
+const PROFILE_TOUR_STEPS: CoachStep[] = [
+  {
+    targetId: 'profile.phone',
+    title: 'Tu teléfono',
+    text: 'El número de contacto que el conjunto tiene registrado para ti.',
+  },
+  {
+    targetId: 'profile.email',
+    title: 'Tu correo',
+    text: 'El correo registrado, usado para notificaciones importantes de la administración.',
+  },
+  {
+    targetId: 'profile.settings',
+    title: 'Ajustes',
+    text: 'Activa biometría, controla las alertas de pánico y permisos del dispositivo (batería, inicio automático).',
+  },
+  {
+    targetId: 'profile.logout',
+    title: 'Cerrar sesión',
+    text: 'Cierra tu sesión en este dispositivo. Necesitarás iniciar sesión de nuevo para volver a entrar.',
+    placement: 'top',
+  },
+];
+
 export default function ProfileScreen() {
   const navigation = useNavigation<ProfileNavProp>();
   const insets = useSafeAreaInsets();
@@ -28,14 +54,29 @@ export default function ProfileScreen() {
 
   const fullName = resident ? `${resident.user.name} ${resident.user.lastName}` : '';
 
+  // First-run walkthrough targets + trigger.
+  const { startTour } = useCoachmark();
+  const phoneRef = useCoachmarkTarget('profile.phone');
+  const emailRef = useCoachmarkTarget('profile.email');
+  const settingsRef = useCoachmarkTarget('profile.settings');
+  const logoutRef = useCoachmarkTarget('profile.logout');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!resident) return;
+      const t = setTimeout(() => startTour(PROFILE_TOUR_STEPS, { persistKey: 'profile_v1' }), 700);
+      return () => clearTimeout(t);
+    }, [resident, startTour]),
+  );
+
   const menuItems = [
-    { id: 'phone',    icon: 'phone',    label: 'Teléfono',           value: resident?.user.phoneNumber, onPress: () => {} },
-    { id: 'email',    icon: 'email',    label: 'Correo electrónico', value: resident?.user.email,       onPress: () => {} },
-    { id: 'settings', icon: 'settings', label: 'Ajustes',                                               onPress: () => navigation.navigate('Settings') },
+    { id: 'phone',    icon: 'phone',    label: 'Teléfono',           value: resident?.user.phoneNumber, onPress: () => {}, ref: phoneRef },
+    { id: 'email',    icon: 'email',    label: 'Correo electrónico', value: resident?.user.email,       onPress: () => {}, ref: emailRef },
+    { id: 'settings', icon: 'settings', label: 'Ajustes',                                               onPress: () => navigation.navigate('Settings'), ref: settingsRef },
   ];
 
   const dangerItems = [
-    { id: 'logout', icon: 'logout', label: 'Cerrar sesión', onPress: logout },
+    { id: 'logout', icon: 'logout', label: 'Cerrar sesión', onPress: logout, ref: logoutRef },
   ];
 
   return (
@@ -66,7 +107,7 @@ export default function ProfileScreen() {
         <Card style={styles.section}>
           {menuItems.map((item, index) => (
             <View key={item.id}>
-              <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
+              <TouchableOpacity ref={item.ref} style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
                 <View style={[styles.menuIcon, { backgroundColor: colors.primarySurface }]}>
                   <Icon name={item.icon} size={20} color={colors.primary} />
                 </View>
@@ -92,7 +133,7 @@ export default function ProfileScreen() {
         {/* Danger zone */}
         <Card>
           {dangerItems.map(item => (
-            <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
+            <TouchableOpacity key={item.id} ref={item.ref} style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
               <View style={[styles.menuIcon, { backgroundColor: colors.errorLight }]}>
                 <Icon name={item.icon} size={20} color={colors.error} />
               </View>

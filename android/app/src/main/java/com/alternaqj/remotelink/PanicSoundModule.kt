@@ -318,6 +318,74 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ─── Autostart settings (OEM background-launch whitelist) ─────────────────
+    // Standard Android has no public "autostart" API — MIUI, ColorOS, FuntouchOS,
+    // EMUI/Magic UI and a few others each gate whether a killed app's broadcast
+    // receivers (FCM's c2dm.intent.RECEIVE included) get to run at all behind a
+    // manufacturer-specific settings screen. Without it enabled here, panic and
+    // regular push notifications are silently dropped whenever the app is killed
+    // — the OS never lets the app wake up to handle them. No public API exists to
+    // read current state, so callers can't tell if it's already granted; only that
+    // a screen was found and opened (or the generic app-details page as fallback).
+    @ReactMethod
+    fun openAutostartSettings(promise: Promise) {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val candidates: List<Pair<String, String>> = when {
+            manufacturer.contains("xiaomi") -> listOf(
+                "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            )
+            manufacturer.contains("huawei") || manufacturer.contains("honor") -> listOf(
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            )
+            manufacturer.contains("oppo") -> listOf(
+                "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+                "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            )
+            manufacturer.contains("vivo") -> listOf(
+                "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            )
+            manufacturer.contains("letv") -> listOf(
+                "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity",
+            )
+            manufacturer.contains("asus") -> listOf(
+                "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity",
+            )
+            else -> emptyList()
+        }
+
+        // Intent.resolveActivity() is a no-op once a component is set explicitly —
+        // it hands the component straight back without checking it exists, so it
+        // can't tell candidates apart. Verify via getActivityInfo() instead, which
+        // throws NameNotFoundException when the target ROM doesn't ship that screen.
+        for ((pkg, cls) in candidates) {
+            try {
+                val component = android.content.ComponentName(pkg, cls)
+                reactApplicationContext.packageManager.getActivityInfo(component, 0)
+                val intent = Intent().apply {
+                    this.component = component
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                launchIntent(intent)
+                promise.resolve(true)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "openAutostartSettings candidate failed: $pkg/$cls — ${e.message}")
+            }
+        }
+
+        // No OEM-specific screen found (or resolveActivity failed) — send the user
+        // to the app's own details page so they can dig manually.
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
+            launchIntent(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "openAutostartSettings fallback error: ${e.message}")
+        }
+        promise.resolve(false)
+    }
+
     private fun launchIntent(intent: Intent) {
         val activity = reactApplicationContext.currentActivity
         if (activity != null) {

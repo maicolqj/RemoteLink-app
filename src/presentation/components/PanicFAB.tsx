@@ -12,6 +12,7 @@ import { TRIGGER_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
 import { useAuthStore } from '../store/auth.store';
 import { useAlert } from '../providers/context/AlertContext';
 import { useCoachmarkTarget } from '../providers/context/CoachmarkContext';
+import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
 import { PanicTriggerModal } from './PanicTriggerModal';
 
 const FAB_SIZE = 56;
@@ -20,7 +21,7 @@ const DELAY_LONG_PRESS = 600;
 
 export function PanicFAB() {
   const resident = useAuthStore(s => s.resident);
-  const { showInfo } = useAlert();
+  const { showInfo, showError, showSuccess } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   // First-run walkthrough target (the tour itself lives in HomeScreen).
   const coachRef = useCoachmarkTarget('home.panic');
@@ -46,7 +47,10 @@ export function PanicFAB() {
     return () => anim.stop();
   }, [pulseScale, pulseOpacity]);
 
-  const [triggerPanic, { loading }] = useMutation(TRIGGER_PANIC_ALERT);
+  const [triggerPanic, { loading }] = useMutation<
+    { triggerPanicAlert: { success: boolean } },
+    { complexId: string }
+  >(TRIGGER_PANIC_ALERT);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scaleAnim, { toValue: 0.88, friction: 10, useNativeDriver: true }).start();
@@ -70,17 +74,26 @@ export function PanicFAB() {
   // Backend triggerPanicAlert only takes complexId — routing and labels are
   // derived server-side from the authenticated user's role/unit.
   const handleConfirm = useCallback(async (_message: string) => {
-    if (!resident?.complex?.id) return;
+    if (!resident?.complex?.id) {
+      showError('No se pudo identificar tu conjunto. Vuelve a iniciar sesión e intenta de nuevo.', 'Alerta no enviada');
+      return;
+    }
     try {
-      await triggerPanic({
+      const { data, error } = await triggerPanic({
         variables: { complexId: resident.complex.id },
       });
+      // Apollo v4 + errorPolicy 'all' no lanza — devuelve el error en `error` (singular).
+      if (error) throw error;
+      if (data?.triggerPanicAlert?.success === false) {
+        throw new Error('El servidor no pudo activar la alerta.');
+      }
+      setModalVisible(false);
+      showSuccess('Se notificó a seguridad y a los residentes del conjunto.', 'Alerta de pánico activada');
     } catch (err) {
       console.warn('[PanicFAB] trigger error:', err);
-    } finally {
-      setModalVisible(false);
+      showError(getApiErrorMessage(err, 'No se pudo activar la alerta de pánico. Intenta de nuevo.'), 'Alerta no enviada');
     }
-  }, [resident, triggerPanic]);
+  }, [resident, triggerPanic, showError, showSuccess]);
 
   const handleCancel = useCallback(() => setModalVisible(false), []);
 

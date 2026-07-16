@@ -13,6 +13,7 @@ interface PanicSoundNative {
   getInitialPanicData: () => Promise<PanicLaunchData | null>;
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
+  openAutostartSettings: () => Promise<boolean>;
 }
 
 const native = NativeModules.PanicSound as PanicSoundNative | undefined;
@@ -35,6 +36,13 @@ export interface PanicSoundApi {
    * Resolves true if already exempt, false if the dialog was opened (re-check after).
    */
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
+  /**
+   * Opens the manufacturer's autostart/background-launch whitelist screen
+   * (MIUI, ColorOS, FuntouchOS, EMUI, …), falling back to the app's own
+   * details page if the device's OEM screen isn't recognized. Resolves true
+   * if an OEM-specific screen was opened, false on fallback.
+   */
+  openAutostartSettings: () => Promise<boolean>;
 }
 
 const PanicSound: PanicSoundApi | null = native
@@ -70,6 +78,11 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return true;
         try { return await native.requestIgnoreBatteryOptimizations(); }
         catch (e) { console.error('[PanicSound] requestIgnoreBatteryOptimizations error:', e); return false; }
+      },
+      openAutostartSettings: async () => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.openAutostartSettings(); }
+        catch (e) { console.error('[PanicSound] openAutostartSettings error:', e); return false; }
       },
     }
   : null;

@@ -4,6 +4,7 @@ import SecureStorageService from '../../infraestructure/services/SecureStorageSe
 import * as Keychain from 'react-native-keychain';
 
 const PANIC_ALERTS_KEY = 'settings.panicAlertsEnabled';
+const AUTOSTART_PROMPT_KEY = 'settings.autostartPromptShown';
 
 // Standalone reader for non-React / headless contexts (e.g. the FCM background
 // handler in index.js) where the zustand store isn't hydrated. Defaults to true.
@@ -21,10 +22,12 @@ interface SettingsState {
   biometricSupported: boolean;
   biometricType: string | null;
   panicAlertsEnabled: boolean;
+  autostartPromptShown: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   setPanicAlertsEnabled: (enabled: boolean) => Promise<void>;
+  markAutostartPromptShown: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -32,13 +35,15 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   biometricSupported: false,
   biometricType: null,
   panicAlertsEnabled: true,
+  autostartPromptShown: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [enabled, status, panicAlerts] = await Promise.all([
+    const [enabled, status, panicAlerts, autostartPromptShown] = await Promise.all([
       SecureStorageService.isBiometricEnabled(),
       SecureStorageService.getBiometricStatus(),
       getPanicAlertsEnabled(),
+      AsyncStorage.getItem(AUTOSTART_PROMPT_KEY).then(v => v === '1'),
     ]);
 
     const typeLabel = status.biometryType === Keychain.BIOMETRY_TYPE.FACE_ID
@@ -56,6 +61,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       biometricSupported: status.isAvailable,
       biometricType: typeLabel,
       panicAlertsEnabled: panicAlerts,
+      autostartPromptShown,
       hydrated: true,
     });
   },
@@ -68,5 +74,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setPanicAlertsEnabled: async (enabled: boolean) => {
     await AsyncStorage.setItem(PANIC_ALERTS_KEY, enabled ? '1' : '0');
     set({ panicAlertsEnabled: enabled });
+  },
+
+  markAutostartPromptShown: async () => {
+    await AsyncStorage.setItem(AUTOSTART_PROMPT_KEY, '1');
+    set({ autostartPromptShown: true });
   },
 }));
