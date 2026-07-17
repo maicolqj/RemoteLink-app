@@ -11,6 +11,15 @@ export const LOGIN_RESIDENT = gql`
   }
 `;
 
+export const RESEND_SYSTEM_CODE = gql`
+  mutation ResendResidentSystemCode($identity: String!) {
+    resendResidentSystemCode(identity: $identity) {
+      success
+      message
+    }
+  }
+`;
+
 export const REFRESH_TOKEN = gql`
   mutation RefreshToken($refreshToken: String!) {
     refreshToken(refreshToken: $refreshToken) {

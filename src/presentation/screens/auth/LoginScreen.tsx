@@ -19,7 +19,7 @@ import CustomButtonComponent from '../../components/CustomButtonComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAuthStore } from '../../store/auth.store';
-import { loginResident } from '../../../infraestructure/services/auth.service';
+import { loginResident, requestSystemCode } from '../../../infraestructure/services/auth.service';
 import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import SecureStorageService from '../../../infraestructure/services/SecureStorageService';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
@@ -99,13 +99,19 @@ export default function LoginScreen() {
       setIdentityTouched(true);
       return;
     }
-    // TODO: wire to backend resendSystemCode(identity) mutation when available
     setRequestState('loading');
-    await new Promise<void>(r => setTimeout(() => r(), 800));
-    setRequestState('sent');
-    startResendTimer();
-    bounceIcon();
-    showSentBadge();
+    setSubmitError('');
+    try {
+      await requestSystemCode(identity);
+      setRequestState('sent');
+      startResendTimer();
+      bounceIcon();
+      showSentBadge();
+    } catch (err: any) {
+      // Mensaje ya normalizado por la capa de servicio (getApiErrorMessage)
+      setRequestState('error');
+      setSubmitError(err?.message ?? 'No se pudo enviar el código. Intenta de nuevo.');
+    }
   }, [identity, startResendTimer, bounceIcon, showSentBadge]);
 
   // ── Submit ─────────────────────────────────────────────────────────────────

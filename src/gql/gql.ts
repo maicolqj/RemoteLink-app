@@ -17,6 +17,7 @@ type Documents = {
     "\n  mutation ApproveAccessRequest($requestId: String!) {\n    approveAccessRequest(requestId: $requestId) {\n      id\n      status\n      resolvedAt\n    }\n  }\n": typeof types.ApproveAccessRequestDocument,
     "\n  mutation RejectAccessRequest($input: RejectAccessRequestInput!) {\n    rejectAccessRequest(input: $input) {\n      id\n      status\n      rejectionReason\n      resolvedAt\n    }\n  }\n": typeof types.RejectAccessRequestDocument,
     "\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.LoginResidentDocument,
+    "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n": typeof types.ResendResidentSystemCodeDocument,
     "\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.RefreshTokenDocument,
     "\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n": typeof types.GetMyResidentProfileDocument,
     "\n  query GetUnitBalance($unitId: String!, $complexId: String!) {\n    unitBalance(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      totalDebt\n      overdueCount\n      pendingCount\n      totalPaid\n    }\n  }\n": typeof types.GetUnitBalanceDocument,
@@ -51,6 +52,7 @@ const documents: Documents = {
     "\n  mutation ApproveAccessRequest($requestId: String!) {\n    approveAccessRequest(requestId: $requestId) {\n      id\n      status\n      resolvedAt\n    }\n  }\n": types.ApproveAccessRequestDocument,
     "\n  mutation RejectAccessRequest($input: RejectAccessRequestInput!) {\n    rejectAccessRequest(input: $input) {\n      id\n      status\n      rejectionReason\n      resolvedAt\n    }\n  }\n": types.RejectAccessRequestDocument,
     "\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.LoginResidentDocument,
+    "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n": types.ResendResidentSystemCodeDocument,
     "\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.RefreshTokenDocument,
     "\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n": types.GetMyResidentProfileDocument,
     "\n  query GetUnitBalance($unitId: String!, $complexId: String!) {\n    unitBalance(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      totalDebt\n      overdueCount\n      pendingCount\n      totalPaid\n    }\n  }\n": types.GetUnitBalanceDocument,
@@ -108,6 +110,10 @@ export function graphql(source: "\n  mutation RejectAccessRequest($input: Reject
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"): (typeof documents)["\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n"): (typeof documents)["\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

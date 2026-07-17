@@ -1,5 +1,5 @@
 import apolloClient from '../../data/lib/apollo/client';
-import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN } from '../../domain/graphql/auth.queries';
+import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN, RESEND_SYSTEM_CODE } from '../../domain/graphql/auth.queries';
 import SecureStorageService from './SecureStorageService';
 import { getApiErrorMessage } from '../utils/apiError';
 import type { Resident } from '../../presentation/store/auth.store';
@@ -21,6 +21,10 @@ interface MyResidentProfileResponse {
 
 interface RefreshTokenResponse {
   refreshToken: LoginResult;
+}
+
+interface ResendSystemCodeResponse {
+  resendResidentSystemCode: { success: boolean; message: string };
 }
 
 /**
@@ -78,6 +82,28 @@ export async function loginResident(
   if (error) throw new Error(getApiErrorMessage(error, 'Identidad o código incorrecto'));
   if (!data?.loginResident) throw new Error('Respuesta inválida del servidor');
   return data.loginResident;
+}
+
+/**
+ * Solicita el reenvío del código de sistema (RES-xxxxx) por WhatsApp.
+ * El backend responde siempre con un mensaje genérico (anti-enumeración);
+ * `message` es apto para mostrarse directamente al usuario.
+ */
+export async function requestSystemCode(identity: string): Promise<string> {
+  let mutationResult: Awaited<ReturnType<typeof apolloClient.mutate<ResendSystemCodeResponse>>>;
+  try {
+    mutationResult = await apolloClient.mutate<ResendSystemCodeResponse>({
+      mutation: RESEND_SYSTEM_CODE,
+      variables: { identity: identity.trim() },
+      context: { skipAuth: true },
+    });
+  } catch (e: unknown) {
+    throw new Error(getApiErrorMessage(e, 'No se pudo conectar al servidor'));
+  }
+  const { data, error } = mutationResult;
+  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo enviar el código. Intenta de nuevo'));
+  if (!data?.resendResidentSystemCode) throw new Error('Respuesta inválida del servidor');
+  return data.resendResidentSystemCode.message;
 }
 
 export async function fetchMyResidentProfile(): Promise<Resident> {
