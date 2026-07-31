@@ -73,6 +73,9 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Auth: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
+  // Documentos legales en WebView. Vive en el root (fuera del condicional de
+  // sesión) para ser alcanzable tanto desde el login como desde Ajustes.
+  Legal: { url: string; title: string };
 };
 
 // Cross-stack navigation helper types

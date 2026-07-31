@@ -10,6 +10,7 @@ import { ActivityIndicator, Alert, Platform, StatusBar, View } from 'react-nativ
 import type { RootStackParamList } from './types/NavigationTypes';
 import MainNavigator from './MainNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
+import LegalScreen from '../screens/generals/LegalScreen';
 import { PanicFAB } from '../components/PanicFAB';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
@@ -296,6 +297,12 @@ function ThemedNavigator() {
           ) : (
             <Stack.Screen name="Auth" component={LoginScreen} />
           )}
+          {/* Fuera del condicional: los legales deben abrirse con y sin sesión. */}
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
       {isAuthenticated && <PanicFAB />}

@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
@@ -25,6 +26,7 @@ import SecureStorageService from '../../../infraestructure/services/SecureStorag
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
+import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
@@ -44,8 +46,15 @@ type RequestState = 'idle' | 'loading' | 'sent' | 'error';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { colors } = useTheme();
   const setSession = useAuthStore(s => s.setSession);
+
+  // La pantalla Legal vive en el root stack, así que es alcanzable sin sesión.
+  const openLegal = useCallback(
+    (doc: LegalDocument) => navigation.navigate('Legal', { url: doc.url, title: doc.title }),
+    [navigation],
+  );
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [identity, setIdentity] = useState('');
@@ -372,6 +381,50 @@ export default function LoginScreen() {
               </CustomTextComponent>
             </View>
 
+            {/* ── Legal ── */}
+            <View style={styles.legalBlock}>
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                color={colors.textTertiary}
+                textAlign="center"
+                style={styles.legalIntro}>
+                Al ingresar aceptas nuestros
+              </CustomTextComponent>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity
+                  onPress={() => openLegal(LEGAL_LINKS.terms)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="link"
+                  accessibilityLabel="Ver términos y condiciones">
+                  <CustomTextComponent
+                    fontSize={FONT_SIZE.xs}
+                    fontWeight={FONT_WEIGHT.medium}
+                    color={colors.primary}
+                    style={styles.legalLinkText}>
+                    Términos y condiciones
+                  </CustomTextComponent>
+                </TouchableOpacity>
+
+                <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                  ·
+                </CustomTextComponent>
+
+                <TouchableOpacity
+                  onPress={() => openLegal(LEGAL_LINKS.privacy)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="link"
+                  accessibilityLabel="Ver política de privacidad">
+                  <CustomTextComponent
+                    fontSize={FONT_SIZE.xs}
+                    fontWeight={FONT_WEIGHT.medium}
+                    color={colors.primary}
+                    style={styles.legalLinkText}>
+                    Política de privacidad
+                  </CustomTextComponent>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* TEMP DEBUG — remove after confirming URL */}
             <CustomTextComponent fontSize={FONT_SIZE.xs} color="red" textAlign="center">
               {STAGE === 'development' ? <Icon name="brightness1" size={5} color={colors.error} /> : <Icon name="brightness1" size={5} color={colors.successLight} />}
@@ -525,6 +578,26 @@ const styles = StyleSheet.create({
   errorBannerText: {
     flex: 1,
     lineHeight: FONT_SIZE.sm * 1.4,
+  },
+
+  // Legal
+  legalBlock: {
+    alignItems: 'center',
+    gap: SPACING.xs / 2,
+    marginTop: -SPACING.xs,
+  },
+  legalIntro: {
+    lineHeight: FONT_SIZE.xs * 1.4,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  legalLinkText: {
+    textDecorationLine: 'underline',
   },
 
   // Security
