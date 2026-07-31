@@ -795,6 +795,23 @@ export type CreateFeeConfigInput = {
   unitType?: InputMaybe<UnitType>;
 };
 
+export type CreateLegalDocumentInput = {
+  /** PUBLIC por defecto */
+  audience?: InputMaybe<LegalAudience>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Archivo .docx en base64 (sin prefijo data URI). Se convierte a HTML en el servidor. */
+  docxBase64?: InputMaybe<Scalars['String']['input']>;
+  /** Si ofrece descarga (requiere pdfBase64) */
+  isDownloadable?: InputMaybe<Scalars['Boolean']['input']>;
+  /** PDF descargable en base64 (sin prefijo data URI). */
+  pdfBase64?: InputMaybe<Scalars['String']['input']>;
+  /** Nombre del archivo PDF (para la descarga). */
+  pdfFileName?: InputMaybe<Scalars['String']['input']>;
+  /** Identificador de URL (kebab-case) */
+  slug: Scalars['String']['input'];
+  title: Scalars['String']['input'];
+};
+
 /** Datos requeridos para crear un nuevo permiso */
 export type CreatePermissionInput = {
   /** Obliges to have a previous permission to assign another (e.g., need "user:read" to get "user:edit"). */
@@ -1052,6 +1069,12 @@ export type DirectIncome = {
   reversedByUserId?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
 };
+
+/** Estado de validación del DPA firmado subido por un complejo */
+export type DpaValidationStatus =
+  | 'APPROVED'
+  | 'PENDING'
+  | 'REJECTED';
 
 /** Categoría del gasto operativo del complejo */
 export type ExpenseCategory =
@@ -1400,6 +1423,41 @@ export type IncomeCategoryBreakdown = {
   total: Scalars['Float']['output'];
 };
 
+/** Audiencia de un documento legal (público o solo complejos registrados) */
+export type LegalAudience =
+  | 'COMPLEX'
+  | 'PUBLIC';
+
+/** Documento legal público del sistema */
+export type LegalDocument = {
+  __typename?: 'LegalDocument';
+  /** Audiencia: PUBLIC (/legal) o COMPLEX (solo complejos registrados) */
+  audience: LegalAudience;
+  /** Contenido HTML sanitizado */
+  contentHtml?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  /** Descripción corta para el índice */
+  description?: Maybe<Scalars['String']['output']>;
+  /** Nombre del archivo descargable */
+  downloadFileName?: Maybe<Scalars['String']['output']>;
+  /** URL del PDF descargable (R2) */
+  downloadFileUrl?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  /** Si ofrece un archivo descargable (PDF) */
+  isDownloadable: Scalars['Boolean']['output'];
+  /** Si está publicado (visible/activo) */
+  isPublished: Scalars['Boolean']['output'];
+  /** Identificador de URL: /legal/<slug> */
+  slug: Scalars['String']['output'];
+  /** Título del documento */
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  /** ID del usuario que actualizó por última vez */
+  updatedById?: Maybe<Scalars['String']['output']>;
+  /** Versión, incrementa en cada actualización de contenido */
+  version: Scalars['Int']['output'];
+};
+
 export type LogCallInput = {
   answeredAt?: InputMaybe<Scalars['String']['input']>;
   buildingName?: InputMaybe<Scalars['String']['input']>;
@@ -1534,6 +1592,8 @@ export type Mutation = {
   createDirectCharges: CreateDirectChargesResponse;
   createExpenseVoucher: AccountingHeader;
   createFeeConfig: FeeConfig;
+  /** Crea un documento legal. Solo SUPER_ADMIN. */
+  createLegalDocument: LegalDocument;
   createPermission: CreatePermissionResponse;
   createPucAccount: PucAccount;
   createRecurringCharge: RecurringCharge;
@@ -1546,6 +1606,8 @@ export type Mutation = {
   createWalletCredit: WalletEntryObject;
   deleteChargeCategory: Scalars['Boolean']['output'];
   deleteFeeConfig: Scalars['Boolean']['output'];
+  /** Elimina un documento legal. Solo SUPER_ADMIN. */
+  deleteLegalDocument: Scalars['Boolean']['output'];
   deleteNote: Note;
   deleteNotification: Scalars['Boolean']['output'];
   deletePucAccount: Scalars['Boolean']['output'];
@@ -1640,6 +1702,7 @@ export type Mutation = {
   reversePayment: Payment;
   /** Revierte una acción registrada en el historial a su estado anterior. Solo disponible para SUPER_ADMIN_ROL. Una acción solo puede revertirse una vez. */
   revertAudit: RevertAuditResponse;
+  reviewSignedDpa: ResidentialComplex;
   saveMobileToken: PushSubscriptionResult;
   savePushSubscription: PushSubscriptionResult;
   saveSentMessage: SentMessage;
@@ -1668,6 +1731,8 @@ export type Mutation = {
   updateComplex: ResidentialComplex;
   updateComplexModules: ResidentialComplex;
   updateFeeConfig: FeeConfig;
+  /** Actualiza metadatos/contenido/publicación de un documento legal. Solo SUPER_ADMIN. */
+  updateLegalDocument: LegalDocument;
   /** Update an existing permission */
   updatePermission: UpdatePermissionResponse;
   updatePucAccount: PucAccount;
@@ -1681,6 +1746,7 @@ export type Mutation = {
   updateUserIdentity: User;
   updateVehicle: Vehicle;
   updateVisitorParkingConfig: VisitorParkingConfig;
+  uploadSignedDpa: ResidentialComplex;
   upsertCoefficientWeighting: CoefficientWeighting;
   upsertComplexFinanceConfig: ComplexFinanceConfig;
   /** Asigna un rol a un usuario */
@@ -1859,6 +1925,11 @@ export type MutationCreateFeeConfigArgs = {
 };
 
 
+export type MutationCreateLegalDocumentArgs = {
+  input: CreateLegalDocumentInput;
+};
+
+
 export type MutationCreatePermissionArgs = {
   input: CreatePermissionInput;
 };
@@ -1911,6 +1982,11 @@ export type MutationDeleteChargeCategoryArgs = {
 
 export type MutationDeleteFeeConfigArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteLegalDocumentArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1983,7 +2059,7 @@ export type MutationLoginWithIdentityNumArgs = {
 
 
 export type MutationMarkAllNotificationsAsReadArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2267,6 +2343,13 @@ export type MutationRevertAuditArgs = {
 };
 
 
+export type MutationReviewSignedDpaArgs = {
+  complexId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+  status: DpaValidationStatus;
+};
+
+
 export type MutationSaveMobileTokenArgs = {
   input: SaveMobileTokenInput;
 };
@@ -2392,6 +2475,12 @@ export type MutationUpdateFeeConfigArgs = {
 };
 
 
+export type MutationUpdateLegalDocumentArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateLegalDocumentInput;
+};
+
+
 export type MutationUpdatePermissionArgs = {
   id: Scalars['String']['input'];
   updatePermissionInput: UpdatePermissionInput;
@@ -2446,6 +2535,12 @@ export type MutationUpdateVehicleArgs = {
 
 export type MutationUpdateVisitorParkingConfigArgs = {
   input: UpdateVisitorParkingConfigInput;
+};
+
+
+export type MutationUploadSignedDpaArgs = {
+  fileName?: InputMaybe<Scalars['String']['input']>;
+  pdfBase64: Scalars['String']['input'];
 };
 
 
@@ -2617,6 +2712,9 @@ export type NotificationType =
   | 'CHARGE_WAIVED'
   | 'COMPLEX_ALERT'
   | 'DIRECT_CHARGE'
+  | 'DPA_APPROVED'
+  | 'DPA_REJECTED'
+  | 'DPA_SIGNED'
   | 'MORA_APPLIED'
   | 'PACKAGE_DELIVERED'
   | 'PACKAGE_LOST'
@@ -3168,11 +3266,15 @@ export type Query = {
   complexFinanceConfig: ComplexFinanceConfig;
   complexFinancialSummary: ComplexFinancialSummaryResponse;
   complexIncomes: PaginatedIncomesResponse;
+  /** Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). Ej: Anexo B2B / DPA a firmar. Disponible para complejos autenticados. */
+  complexLegalDocuments: Array<LegalDocument>;
   complexNotifications: PaginatedNotificationsResponse;
   complexes: PaginatedComplexesResponse;
   feeConfigs: Array<FeeConfig>;
   findnotes: PaginatedNotesResponse;
   getRoleHierarchy: RoleHierarchyResponse;
+  /** Todos los documentos legales (incluidos no publicados). Solo SUPER_ADMIN. */
+  legalDocumentsAdmin: Array<LegalDocument>;
   /** Perfil completo del usuario autenticado (usuario o complejo residencial) */
   me: MeResponse;
   /** Retorna el historial de solicitudes de acceso del supervisor (últimas 50). */
@@ -3397,7 +3499,7 @@ export type QueryGetRoleHierarchyArgs = {
 
 
 export type QueryMyNotificationsArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<FilterNotificationsInput>;
   pagination?: InputMaybe<PaginationInput>;
 };
@@ -3434,7 +3536,7 @@ export type QueryNoteArgs = {
 
 
 export type QueryNotificationDetailArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
   notificationId: Scalars['String']['input'];
 };
 
@@ -3622,7 +3724,7 @@ export type QueryUnitsFinancialStatusArgs = {
 
 
 export type QueryUnreadNotificationsCountArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -4148,6 +4250,8 @@ export type ResidentTypeBreakdown = {
 /** Complejo residencial del sistema */
 export type ResidentialComplex = {
   __typename?: 'ResidentialComplex';
+  /** Fecha/hora en que se aceptaron Términos, Privacidad y DPA durante el registro */
+  acceptedTermsAt?: Maybe<Scalars['DateTime']['output']>;
   /** Date until which the account is blocked due to failed attempts */
   accountLockedUntil?: Maybe<Scalars['DateTime']['output']>;
   /** Dirección principal del complejo */
@@ -4216,6 +4320,18 @@ export type ResidentialComplex = {
   rutFileUrl?: Maybe<Scalars['String']['output']>;
   /** Configuración avanzada del complejo */
   settings?: Maybe<Scalars['JSON']['output']>;
+  /** Nombre del archivo del DPA firmado */
+  signedDpaFileName?: Maybe<Scalars['String']['output']>;
+  /** Motivo del rechazo del DPA firmado (si fue rechazado) */
+  signedDpaRejectionReason?: Maybe<Scalars['String']['output']>;
+  /** Fecha en que el SUPER_ADMIN revisó (aprobó/rechazó) el DPA firmado */
+  signedDpaReviewedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Estado de validación del DPA firmado (revisión del SUPER_ADMIN) */
+  signedDpaStatus?: Maybe<DpaValidationStatus>;
+  /** Fecha de subida del DPA firmado */
+  signedDpaUploadedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** URL del DPA (Anexo B2B) firmado, subido por el complejo (R2) */
+  signedDpaUrl?: Maybe<Scalars['String']['output']>;
   /** Slug único derivado del nombre */
   slug: Scalars['String']['output'];
   /** Departamento o estado */
@@ -4902,6 +5018,19 @@ export type UpdateFeeConfigInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   targetRules?: InputMaybe<FeeConfigTargetRulesInput>;
   triggerType?: InputMaybe<FeeConfigTriggerType>;
+};
+
+export type UpdateLegalDocumentInput = {
+  audience?: InputMaybe<LegalAudience>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Nuevo .docx en base64. Si se envía, reemplaza el contenido HTML e incrementa la versión. */
+  docxBase64?: InputMaybe<Scalars['String']['input']>;
+  isDownloadable?: InputMaybe<Scalars['Boolean']['input']>;
+  isPublished?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Nuevo PDF descargable en base64. Reemplaza el anterior. */
+  pdfBase64?: InputMaybe<Scalars['String']['input']>;
+  pdfFileName?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdatePermissionInput = {

@@ -20,11 +20,12 @@ import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAuthStore } from '../../store/auth.store';
 import { loginResident, requestSystemCode } from '../../../infraestructure/services/auth.service';
-import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
+// import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import SecureStorageService from '../../../infraestructure/services/SecureStorageService';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
+import { STAGE } from '@env';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ export default function LoginScreen() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestState, setRequestState] = useState<RequestState>('idle');
+  const [requestMessage, setRequestMessage] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
 
   // ── Animations ─────────────────────────────────────────────────────────────
@@ -67,6 +69,7 @@ export default function LoginScreen() {
 
   // ── Resend countdown ───────────────────────────────────────────────────────
   const startResendTimer = useCallback(() => {
+    timerRef.current && clearInterval(timerRef.current);
     setResendTimer(RESEND_COOLDOWN);
     timerRef.current = setInterval(() => {
       setResendTimer(prev => {
@@ -101,16 +104,22 @@ export default function LoginScreen() {
     }
     setRequestState('loading');
     setSubmitError('');
+    setRequestMessage('');
     try {
-      await requestSystemCode(identity);
+      const { message } = await requestSystemCode(identity);
+      // El backend responde con un mensaje genérico a propósito (no revela si la
+      // identidad existe). Se muestra tal cual, sin reemplazarlo por lógica local.
       setRequestState('sent');
+      setRequestMessage(message);
       startResendTimer();
       bounceIcon();
       showSentBadge();
     } catch (err: any) {
-      // Mensaje ya normalizado por la capa de servicio (getApiErrorMessage)
+      // Mensaje ya normalizado por la capa de servicio (parseApiError).
       setRequestState('error');
       setSubmitError(err?.message ?? 'No se pudo enviar el código. Intenta de nuevo.');
+      // Rate limit del backend (3 por identidad / 10 min): el botón sigue bloqueado.
+      if (err?.rateLimited) startResendTimer();
     }
   }, [identity, startResendTimer, bounceIcon, showSentBadge]);
 
@@ -190,7 +199,7 @@ export default function LoginScreen() {
               pointerEvents="none">
               <Icon name="check-circle" size={14} color="#FFFFFF" />
               <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium} color="#FFFFFF">
-                Código enviado a tu WhatsApp
+                Solicitud enviada
               </CustomTextComponent>
             </Animated.View>
 
@@ -224,7 +233,7 @@ export default function LoginScreen() {
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); if (requestState === 'error') setRequestState('idle'); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setRequestMessage(''); if (requestState === 'error') setRequestState('idle'); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -288,6 +297,32 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {/* ── WhatsApp helper ── */}
+            <View style={styles.helperRow}>
+              <Icon name="chat" size={14} color={colors.textTertiary} />
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                color={colors.textTertiary}
+                style={styles.helperText}>
+                Te enviamos tu código por WhatsApp al número registrado
+              </CustomTextComponent>
+            </View>
+
+            {/* ── Backend message (genérico, se muestra tal cual) ── */}
+            {requestMessage ? (
+              <View
+                style={[styles.infoBanner, { backgroundColor: colors.success + '14', borderColor: colors.success + '40' }]}
+                accessibilityRole="alert">
+                <Icon name="check-circle-outline" size={ICON_SIZE.sm} color={colors.success} />
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  color={colors.success}
+                  style={styles.errorBannerText}>
+                  {requestMessage}
+                </CustomTextComponent>
+              </View>
+            ) : null}
+
             {/* ── Error banner ── */}
             {submitError ? (
               <View
@@ -339,7 +374,7 @@ export default function LoginScreen() {
 
             {/* TEMP DEBUG — remove after confirming URL */}
             <CustomTextComponent fontSize={FONT_SIZE.xs} color="red" textAlign="center">
-              {DEBUG_API_URL}
+              {STAGE === 'development' ? <Icon name="brightness1" size={5} color={colors.error} /> : <Icon name="brightness1" size={5} color={colors.successLight} />}
             </CustomTextComponent>
           </View>
         </View>
@@ -454,6 +489,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     marginTop: SPACING.xs,
+  },
+
+  // WhatsApp helper
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: -SPACING.xs,
+  },
+  helperText: {
+    flex: 1,
+    lineHeight: FONT_SIZE.xs * 1.4,
+  },
+
+  // Info banner
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
   },
 
   // Error banner

@@ -1,0 +1,27 @@
+# =============================================================================
+# schema.overrides.gql
+#
+# Definiciones que la app YA consume pero que aún no existen en el schema.gql
+# que publica el backend, porque viven en ramas suyas sin mergear.
+#
+# Existe porque `schema.gql` es un espejo automático: el watcher
+# C:\Users\maico\Apps\sync-schema.ps1 lo sobrescribe con el schema de la rama
+# que el backend tenga activa en ese momento. Parchear `schema.gql` a mano no
+# sirve — el siguiente sync borra el parche y codegen vuelve a fallar. Este
+# archivo, en cambio, sobrevive a cualquier sincronización.
+#
+# codegen.ts carga ambos archivos y los fusiona.
+#
+# MANTENIMIENTO: cada bloque debe desaparecer en cuanto su rama del backend se
+# mergee. Si no se elimina, codegen fallará con un error de campo duplicado —
+# esa es justamente la señal para borrarlo.
+# =============================================================================
+
+# ── Backend: rama feature/resend-system-code-whatsapp ─────────────────────────
+# App: src/domain/graphql/auth.queries.ts (resendResidentSystemCode).
+extend type Mutation {
+  """
+  Reenvía el código de sistema del residente (RES-xxxxx) por WhatsApp al teléfono registrado. Respuesta genérica: no revela si la identidad existe. Rate limit por identidad e IP.
+  """
+  resendResidentSystemCode(identity: String!): OtpRequestResponse!
+}

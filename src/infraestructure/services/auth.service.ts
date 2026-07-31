@@ -1,7 +1,7 @@
 import apolloClient from '../../data/lib/apollo/client';
 import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN, RESEND_SYSTEM_CODE } from '../../domain/graphql/auth.queries';
 import SecureStorageService from './SecureStorageService';
-import { getApiErrorMessage } from '../utils/apiError';
+import { getApiErrorMessage, parseApiError, type ParsedApiError } from '../utils/apiError';
 import type { Resident } from '../../presentation/store/auth.store';
 
 export interface LoginResult {
@@ -26,6 +26,30 @@ interface RefreshTokenResponse {
 interface ResendSystemCodeResponse {
   resendResidentSystemCode: { success: boolean; message: string };
 }
+
+export interface RequestSystemCodeResult {
+  success: boolean;
+  /** Mensaje genérico del backend, apto para mostrarse tal cual al usuario. */
+  message: string;
+}
+
+/** Error del reenvío de código; `rateLimited` indica que hay que seguir bloqueando el botón. */
+export class RequestSystemCodeError extends Error {
+  readonly rateLimited: boolean;
+  constructor(message: string, rateLimited: boolean) {
+    super(message);
+    this.name = 'RequestSystemCodeError';
+    this.rateLimited = rateLimited;
+  }
+}
+
+const RATE_LIMIT_CODES = ['TOO_MANY_REQUESTS', 'RATE_LIMITED', 'THROTTLED', 'RATE_LIMIT_EXCEEDED'];
+
+/** El backend limita a 3 reenvíos por identidad cada 10 min (+ límite por IP). */
+const isRateLimitError = (parsed: ParsedApiError): boolean =>
+  parsed.statusCode === 429 ||
+  (!!parsed.code && RATE_LIMIT_CODES.includes(parsed.code)) ||
+  /demasiad|too many|espera|intenta (de nuevo )?m[áa]s tarde/i.test(parsed.message);
 
 /**
  * Canjea el refreshToken almacenado por un nuevo par de tokens.
@@ -86,10 +110,14 @@ export async function loginResident(
 
 /**
  * Solicita el reenvío del código de sistema (RES-xxxxx) por WhatsApp.
- * El backend responde siempre con un mensaje genérico (anti-enumeración);
- * `message` es apto para mostrarse directamente al usuario.
+ * Mutation pública: no adjunta Authorization (`skipAuth`).
+ *
+ * El backend responde siempre con un mensaje genérico (anti-enumeración: no
+ * revela si la identidad existe), por lo que `message` debe mostrarse tal cual
+ * al usuario sin sustituirlo por lógica propia. `debugCode` solo existe en dev
+ * y a propósito no se pide en la operación.
  */
-export async function requestSystemCode(identity: string): Promise<string> {
+export async function requestSystemCode(identity: string): Promise<RequestSystemCodeResult> {
   let mutationResult: Awaited<ReturnType<typeof apolloClient.mutate<ResendSystemCodeResponse>>>;
   try {
     mutationResult = await apolloClient.mutate<ResendSystemCodeResponse>({
@@ -98,12 +126,19 @@ export async function requestSystemCode(identity: string): Promise<string> {
       context: { skipAuth: true },
     });
   } catch (e: unknown) {
-    throw new Error(getApiErrorMessage(e, 'No se pudo conectar al servidor'));
+    const parsed = parseApiError(e, 'No se pudo conectar al servidor');
+    throw new RequestSystemCodeError(parsed.message, isRateLimitError(parsed));
   }
   const { data, error } = mutationResult;
-  if (error) throw new Error(getApiErrorMessage(error, 'No se pudo enviar el código. Intenta de nuevo'));
-  if (!data?.resendResidentSystemCode) throw new Error('Respuesta inválida del servidor');
-  return data.resendResidentSystemCode.message;
+  if (error) {
+    const parsed = parseApiError(error, 'No se pudo enviar el código. Intenta de nuevo');
+    throw new RequestSystemCodeError(parsed.message, isRateLimitError(parsed));
+  }
+  if (!data?.resendResidentSystemCode) {
+    throw new RequestSystemCodeError('Respuesta inválida del servidor', false);
+  }
+  const { success, message } = data.resendResidentSystemCode;
+  return { success, message };
 }
 
 export async function fetchMyResidentProfile(): Promise<Resident> {
