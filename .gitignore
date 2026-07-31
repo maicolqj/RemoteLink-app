@@ -67,6 +67,9 @@ yarn-error.log
 # testing
 /coverage
 
+# Yarn es el gestor del proyecto; yarn.lock es el único lockfile versionado
+package-lock.json
+
 # Yarn
 .yarn/*
 !.yarn/patches

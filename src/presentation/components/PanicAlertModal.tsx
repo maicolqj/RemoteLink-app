@@ -78,7 +78,9 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
   // Fetch triggerer's resident profile to show name + unit
   const [fetchResident, { data: residentData }] = useLazyQuery<GetResidentByUserIdResponseModel>(
     GET_RESIDENT_BY_USER_ID,
-    { fetchPolicy: 'cache-first', onError: () => {} }, // silent fail if query doesn't exist
+    // Apollo v4 quitó onError de useLazyQuery; el error se ignora al no leerlo
+    // (la query puede no existir en el backend todavía).
+    { fetchPolicy: 'cache-first', errorPolicy: 'all' },
   );
 
   useEffect(() => {
@@ -165,14 +167,14 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
   // Resolve identity: payload name > fetched profile > role label
   const resident    = residentData?.residentByUserId;
   const fullName    = panicData.triggeredByName
-    ?? (resident ? `${resident.user.name} ${resident.user.lastName}` : undefined);
-  const phone       = panicData.phoneNumber ?? resident?.user.phoneNumber;
+    ?? (resident?.user ? `${resident.user.name} ${resident.user.lastName}` : undefined);
+  const phone       = panicData.phoneNumber ?? resident?.user?.phoneNumber;
 
   // Resolve location: payload fields > fetched unit > resident's own unit
-  const unitNumber   = panicData.unitNumber  ?? resident?.unit.number  ?? unitData?.unit.number;
-  const floor        = panicData.floor       ?? resident?.unit.floor   ?? unitData?.unit.floor;
+  const unitNumber   = panicData.unitNumber  ?? resident?.unit?.number  ?? unitData?.unit.number;
+  const floor        = panicData.floor       ?? resident?.unit?.floor   ?? unitData?.unit.floor;
   const buildingName = panicData.buildingName
-    ?? resident?.unit.building?.name
+    ?? resident?.unit?.building?.name
     ?? unitData?.unit.building?.name;
 
   const hasLocation = !!(unitNumber || floor != null || buildingName);

@@ -1,14 +1,27 @@
 // ─── Globals disponibles en RN 0.74+ pero ausentes en los tipos TS base ─────
 declare function atob(data: string): string;
 declare class TextEncoder { encode(input?: string): Uint8Array; }
-declare const crypto: { subtle: SubtleCrypto };
+declare const crypto: {
+  subtle: {
+    digest(algorithm: string, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  };
+};
 
 // ─── Apollo Client v4: habilita errorPolicy:'all' de forma type-safe ─────────
 declare module '@apollo/client' {
-  interface DeclareDefaultOptions {
-    watchQuery: { errorPolicy: 'all' };
-    query:      { errorPolicy: 'all' };
-    mutate:     { errorPolicy: 'all' };
+  // Declarar `defaultOptions` activa por defecto las firmas "modern" (4.1+), que
+  // prohíben genéricos explícitos en client.query/mutate. El código usa
+  // `client.query<{ foo: Bar }>({...})`, así que fijamos las firmas "classic".
+  interface TypeOverrides {
+    signatureStyle: 'classic';
+  }
+
+  namespace ApolloClient {
+    namespace DeclareDefaultOptions {
+      interface WatchQuery { errorPolicy: 'all' }
+      interface Query      { errorPolicy: 'all' }
+      interface Mutate     { errorPolicy: 'all' }
+    }
   }
 }
 

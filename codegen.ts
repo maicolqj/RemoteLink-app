@@ -25,10 +25,9 @@ const config: CodegenConfig = {
       },
     },
   },
-  ignoreNoDocuments: true,
   // Las operaciones que no coinciden con el schema actual deben estar
   // en archivos *-legacy.ts (excluidos en documents[] arriba).
-  skipDocumentsValidation: true,
+  ignoreNoDocuments: true,
 };
 
 export default config;

@@ -42,7 +42,8 @@ function buildNotification(
   const data = (remoteMessage.data ?? {}) as FCMData;
   return {
     id: data.notificationId ?? remoteMessage.messageId ?? Date.now().toString(),
-    type: data.type ?? 'general',
+    // El store solo maneja categorías de UI; PANIC_ALERT entra como 'alert'.
+    type: data.type === 'PANIC_ALERT' ? 'alert' : data.type ?? 'general',
     title: remoteMessage.notification?.title ?? 'RemoteLink',
     body: remoteMessage.notification?.body ?? '',
     isRead: false,
