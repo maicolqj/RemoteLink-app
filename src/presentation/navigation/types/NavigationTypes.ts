@@ -56,6 +56,19 @@ export type ProfileStackParamList = {
   ResidentDirectory: undefined;
   ResidentDetail: { residentId: string };
   Settings: undefined;
+  // Seguridad del dispositivo: PIN local y equipos vinculados.
+  SetDevicePin: { firstTime?: boolean } | undefined;
+  MyDevices: undefined;
+};
+
+// Stack de autenticación: cuatro formas de entrar, todas sin costo por mensaje.
+// `LoginIdentity` (documento + código) es el fallback universal y el punto de
+// entrada para vincular el primer dispositivo.
+export type AuthStackParamList = {
+  LoginPin: undefined;
+  LoginIdentity: { notice?: string } | undefined;
+  LoginWhatsApp: { identity?: string } | undefined;
+  LoginApproval: { identity?: string } | undefined;
 };
 
 // Tab Params (each tab is a nested stack)
@@ -71,8 +84,18 @@ export type MainTabParamList = {
 
 // Root
 export type RootStackParamList = {
-  Auth: undefined;
+  Auth: NavigatorScreenParams<AuthStackParamList> | undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
+  // Aprobación de ingreso desde el dispositivo confiable. Vive en el root (no
+  // dentro de un tab) porque llega por push y debe abrirse desde cualquier
+  // pantalla: la solicitud vence en 5 minutos.
+  ApproveDevice: {
+    approvalId?: string;
+    approvalCode?: string;
+    requestedFromLabel?: string;
+    requestedFromIp?: string;
+    expiresAt?: string;
+  } | undefined;
   // Documentos legales en WebView. Vive en el root (fuera del condicional de
   // sesión) para ser alcanzable tanto desde el login como desde Ajustes.
   Legal: { url: string; title: string };

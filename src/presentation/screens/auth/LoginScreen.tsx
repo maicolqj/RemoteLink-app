@@ -12,17 +12,24 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { useAuthStore } from '../../store/auth.store';
 import { loginResident, requestSystemCode } from '../../../infraestructure/services/auth.service';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
-import SecureStorageService from '../../../infraestructure/services/SecureStorageService';
+import {
+  persistSession,
+  saveLastIdentity,
+  getLastIdentity,
+  isDevicePinLinked,
+  isWhatsAppLoginAvailable,
+} from '../../../infraestructure/services/deviceAuth.service';
+import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
@@ -44,20 +51,31 @@ const isValidCode = (v: string) => v.length === 5;
 
 type RequestState = 'idle' | 'loading' | 'sent' | 'error';
 
+type Nav = NativeStackNavigationProp<AuthStackParamList, 'LoginIdentity'>;
+type Route = RouteProp<AuthStackParamList, 'LoginIdentity'>;
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
   const { colors } = useTheme();
-  const setSession = useAuthStore(s => s.setSession);
 
   // La pantalla Legal vive en el root stack, así que es alcanzable sin sesión.
   const openLegal = useCallback(
-    (doc: LegalDocument) => navigation.navigate('Legal', { url: doc.url, title: doc.title }),
+    (doc: LegalDocument) =>
+      (navigation as any).navigate('Legal', { url: doc.url, title: doc.title }),
     [navigation],
   );
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [identity, setIdentity] = useState('');
+  // Aviso que trae la pantalla del PIN cuando el dispositivo dejó de estar
+  // vinculado (DEVICE_NOT_LINKED / DEVICE_REVOKED).
+  const [notice, setNotice] = useState(route.params?.notice ?? '');
+  const [pinLinked, setPinLinked] = useState(false);
+  // El canal de WhatsApp entrante se oculta si el servidor ya respondió
+  // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
+  const [waAvailable, setWaAvailable] = useState(true);
   const [code, setCode] = useState('');
   const [identityError, setIdentityError] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -75,6 +93,21 @@ export default function LoginScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => { timerRef.current && clearInterval(timerRef.current); }, []);
+
+  // Prefill del último documento usado + disponibilidad del acceso por PIN.
+  useEffect(() => {
+    getLastIdentity().then(v => v && setIdentity(prev => prev || v));
+    isDevicePinLinked().then(setPinLinked);
+  }, []);
+
+  // Se reevalúa en cada foco, no solo al montar: la pantalla sigue montada
+  // debajo del stack mientras el usuario visita el flujo de WhatsApp, y es ahí
+  // donde el canal puede resultar deshabilitado.
+  useFocusEffect(
+    useCallback(() => {
+      isWhatsAppLoginAvailable().then(setWaAvailable);
+    }, []),
+  );
 
   // ── Resend countdown ───────────────────────────────────────────────────────
   const startResendTimer = useCallback(() => {
@@ -153,13 +186,8 @@ export default function LoginScreen() {
     try {
       const systemCode = `RES-${code}`;
       const result = await loginResident(identity.trim(), systemCode);
-      await SecureStorageService.saveTokens({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        sessionId: result.sessionId,
-        accessTokenExpiresAt: result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined,
-      });
-      setSession(result.accessToken, result.sessionId);
+      await saveLastIdentity(identity);
+      await persistSession(result);
     } catch (err: any) {
       // El mensaje ya viene normalizado y legible desde la capa de servicio
       // (auth.service → getApiErrorMessage). Lo mostramos en el banner.
@@ -167,7 +195,7 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [identity, code, setSession]);
+  }, [identity, code]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const canSubmit = isValidIdentity(identity) && isValidCode(code) && !isSubmitting;
@@ -237,12 +265,27 @@ export default function LoginScreen() {
               Ingresa tu identidad y tu código de residente
             </CustomTextComponent>
 
+            {/* ── Aviso traído desde el login por PIN ── */}
+            {notice ? (
+              <View
+                style={[styles.infoBanner, { backgroundColor: colors.warning + '14', borderColor: colors.warning + '40' }]}
+                accessibilityRole="alert">
+                <Icon name="info-outline" size={ICON_SIZE.sm} color={colors.warning} />
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  color={colors.warning}
+                  style={styles.errorBannerText}>
+                  {notice}
+                </CustomTextComponent>
+              </View>
+            ) : null}
+
             {/* ── Identity field ── */}
             <CustomInputComponent
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setRequestMessage(''); if (requestState === 'error') setRequestState('idle'); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setRequestMessage(''); setNotice(''); if (requestState === 'error') setRequestState('idle'); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -369,6 +412,57 @@ export default function LoginScreen() {
                   : undefined
               }
             />
+
+            {/* ── Otras formas de ingresar (sin costo por mensaje) ── */}
+            <View style={styles.altBlock}>
+              <View style={styles.altDivider}>
+                <View style={[styles.altLine, { backgroundColor: colors.border }]} />
+                <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                  o ingresa de otra forma
+                </CustomTextComponent>
+                <View style={[styles.altLine, { backgroundColor: colors.border }]} />
+              </View>
+
+              {pinLinked ? (
+                <TouchableOpacity
+                  style={[styles.altRow, { borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('LoginPin')}
+                  activeOpacity={0.7}
+                  accessibilityRole="button">
+                  <Icon name="pin" size={ICON_SIZE.sm} color={colors.primary} />
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                    Con el PIN de este dispositivo
+                  </CustomTextComponent>
+                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ) : null}
+
+              {waAvailable ? (
+                <TouchableOpacity
+                  style={[styles.altRow, { borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined })}
+                  activeOpacity={0.7}
+                  accessibilityRole="button">
+                  <Icon name="chat" size={ICON_SIZE.sm} color="#25D366" />
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                    Enviando un WhatsApp desde mi celular
+                  </CustomTextComponent>
+                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.altRow, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('LoginApproval', { identity: identity.trim() || undefined })}
+                activeOpacity={0.7}
+                accessibilityRole="button">
+                <Icon name="phonelink-lock" size={ICON_SIZE.sm} color={colors.primary} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                  Aprobando desde mi otro dispositivo
+                </CustomTextComponent>
+                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
 
             {/* ── Security note ── */}
             <View style={[styles.securityNote, { backgroundColor: colors.background }]}>
@@ -578,6 +672,33 @@ const styles = StyleSheet.create({
   errorBannerText: {
     flex: 1,
     lineHeight: FONT_SIZE.sm * 1.4,
+  },
+
+  // Métodos alternativos
+  altBlock: {
+    gap: SPACING.sm,
+  },
+  altDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  altLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  altRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    minHeight: 48,
+  },
+  altText: {
+    flex: 1,
   },
 
   // Legal
