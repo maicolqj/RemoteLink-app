@@ -94,6 +94,14 @@ export type AccountingLine = {
   unitId?: Maybe<Scalars['String']['output']>;
 };
 
+/** Datos para que un administrador restablezca la contraseña de un miembro del personal */
+export type AdminResetUserPasswordInput = {
+  /** Nueva contraseña asignada por el administrador */
+  newPassword: Scalars['String']['input'];
+  /** ID del usuario (personal) al que se le restablece la contraseña */
+  userId: Scalars['String']['input'];
+};
+
 export type ApplyMoraInput = {
   complexId: Scalars['String']['input'];
   graceDays: Scalars['Float']['input'];
@@ -795,6 +803,23 @@ export type CreateFeeConfigInput = {
   unitType?: InputMaybe<UnitType>;
 };
 
+export type CreateLegalDocumentInput = {
+  /** PUBLIC por defecto */
+  audience?: InputMaybe<LegalAudience>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Archivo .docx en base64 (sin prefijo data URI). Se convierte a HTML en el servidor. */
+  docxBase64?: InputMaybe<Scalars['String']['input']>;
+  /** Si ofrece descarga (requiere pdfBase64) */
+  isDownloadable?: InputMaybe<Scalars['Boolean']['input']>;
+  /** PDF descargable en base64 (sin prefijo data URI). */
+  pdfBase64?: InputMaybe<Scalars['String']['input']>;
+  /** Nombre del archivo PDF (para la descarga). */
+  pdfFileName?: InputMaybe<Scalars['String']['input']>;
+  /** Identificador de URL (kebab-case) */
+  slug: Scalars['String']['input'];
+  title: Scalars['String']['input'];
+};
+
 /** Datos requeridos para crear un nuevo permiso */
 export type CreatePermissionInput = {
   /** Obliges to have a previous permission to assign another (e.g., need "user:read" to get "user:edit"). */
@@ -1022,6 +1047,34 @@ export type DateRangeInput = {
   to?: InputMaybe<Scalars['String']['input']>;
 };
 
+/** Solicitud de ingreso pendiente de aprobación desde un dispositivo confiable */
+export type DeviceApprovalResponse = {
+  __typename?: 'DeviceApprovalResponse';
+  /** Código a MOSTRAR en pantalla. El residente debe verificar que coincida con el del push antes de aprobar */
+  approvalCode: Scalars['String']['output'];
+  /** Identificador del intento. Requerido para consultar estado y canjear */
+  challengeId: Scalars['ID']['output'];
+  expiresAt: Scalars['DateTime']['output'];
+  /** Texto a mostrar al usuario mientras espera la aprobación */
+  instructions: Scalars['String']['output'];
+};
+
+/** Estado de una solicitud de ingreso pendiente de aprobación por push */
+export type DeviceApprovalStatus =
+  | 'APPROVED'
+  | 'CONSUMED'
+  | 'DENIED'
+  | 'EXPIRED'
+  | 'PENDING';
+
+/** Estado de una solicitud de ingreso por aprobación push */
+export type DeviceApprovalStatusResponse = {
+  __typename?: 'DeviceApprovalStatusResponse';
+  expiresAt: Scalars['DateTime']['output'];
+  /** PENDING mientras el residente no responde; APPROVED habilita el canje */
+  status: DeviceApprovalStatus;
+};
+
 export type DeviceInfo = {
   __typename?: 'DeviceInfo';
   appVersion?: Maybe<Scalars['String']['output']>;
@@ -1052,6 +1105,12 @@ export type DirectIncome = {
   reversedByUserId?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
 };
+
+/** Estado de validación del DPA firmado subido por un complejo */
+export type DpaValidationStatus =
+  | 'APPROVED'
+  | 'PENDING'
+  | 'REJECTED';
 
 /** Categoría del gasto operativo del complejo */
 export type ExpenseCategory =
@@ -1400,6 +1459,41 @@ export type IncomeCategoryBreakdown = {
   total: Scalars['Float']['output'];
 };
 
+/** Audiencia de un documento legal (público o solo complejos registrados) */
+export type LegalAudience =
+  | 'COMPLEX'
+  | 'PUBLIC';
+
+/** Documento legal público del sistema */
+export type LegalDocument = {
+  __typename?: 'LegalDocument';
+  /** Audiencia: PUBLIC (/legal) o COMPLEX (solo complejos registrados) */
+  audience: LegalAudience;
+  /** Contenido HTML sanitizado */
+  contentHtml?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  /** Descripción corta para el índice */
+  description?: Maybe<Scalars['String']['output']>;
+  /** Nombre del archivo descargable */
+  downloadFileName?: Maybe<Scalars['String']['output']>;
+  /** URL del PDF descargable (R2) */
+  downloadFileUrl?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  /** Si ofrece un archivo descargable (PDF) */
+  isDownloadable: Scalars['Boolean']['output'];
+  /** Si está publicado (visible/activo) */
+  isPublished: Scalars['Boolean']['output'];
+  /** Identificador de URL: /legal/<slug> */
+  slug: Scalars['String']['output'];
+  /** Título del documento */
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  /** ID del usuario que actualizó por última vez */
+  updatedById?: Maybe<Scalars['String']['output']>;
+  /** Versión, incrementa en cada actualización de contenido */
+  version: Scalars['Int']['output'];
+};
+
 export type LogCallInput = {
   answeredAt?: InputMaybe<Scalars['String']['input']>;
   buildingName?: InputMaybe<Scalars['String']['input']>;
@@ -1415,6 +1509,12 @@ export type LogCallInput = {
   startedAt: Scalars['String']['input'];
   unitId?: InputMaybe<Scalars['String']['input']>;
   unitNumber?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Credenciales de login por dispositivo vinculado + PIN (residentes) */
+export type LoginDevicePinInput = {
+  /** PIN de 6 dígitos del dispositivo vinculado */
+  pin: Scalars['String']['input'];
 };
 
 /** Credenciales para inicio de sesión con email y contraseña */
@@ -1500,12 +1600,16 @@ export type MoveSubtreeResponse = {
 export type Mutation = {
   __typename?: 'Mutation';
   acknowledgePanicAlert: Notification;
+  /** Permite al administrador del complejo (o SUPER_ADMIN) restablecer directamente la contraseña de un miembro de su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP. */
+  adminResetUserPassword: SetPasswordResponse;
   applyMoraAllPeriods: MoraApplicationResult;
   applyMoraToPeriod: MoraApplicationResult;
   applyPrepaidBalances: PrepaidApplicationResult;
   applyWalletToCharge: ApplyWalletResult;
   /** Aprueba la solicitud de acceso de un supervisor. Crea automáticamente la asignación UserComplexAssignment (ACTIVE). El supervisor podrá hacer check-in inmediatamente después. */
   approveAccessRequest: SupervisorAccessRequest;
+  /** Autoriza el ingreso. Antes de llamarla, la interfaz DEBE hacer que el residente compare el código de esta pantalla con el del dispositivo que pide entrar. */
+  approveDeviceApproval: Scalars['Boolean']['output'];
   approveResident: Resident;
   approveVisitEntry: Visit;
   assignMultipleChildren: AssignChildrenResponse;
@@ -1534,6 +1638,8 @@ export type Mutation = {
   createDirectCharges: CreateDirectChargesResponse;
   createExpenseVoucher: AccountingHeader;
   createFeeConfig: FeeConfig;
+  /** Crea un documento legal. Solo SUPER_ADMIN. */
+  createLegalDocument: LegalDocument;
   createPermission: CreatePermissionResponse;
   createPucAccount: PucAccount;
   createRecurringCharge: RecurringCharge;
@@ -1546,12 +1652,16 @@ export type Mutation = {
   createWalletCredit: WalletEntryObject;
   deleteChargeCategory: Scalars['Boolean']['output'];
   deleteFeeConfig: Scalars['Boolean']['output'];
+  /** Elimina un documento legal. Solo SUPER_ADMIN. */
+  deleteLegalDocument: Scalars['Boolean']['output'];
   deleteNote: Note;
   deleteNotification: Scalars['Boolean']['output'];
   deletePucAccount: Scalars['Boolean']['output'];
   deleteRecurringCharge: Scalars['Boolean']['output'];
   /** Elimina (soft delete) un usuario del sistema */
   deleteUser: User;
+  /** Rechaza el ingreso. Es terminal: el solicitante debe pedir una nueva autorización. */
+  denyDeviceApproval: Scalars['Boolean']['output'];
   denyVisitEntry: Visit;
   executeRotation: RotationStatusResponse;
   generateCharges: GenerateChargesResponse;
@@ -1560,6 +1670,8 @@ export type Mutation = {
   logCall: CallLog;
   /** Inicia sesión como residente usando número de identidad y código de sistema. Exclusivo para RESIDENT_ROL. */
   loginResident: AuthResponse;
+  /** Inicia sesión con el PIN del dispositivo vinculado (header x-device-id). Exclusivo para RESIDENT_ROL. No envía ningún mensaje. */
+  loginWithDevicePin: AuthResponse;
   /** Inicia sesión con email y contraseña. Disponible para: SUPER_ADMIN_ROL, COMPILANCE_OFFICER_ROL, COMPLEX_ROL, ACCOUNTANT_ROL */
   loginWithEmail: AuthResponse;
   /** Inicia sesión con email y código de sistema. Disponible para: SUPERVISOR_ROL, SECURITY_ROL, RESIDENT_ROL */
@@ -1578,8 +1690,12 @@ export type Mutation = {
   /** Reactiva un usuario suspendido */
   reactivateUser: User;
   reactivateVehicle: Vehicle;
+  /** Canjea una solicitud APPROVED por los tokens de sesión. Un solo uso, y solo desde el dispositivo donde se inició el flujo. */
+  redeemDeviceApproval: AuthResponse;
   /** Canjea el token QR de un solo uso validando el PIN (últimos 4 dígitos del NIT del complejo, sin dígito de verificación). No requiere autenticación previa. */
   redeemQrToken: AuthResponse;
+  /** Canjea un challenge CONFIRMED por los tokens de sesión. Un solo uso, y solo desde el dispositivo donde se inició el flujo. */
+  redeemWhatsAppLoginChallenge: AuthResponse;
   /** Renueva el access token usando el refresh token. Implementa rotación de tokens. */
   refreshToken: AuthResponse;
   registerBulkPayment: RegisterBulkPaymentResponse;
@@ -1618,11 +1734,17 @@ export type Mutation = {
   reorderSpecialNumbers: Array<SpecialNumber>;
   /** El supervisor solicita acceso a un complejo al que no está asignado. El administrador del complejo recibe la solicitud y puede aprobarla o rechazarla remotamente. */
   requestComplexAccess: SupervisorAccessRequest;
+  /** Pide autorización de ingreso y avisa por push a los dispositivos vinculados del residente. No consume mensajes de WhatsApp. Responde igual exista o no la identidad, y no revela cuántos dispositivos se notificaron. */
+  requestDeviceApproval: DeviceApprovalResponse;
   /** Solicita un código OTP al número de celular. Exclusivo para residentes (RESIDENT_ROL). El código se envía por SMS y tiene validez de 5 minutos. */
   requestOtp: OtpRequestResponse;
   /** Solicita restablecimiento de contraseña por email. Respuesta genérica para no revelar si el email existe. */
   requestPasswordReset: RequestPasswordResetResponse;
   requestSecurityCall: RequestSecurityCallResult;
+  /** Genera un link wa.me con un código que el residente debe ENVIAR desde su WhatsApp. No consume mensajes de plantilla: los mensajes entrantes no tienen costo. Responde igual exista o no la identidad, para no revelar qué documentos están registrados. */
+  requestWhatsAppLoginChallenge: WhatsAppLoginChallengeResponse;
+  /** Reenvía el código de sistema del residente (RES-xxxxx) por WhatsApp al teléfono registrado. Respuesta genérica: no revela si la identidad existe. Rate limit por identidad e IP. */
+  resendResidentSystemCode: OtpRequestResponse;
   /** Establece nueva contraseña usando el token recibido por email. Token de un solo uso, válido 1 hora. */
   resetPassword: SetPasswordResponse;
   restoreComplex: ResidentialComplex;
@@ -1638,6 +1760,9 @@ export type Mutation = {
   reversePayment: Payment;
   /** Revierte una acción registrada en el historial a su estado anterior. Solo disponible para SUPER_ADMIN_ROL. Una acción solo puede revertirse una vez. */
   revertAudit: RevertAuditResponse;
+  reviewSignedDpa: ResidentialComplex;
+  /** Desvincula un dispositivo (ej. celular perdido) y cierra su sesión. Las sesiones de los demás dispositivos del residente no se ven afectadas. */
+  revokeResidentDevice: Scalars['Boolean']['output'];
   saveMobileToken: PushSubscriptionResult;
   savePushSubscription: PushSubscriptionResult;
   saveSentMessage: SentMessage;
@@ -1647,6 +1772,8 @@ export type Mutation = {
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
   setParkingRate: VisitorParkingConfig;
+  /** Vincula el dispositivo actual (header x-device-id) al residente autenticado y fija su PIN de 6 dígitos. A partir de aquí el residente inicia sesión con loginWithDevicePin, sin consumir mensajes de WhatsApp. */
+  setResidentDevicePin: ResidentDevice;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
   /** Registra el check-out del supervisor. Cierra la visita activa (status: CLOSED). */
@@ -1666,6 +1793,8 @@ export type Mutation = {
   updateComplex: ResidentialComplex;
   updateComplexModules: ResidentialComplex;
   updateFeeConfig: FeeConfig;
+  /** Actualiza metadatos/contenido/publicación de un documento legal. Solo SUPER_ADMIN. */
+  updateLegalDocument: LegalDocument;
   /** Update an existing permission */
   updatePermission: UpdatePermissionResponse;
   updatePucAccount: PucAccount;
@@ -1679,6 +1808,7 @@ export type Mutation = {
   updateUserIdentity: User;
   updateVehicle: Vehicle;
   updateVisitorParkingConfig: VisitorParkingConfig;
+  uploadSignedDpa: ResidentialComplex;
   upsertCoefficientWeighting: CoefficientWeighting;
   upsertComplexFinanceConfig: ComplexFinanceConfig;
   /** Asigna un rol a un usuario */
@@ -1694,6 +1824,11 @@ export type Mutation = {
 
 export type MutationAcknowledgePanicAlertArgs = {
   notificationId: Scalars['String']['input'];
+};
+
+
+export type MutationAdminResetUserPasswordArgs = {
+  input: AdminResetUserPasswordInput;
 };
 
 
@@ -1719,6 +1854,11 @@ export type MutationApplyWalletToChargeArgs = {
 
 export type MutationApproveAccessRequestArgs = {
   requestId: Scalars['String']['input'];
+};
+
+
+export type MutationApproveDeviceApprovalArgs = {
+  approvalId: Scalars['ID']['input'];
 };
 
 
@@ -1857,6 +1997,11 @@ export type MutationCreateFeeConfigArgs = {
 };
 
 
+export type MutationCreateLegalDocumentArgs = {
+  input: CreateLegalDocumentInput;
+};
+
+
 export type MutationCreatePermissionArgs = {
   input: CreatePermissionInput;
 };
@@ -1912,6 +2057,11 @@ export type MutationDeleteFeeConfigArgs = {
 };
 
 
+export type MutationDeleteLegalDocumentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteNoteArgs = {
   id: Scalars['String']['input'];
 };
@@ -1936,6 +2086,11 @@ export type MutationDeleteRecurringChargeArgs = {
 
 export type MutationDeleteUserArgs = {
   userId: Scalars['String']['input'];
+};
+
+
+export type MutationDenyDeviceApprovalArgs = {
+  approvalId: Scalars['ID']['input'];
 };
 
 
@@ -1970,6 +2125,11 @@ export type MutationLoginResidentArgs = {
 };
 
 
+export type MutationLoginWithDevicePinArgs = {
+  input: LoginDevicePinInput;
+};
+
+
 export type MutationLoginWithEmailArgs = {
   input: LoginEmailInput;
 };
@@ -1981,7 +2141,7 @@ export type MutationLoginWithIdentityNumArgs = {
 
 
 export type MutationMarkAllNotificationsAsReadArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2037,9 +2197,19 @@ export type MutationReactivateVehicleArgs = {
 };
 
 
+export type MutationRedeemDeviceApprovalArgs = {
+  challengeId: Scalars['ID']['input'];
+};
+
+
 export type MutationRedeemQrTokenArgs = {
   pin: Scalars['String']['input'];
   token: Scalars['String']['input'];
+};
+
+
+export type MutationRedeemWhatsAppLoginChallengeArgs = {
+  challengeId: Scalars['ID']['input'];
 };
 
 
@@ -2191,6 +2361,11 @@ export type MutationRequestComplexAccessArgs = {
 };
 
 
+export type MutationRequestDeviceApprovalArgs = {
+  identity: Scalars['String']['input'];
+};
+
+
 export type MutationRequestOtpArgs = {
   input: RequestOtpInput;
 };
@@ -2203,6 +2378,16 @@ export type MutationRequestPasswordResetArgs = {
 
 export type MutationRequestSecurityCallArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type MutationRequestWhatsAppLoginChallengeArgs = {
+  identity: Scalars['String']['input'];
+};
+
+
+export type MutationResendResidentSystemCodeArgs = {
+  identity: Scalars['String']['input'];
 };
 
 
@@ -2260,6 +2445,18 @@ export type MutationRevertAuditArgs = {
 };
 
 
+export type MutationReviewSignedDpaArgs = {
+  complexId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+  status: DpaValidationStatus;
+};
+
+
+export type MutationRevokeResidentDeviceArgs = {
+  deviceId: Scalars['ID']['input'];
+};
+
+
 export type MutationSaveMobileTokenArgs = {
   input: SaveMobileTokenInput;
 };
@@ -2297,6 +2494,11 @@ export type MutationSetInitialPasswordArgs = {
 
 export type MutationSetParkingRateArgs = {
   input: SetParkingRateInput;
+};
+
+
+export type MutationSetResidentDevicePinArgs = {
+  input: SetDevicePinInput;
 };
 
 
@@ -2385,6 +2587,12 @@ export type MutationUpdateFeeConfigArgs = {
 };
 
 
+export type MutationUpdateLegalDocumentArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateLegalDocumentInput;
+};
+
+
 export type MutationUpdatePermissionArgs = {
   id: Scalars['String']['input'];
   updatePermissionInput: UpdatePermissionInput;
@@ -2439,6 +2647,12 @@ export type MutationUpdateVehicleArgs = {
 
 export type MutationUpdateVisitorParkingConfigArgs = {
   input: UpdateVisitorParkingConfigInput;
+};
+
+
+export type MutationUploadSignedDpaArgs = {
+  fileName?: InputMaybe<Scalars['String']['input']>;
+  pdfBase64: Scalars['String']['input'];
 };
 
 
@@ -2610,6 +2824,10 @@ export type NotificationType =
   | 'CHARGE_WAIVED'
   | 'COMPLEX_ALERT'
   | 'DIRECT_CHARGE'
+  | 'DPA_APPROVED'
+  | 'DPA_REJECTED'
+  | 'DPA_SIGNED'
+  | 'LOGIN_APPROVAL_REQUEST'
   | 'MORA_APPLIED'
   | 'PACKAGE_DELIVERED'
   | 'PACKAGE_LOST'
@@ -2956,6 +3174,21 @@ export type PaymentMethod =
   | 'OTHER'
   | 'PSE';
 
+/** Solicitud de ingreso esperando que el residente la apruebe o rechace */
+export type PendingDeviceApproval = {
+  __typename?: 'PendingDeviceApproval';
+  /** Código a comparar con el mostrado en el dispositivo que pide entrar */
+  approvalCode: Scalars['String']['output'];
+  /** Identificador para aprobar o rechazar */
+  approvalId: Scalars['ID']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  expiresAt: Scalars['DateTime']['output'];
+  /** IP de origen de la solicitud */
+  requestedFromIp?: Maybe<Scalars['String']['output']>;
+  /** Equipo desde el que se pide el ingreso */
+  requestedFromLabel?: Maybe<Scalars['String']['output']>;
+};
+
 /** Permiso del sistema granular. */
 export type Permission = {
   __typename?: 'Permission';
@@ -3161,11 +3394,17 @@ export type Query = {
   complexFinanceConfig: ComplexFinanceConfig;
   complexFinancialSummary: ComplexFinancialSummaryResponse;
   complexIncomes: PaginatedIncomesResponse;
+  /** Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). Ej: Anexo B2B / DPA a firmar. Disponible para complejos autenticados. */
+  complexLegalDocuments: Array<LegalDocument>;
   complexNotifications: PaginatedNotificationsResponse;
   complexes: PaginatedComplexesResponse;
+  /** Consulta si el residente ya aprobó. El cliente hace polling hasta APPROVED. Solo responde al mismo dispositivo que pidió la autorización. */
+  deviceApprovalStatus: DeviceApprovalStatusResponse;
   feeConfigs: Array<FeeConfig>;
   findnotes: PaginatedNotesResponse;
   getRoleHierarchy: RoleHierarchyResponse;
+  /** Todos los documentos legales (incluidos no publicados). Solo SUPER_ADMIN. */
+  legalDocumentsAdmin: Array<LegalDocument>;
   /** Perfil completo del usuario autenticado (usuario o complejo residencial) */
   me: MeResponse;
   /** Retorna el historial de solicitudes de acceso del supervisor (últimas 50). */
@@ -3173,6 +3412,8 @@ export type Query = {
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
   myNotifications: PaginatedNotificationsResponse;
+  /** Lista los dispositivos vinculados del residente autenticado. */
+  myResidentDevices: Array<ResidentDevice>;
   myResidentProfile: Resident;
   /** Retorna las últimas 50 visitas del supervisor. Filtrable por estado. */
   mySupervisorVisits: Array<SupervisorVisit>;
@@ -3190,6 +3431,8 @@ export type Query = {
   /** Retorna el número de solicitudes de acceso PENDIENTES para un complejo. Úsalo para mostrar el badge numérico en la sección Supervisores del panel. */
   pendingAccessRequestsCount: Scalars['Int']['output'];
   pendingApprovalVisits: Array<Visit>;
+  /** Solicitudes de ingreso esperando respuesta. Sirve de respaldo cuando el push no llegó. */
+  pendingDeviceApprovals: Array<PendingDeviceApproval>;
   pendingPackagesByUnit: Array<Package>;
   pendingResidents: PaginatedResidentsResponse;
   permission: Permission;
@@ -3233,6 +3476,10 @@ export type Query = {
   visitors: PaginatedVisitorsResponse;
   visits: PaginatedVisitsResponse;
   walletsSummary: WalletSummaryPaginated;
+  /** Indica si el canal de login por WhatsApp entrante está habilitado en el servidor. El cliente la consulta antes de ofrecer la opción, en vez de descubrirlo fallando con WA_LOGIN_NOT_CONFIGURED. No revela nada del residente: solo refleja la configuración. */
+  whatsAppLoginAvailable: Scalars['Boolean']['output'];
+  /** Consulta si ya llegó el mensaje del residente. El cliente hace polling hasta CONFIRMED. Solo responde al mismo dispositivo que pidió el challenge. */
+  whatsAppLoginChallengeStatus: WhatsAppLoginStatusResponse;
 };
 
 
@@ -3372,6 +3619,11 @@ export type QueryComplexesArgs = {
 };
 
 
+export type QueryDeviceApprovalStatusArgs = {
+  challengeId: Scalars['ID']['input'];
+};
+
+
 export type QueryFeeConfigsArgs = {
   complexId: Scalars['String']['input'];
 };
@@ -3390,7 +3642,7 @@ export type QueryGetRoleHierarchyArgs = {
 
 
 export type QueryMyNotificationsArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<FilterNotificationsInput>;
   pagination?: InputMaybe<PaginationInput>;
 };
@@ -3427,7 +3679,7 @@ export type QueryNoteArgs = {
 
 
 export type QueryNotificationDetailArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
   notificationId: Scalars['String']['input'];
 };
 
@@ -3615,7 +3867,7 @@ export type QueryUnitsFinancialStatusArgs = {
 
 
 export type QueryUnreadNotificationsCountArgs = {
-  complexId: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -3690,6 +3942,11 @@ export type QueryVisitsArgs = {
 export type QueryWalletsSummaryArgs = {
   complexId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryWhatsAppLoginChallengeStatusArgs = {
+  challengeId: Scalars['ID']['input'];
 };
 
 export type RecurringCausationResult = {
@@ -4085,6 +4342,25 @@ export type Resident = {
   userId: Scalars['String']['output'];
 };
 
+/** Dispositivo vinculado a un residente para login por PIN */
+export type ResidentDevice = {
+  __typename?: 'ResidentDevice';
+  createdAt: Scalars['DateTime']['output'];
+  /** Identificador del dispositivo (header x-device-id) */
+  deviceId: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  isRevoked: Scalars['Boolean']['output'];
+  /** Nombre legible del dispositivo */
+  label?: Maybe<Scalars['String']['output']>;
+  lastUsedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Bloqueo temporal por intentos fallidos */
+  lockedUntil?: Maybe<Scalars['DateTime']['output']>;
+  platform?: Maybe<Scalars['String']['output']>;
+  revokedReason?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  userId: Scalars['String']['output'];
+};
+
 /** Estadísticas del módulo de residentes para un complejo */
 export type ResidentStatsResponse = {
   __typename?: 'ResidentStatsResponse';
@@ -4141,6 +4417,8 @@ export type ResidentTypeBreakdown = {
 /** Complejo residencial del sistema */
 export type ResidentialComplex = {
   __typename?: 'ResidentialComplex';
+  /** Fecha/hora en que se aceptaron Términos, Privacidad y DPA durante el registro */
+  acceptedTermsAt?: Maybe<Scalars['DateTime']['output']>;
   /** Date until which the account is blocked due to failed attempts */
   accountLockedUntil?: Maybe<Scalars['DateTime']['output']>;
   /** Dirección principal del complejo */
@@ -4209,6 +4487,18 @@ export type ResidentialComplex = {
   rutFileUrl?: Maybe<Scalars['String']['output']>;
   /** Configuración avanzada del complejo */
   settings?: Maybe<Scalars['JSON']['output']>;
+  /** Nombre del archivo del DPA firmado */
+  signedDpaFileName?: Maybe<Scalars['String']['output']>;
+  /** Motivo del rechazo del DPA firmado (si fue rechazado) */
+  signedDpaRejectionReason?: Maybe<Scalars['String']['output']>;
+  /** Fecha en que el SUPER_ADMIN revisó (aprobó/rechazó) el DPA firmado */
+  signedDpaReviewedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Estado de validación del DPA firmado (revisión del SUPER_ADMIN) */
+  signedDpaStatus?: Maybe<DpaValidationStatus>;
+  /** Fecha de subida del DPA firmado */
+  signedDpaUploadedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** URL del DPA (Anexo B2B) firmado, subido por el complejo (R2) */
+  signedDpaUrl?: Maybe<Scalars['String']['output']>;
   /** Slug único derivado del nombre */
   slug: Scalars['String']['output'];
   /** Departamento o estado */
@@ -4444,6 +4734,12 @@ export type ScheduleVisitInput = {
   visitorPhone?: InputMaybe<Scalars['String']['input']>;
 };
 
+/** Marcador de posición. Sin uso: ver el encabezado de este archivo. */
+export type SchemaOverridesPlaceholder = {
+  __typename?: 'SchemaOverridesPlaceholder';
+  _?: Maybe<Scalars['Boolean']['output']>;
+};
+
 export type SearchPermissionsInput = {
   filters?: InputMaybe<PermissionFiltersInput>;
   pagination?: InputMaybe<PaginationInput>;
@@ -4515,6 +4811,14 @@ export type SentNotificationPaginatedResult = {
   __typename?: 'SentNotificationPaginatedResult';
   items: Array<SentNotification>;
   pagination: PaginationReponse;
+};
+
+/** Fija el PIN del dispositivo actual para el residente autenticado */
+export type SetDevicePinInput = {
+  /** Nombre del dispositivo (ej. "iPhone de Juan") */
+  label?: InputMaybe<Scalars['String']['input']>;
+  /** PIN de 6 dígitos */
+  pin: Scalars['String']['input'];
 };
 
 /** Datos para configurar o actualizar la tarifa de parqueadero */
@@ -4895,6 +5199,19 @@ export type UpdateFeeConfigInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   targetRules?: InputMaybe<FeeConfigTargetRulesInput>;
   triggerType?: InputMaybe<FeeConfigTriggerType>;
+};
+
+export type UpdateLegalDocumentInput = {
+  audience?: InputMaybe<LegalAudience>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Nuevo .docx en base64. Si se envía, reemplaza el contenido HTML e incrementa la versión. */
+  docxBase64?: InputMaybe<Scalars['String']['input']>;
+  isDownloadable?: InputMaybe<Scalars['Boolean']['input']>;
+  isPublished?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Nuevo PDF descargable en base64. Reemplaza el anterior. */
+  pdfBase64?: InputMaybe<Scalars['String']['input']>;
+  pdfFileName?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdatePermissionInput = {
@@ -5822,6 +6139,38 @@ export type WalletSummaryPaginated = {
   pagination: PaginationReponse;
 };
 
+/** Datos para que el residente inicie sesión enviando un mensaje de WhatsApp */
+export type WhatsAppLoginChallengeResponse = {
+  __typename?: 'WhatsAppLoginChallengeResponse';
+  /** Identificador del intento. Requerido para consultar estado y canjear */
+  challengeId: Scalars['ID']['output'];
+  /** Vencimiento del intento */
+  expiresAt: Scalars['DateTime']['output'];
+  /** Texto exacto que debe enviarse, por si el link no abre */
+  messageText: Scalars['String']['output'];
+  /** Código que viaja en el mensaje. Público: solo identifica el intento */
+  nonce: Scalars['String']['output'];
+  /** Advertencia a mostrar al usuario antes de que envíe el mensaje */
+  warning: Scalars['String']['output'];
+  /** Link wa.me con el mensaje prellenado. Abrirlo en el mismo dispositivo */
+  whatsappUrl: Scalars['String']['output'];
+};
+
+/** Estado de un intento de login por mensaje entrante de WhatsApp */
+export type WhatsAppLoginStatus =
+  | 'CONFIRMED'
+  | 'CONSUMED'
+  | 'EXPIRED'
+  | 'PENDING';
+
+/** Estado de un intento de login por WhatsApp entrante */
+export type WhatsAppLoginStatusResponse = {
+  __typename?: 'WhatsAppLoginStatusResponse';
+  expiresAt: Scalars['DateTime']['output'];
+  /** PENDING mientras no llega el mensaje; CONFIRMED habilita el canje */
+  status: WhatsAppLoginStatus;
+};
+
 export type ApproveAccessRequestMutationVariables = Exact<{
   requestId: Scalars['String']['input'];
 }>;
@@ -5843,6 +6192,13 @@ export type LoginResidentMutationVariables = Exact<{
 
 export type LoginResidentMutation = { __typename?: 'Mutation', loginResident: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
 
+export type ResendResidentSystemCodeMutationVariables = Exact<{
+  identity: Scalars['String']['input'];
+}>;
+
+
+export type ResendResidentSystemCodeMutation = { __typename?: 'Mutation', resendResidentSystemCode: { __typename?: 'OtpRequestResponse', success: boolean, message: string } };
+
 export type RefreshTokenMutationVariables = Exact<{
   refreshToken: Scalars['String']['input'];
 }>;
@@ -5854,6 +6210,98 @@ export type GetMyResidentProfileQueryVariables = Exact<{ [key: string]: never; }
 
 
 export type GetMyResidentProfileQuery = { __typename?: 'Query', myResidentProfile: { __typename?: 'Resident', id: string, type: ResidentType, status: ResidentStatus, isMainResident: boolean, startDate: string, user?: { __typename?: 'User', id: string, name: string, lastName: string, email: string, phoneNumber: string, identity?: string | null, rating: number } | null, unit?: { __typename?: 'Unit', id: string, number: string, floor: number, building?: { __typename?: 'Building', id: string, name: string, floors: number } | null } | null, complex?: { __typename?: 'ResidentialComplex', id: string, name: string } | null } };
+
+export type SetDevicePinMutationVariables = Exact<{
+  input: SetDevicePinInput;
+}>;
+
+
+export type SetDevicePinMutation = { __typename?: 'Mutation', setResidentDevicePin: { __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, createdAt: any } };
+
+export type LoginWithDevicePinMutationVariables = Exact<{
+  input: LoginDevicePinInput;
+}>;
+
+
+export type LoginWithDevicePinMutation = { __typename?: 'Mutation', loginWithDevicePin: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
+
+export type MyDevicesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MyDevicesQuery = { __typename?: 'Query', myResidentDevices: Array<{ __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, lastUsedAt?: any | null, lockedUntil?: any | null, createdAt: any }> };
+
+export type RevokeDeviceMutationVariables = Exact<{
+  deviceId: Scalars['ID']['input'];
+}>;
+
+
+export type RevokeDeviceMutation = { __typename?: 'Mutation', revokeResidentDevice: boolean };
+
+export type WaLoginAvailableQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type WaLoginAvailableQuery = { __typename?: 'Query', whatsAppLoginAvailable: boolean };
+
+export type RequestWaLoginMutationVariables = Exact<{
+  identity: Scalars['String']['input'];
+}>;
+
+
+export type RequestWaLoginMutation = { __typename?: 'Mutation', requestWhatsAppLoginChallenge: { __typename?: 'WhatsAppLoginChallengeResponse', challengeId: string, nonce: string, whatsappUrl: string, messageText: string, expiresAt: any, warning: string } };
+
+export type WaLoginStatusQueryVariables = Exact<{
+  challengeId: Scalars['ID']['input'];
+}>;
+
+
+export type WaLoginStatusQuery = { __typename?: 'Query', whatsAppLoginChallengeStatus: { __typename?: 'WhatsAppLoginStatusResponse', status: WhatsAppLoginStatus, expiresAt: any } };
+
+export type RedeemWaLoginMutationVariables = Exact<{
+  challengeId: Scalars['ID']['input'];
+}>;
+
+
+export type RedeemWaLoginMutation = { __typename?: 'Mutation', redeemWhatsAppLoginChallenge: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
+
+export type RequestApprovalMutationVariables = Exact<{
+  identity: Scalars['String']['input'];
+}>;
+
+
+export type RequestApprovalMutation = { __typename?: 'Mutation', requestDeviceApproval: { __typename?: 'DeviceApprovalResponse', challengeId: string, approvalCode: string, expiresAt: any, instructions: string } };
+
+export type ApprovalStatusQueryVariables = Exact<{
+  challengeId: Scalars['ID']['input'];
+}>;
+
+
+export type ApprovalStatusQuery = { __typename?: 'Query', deviceApprovalStatus: { __typename?: 'DeviceApprovalStatusResponse', status: DeviceApprovalStatus, expiresAt: any } };
+
+export type RedeemApprovalMutationVariables = Exact<{
+  challengeId: Scalars['ID']['input'];
+}>;
+
+
+export type RedeemApprovalMutation = { __typename?: 'Mutation', redeemDeviceApproval: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
+
+export type PendingApprovalsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type PendingApprovalsQuery = { __typename?: 'Query', pendingDeviceApprovals: Array<{ __typename?: 'PendingDeviceApproval', approvalId: string, approvalCode: string, requestedFromLabel?: string | null, requestedFromIp?: string | null, expiresAt: any, createdAt: any }> };
+
+export type ApproveMutationVariables = Exact<{
+  approvalId: Scalars['ID']['input'];
+}>;
+
+
+export type ApproveMutation = { __typename?: 'Mutation', approveDeviceApproval: boolean };
+
+export type DenyMutationVariables = Exact<{
+  approvalId: Scalars['ID']['input'];
+}>;
+
+
+export type DenyMutation = { __typename?: 'Mutation', denyDeviceApproval: boolean };
 
 export type GetUnitBalanceQueryVariables = Exact<{
   unitId: Scalars['String']['input'];
@@ -6059,8 +6507,23 @@ export type MisVisitasQuery = { __typename?: 'Query', myVisits: { __typename?: '
 export const ApproveAccessRequestDocument = {"__meta__":{"hash":"e5e0b1dcb5ed24a79212819c5eebbee172b503a377a79f86a73bb49c3a60cd4d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApproveAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approveAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"requestId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<ApproveAccessRequestMutation, ApproveAccessRequestMutationVariables>;
 export const RejectAccessRequestDocument = {"__meta__":{"hash":"98e6e0258d54c7b67545c94e4cf69e98b941ed24669d2f8163471d1ba71bb223"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RejectAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RejectAccessRequestInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"rejectAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<RejectAccessRequestMutation, RejectAccessRequestMutationVariables>;
 export const LoginResidentDocument = {"__meta__":{"hash":"b1e2df147e890a65b1d0b8bf2b946b107a451c9f05b4c593fc73fdc6d2fcea20"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginResident"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResidentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginResident"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginResidentMutation, LoginResidentMutationVariables>;
+export const ResendResidentSystemCodeDocument = {"__meta__":{"hash":"01a150c4906dcc1bab370c37a1300839cf93ce75e94944cdc94e6f111a882fac"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResendResidentSystemCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resendResidentSystemCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<ResendResidentSystemCodeMutation, ResendResidentSystemCodeMutationVariables>;
 export const RefreshTokenDocument = {"__meta__":{"hash":"909a47dddea0f8ea32c2c9ba6702f714820f7e64ee99980a0508ab84ee13378c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RefreshToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"refreshToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"refreshToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RefreshTokenMutation, RefreshTokenMutationVariables>;
 export const GetMyResidentProfileDocument = {"__meta__":{"hash":"cc660b5d95a3a5e0bb4d81ca4485e49152030f96a017d71a3ad9bc2fee2fd6aa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"isMainResident"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floors"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"complex"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetMyResidentProfileQuery, GetMyResidentProfileQueryVariables>;
+export const SetDevicePinDocument = {"__meta__":{"hash":"90a9a30399daadf811e8869a620af41a725eec8cf0b7d425b4001d4453778181"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetDevicePin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetDevicePinInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setResidentDevicePin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<SetDevicePinMutation, SetDevicePinMutationVariables>;
+export const LoginWithDevicePinDocument = {"__meta__":{"hash":"fe3459c10396c9d70d2733dad50356735d89b2270f77a4a705b00e78a6f398aa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginWithDevicePin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginDevicePinInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginWithDevicePin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginWithDevicePinMutation, LoginWithDevicePinMutationVariables>;
+export const MyDevicesDocument = {"__meta__":{"hash":"b78682e7ac23867cf3853a9194e78c2f1c7cf1884194a64b4f0bb481eac4e9df"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsedAt"}},{"kind":"Field","name":{"kind":"Name","value":"lockedUntil"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<MyDevicesQuery, MyDevicesQueryVariables>;
+export const RevokeDeviceDocument = {"__meta__":{"hash":"83d9429c25dfb59510f9990fe093a0f984d5881c3864a98b4aa4ef4e7ec5ca1a"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeResidentDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}}}]}]}}]} as unknown as DocumentNode<RevokeDeviceMutation, RevokeDeviceMutationVariables>;
+export const WaLoginAvailableDocument = {"__meta__":{"hash":"3614f0354bf4ff036d44a3d1641a1b5e5efee298f388748797fa9e82e6a793a6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WaLoginAvailable"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"whatsAppLoginAvailable"}}]}}]} as unknown as DocumentNode<WaLoginAvailableQuery, WaLoginAvailableQueryVariables>;
+export const RequestWaLoginDocument = {"__meta__":{"hash":"078316c4bc6e80d24b02314a33babf4317002d849aeaa1e8e618cd40da120002"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestWaLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestWhatsAppLoginChallenge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"challengeId"}},{"kind":"Field","name":{"kind":"Name","value":"nonce"}},{"kind":"Field","name":{"kind":"Name","value":"whatsappUrl"}},{"kind":"Field","name":{"kind":"Name","value":"messageText"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}}]}}]}}]} as unknown as DocumentNode<RequestWaLoginMutation, RequestWaLoginMutationVariables>;
+export const WaLoginStatusDocument = {"__meta__":{"hash":"0890f25a5cf64c65d9f96257798a822080737a86e17a0d6f111a0b8d117f7ed4"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WaLoginStatus"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"whatsAppLoginChallengeStatus"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}}]}}]}}]} as unknown as DocumentNode<WaLoginStatusQuery, WaLoginStatusQueryVariables>;
+export const RedeemWaLoginDocument = {"__meta__":{"hash":"7da106991f65ae54250626b893fbcd2b710c4caaa267b1f9a80fcc24dee819d2"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemWaLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemWhatsAppLoginChallenge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemWaLoginMutation, RedeemWaLoginMutationVariables>;
+export const RequestApprovalDocument = {"__meta__":{"hash":"f497b2c8b058acb266e141ef1e7116ca914b65530bf0e97d73d5be6f742cb2f2"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestApproval"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"challengeId"}},{"kind":"Field","name":{"kind":"Name","value":"approvalCode"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"instructions"}}]}}]}}]} as unknown as DocumentNode<RequestApprovalMutation, RequestApprovalMutationVariables>;
+export const ApprovalStatusDocument = {"__meta__":{"hash":"ebb65c6633ae75cbdde2fc62cb7cd71ac393d8ad0447dd9df6c7ad3e3c484357"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ApprovalStatus"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceApprovalStatus"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}}]}}]}}]} as unknown as DocumentNode<ApprovalStatusQuery, ApprovalStatusQueryVariables>;
+export const RedeemApprovalDocument = {"__meta__":{"hash":"2e0a7b17e39cc3d54fff3450c712fb4c8470f892c829e7bd5e9cc9ce0c69eb5f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemApproval"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemApprovalMutation, RedeemApprovalMutationVariables>;
+export const PendingApprovalsDocument = {"__meta__":{"hash":"388458ba35a2f7509fe1c30f1e380754d101a1efa8a38e94da923f09652bda87"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PendingApprovals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pendingDeviceApprovals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approvalId"}},{"kind":"Field","name":{"kind":"Name","value":"approvalCode"}},{"kind":"Field","name":{"kind":"Name","value":"requestedFromLabel"}},{"kind":"Field","name":{"kind":"Name","value":"requestedFromIp"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<PendingApprovalsQuery, PendingApprovalsQueryVariables>;
+export const ApproveDocument = {"__meta__":{"hash":"514b15c91aebc6a052fc97a2ff4ea4b658a6942c1766cd3197ca82f22445be01"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Approve"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approveDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"approvalId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}}}]}]}}]} as unknown as DocumentNode<ApproveMutation, ApproveMutationVariables>;
+export const DenyDocument = {"__meta__":{"hash":"493684588e4d2ae28aba19f05457d994392a043fad48d55cb64e97afb771d29b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Deny"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"denyDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"approvalId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}}}]}]}}]} as unknown as DocumentNode<DenyMutation, DenyMutationVariables>;
 export const GetUnitBalanceDocument = {"__meta__":{"hash":"7d58b3d0f873b1068f7300124e66adfa67cfa1a47e7c9bc054f9283cb8189115"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitBalance"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitBalance"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebt"}},{"kind":"Field","name":{"kind":"Name","value":"overdueCount"}},{"kind":"Field","name":{"kind":"Name","value":"pendingCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalPaid"}}]}}]}}]} as unknown as DocumentNode<GetUnitBalanceQuery, GetUnitBalanceQueryVariables>;
 export const GetUnitAccountStatementDocument = {"__meta__":{"hash":"c40f8bdbe4a7b5b7065c60e8e41b278286303c937e75d9d77a15ed717224962e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitAccountStatement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"period"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitAccountStatement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"period"},"value":{"kind":"Variable","name":{"kind":"Name","value":"period"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"walletBalance"}},{"kind":"Field","name":{"kind":"Name","value":"movements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"debit"}},{"kind":"Field","name":{"kind":"Name","value":"credit"}},{"kind":"Field","name":{"kind":"Name","value":"balance"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitAccountStatementQuery, GetUnitAccountStatementQueryVariables>;
 export const GetPaymentsByChargeDocument = {"__meta__":{"hash":"62c06367bdd4e33a9ee9e09ab28d408e4707c2c4a558929280fc240ea2436d39"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPaymentsByCharge"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"paymentsByCharge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"chargeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"method"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}},{"kind":"Field","name":{"kind":"Name","value":"receiptUrl"}},{"kind":"Field","name":{"kind":"Name","value":"paidAt"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"isReversed"}},{"kind":"Field","name":{"kind":"Name","value":"reversalReason"}},{"kind":"Field","name":{"kind":"Name","value":"reversedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<GetPaymentsByChargeQuery, GetPaymentsByChargeQueryVariables>;

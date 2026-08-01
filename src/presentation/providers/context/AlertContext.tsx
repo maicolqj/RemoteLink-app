@@ -661,7 +661,7 @@ const HIT_SLOP = { top: 8, right: 8, bottom: 8, left: 8 };
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 9998,
   },
   container: {

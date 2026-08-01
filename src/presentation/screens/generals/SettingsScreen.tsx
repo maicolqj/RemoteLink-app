@@ -12,7 +12,9 @@ import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useSettingsStore } from '../../store/settings.store';
 import { SPACING } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import PanicSound from '../../../shared/modules/PanicSoundModule';
+import { isDevicePinLinked } from '../../../infraestructure/services/deviceAuth.service';
 import { useAlert } from '../../providers/context/AlertContext';
 
 // First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
@@ -57,6 +59,7 @@ export default function SettingsScreen() {
 
   const isAndroid = Platform.OS === 'android';
   const [batteryExempt, setBatteryExempt] = useState(true);
+  const [devicePinLinked, setDevicePinLinked] = useState(false);
 
   // First-run walkthrough targets + trigger.
   const biometricRef = useCoachmarkTarget('settings.biometric');
@@ -65,6 +68,7 @@ export default function SettingsScreen() {
   const autostartRef = useCoachmarkTarget('settings.autostart');
 
   const refreshPermissions = useCallback(() => {
+    isDevicePinLinked().then(setDevicePinLinked);
     if (!isAndroid) return;
     PanicSound?.isIgnoringBatteryOptimizations().then(setBatteryExempt);
   }, [isAndroid]);
@@ -114,6 +118,13 @@ export default function SettingsScreen() {
   // Clear all "seen" flags and jump to Home — its useFocusEffect replays the
   // Home tour immediately; Profile and this screen's own tour replay next time
   // each is opened.
+  // Legal vive en el root stack, no en ProfileStack — de ahí el navigate sin tipar.
+  const openLegal = useCallback(
+    (doc: LegalDocument) =>
+      (navigation as any).navigate('Legal', { url: doc.url, title: doc.title }),
+    [navigation],
+  );
+
   const handleReplayTutorial = useCallback(async () => {
     await Promise.all([resetTour('home_v2'), resetTour('profile_v1'), resetTour('settings_v1')]);
     (navigation as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Home' } });
@@ -161,6 +172,47 @@ export default function SettingsScreen() {
                 thumbColor="#fff"
               />
             </View>
+
+            {/* PIN de dispositivo: entrar sin esperar códigos por WhatsApp. */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => (navigation as any).navigate('SetDevicePin')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="pin" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  {devicePinLinked ? 'Cambiar PIN de este dispositivo' : 'Crear PIN de este dispositivo'}
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Ingresa con 6 dígitos, sin esperar códigos
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => (navigation as any).navigate('MyDevices')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="devices" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  Dispositivos vinculados
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Revisa y desvincula equipos con acceso a tu cuenta
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
           </Card>
         </View>
 
@@ -273,6 +325,60 @@ export default function SettingsScreen() {
                 </CustomTextComponent>
                 <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
                   Repasa la guía rápida de la pantalla de inicio
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </Card>
+        </View>
+
+        {/* Legal */}
+        <View style={{ marginTop: SPACING.md }}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.xs}
+            fontWeight={FONT_WEIGHT.semibold as any}
+            color={colors.textTertiary}
+            style={styles.sectionLabel}
+          >
+            LEGAL
+          </CustomTextComponent>
+
+          <Card style={styles.card}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => openLegal(LEGAL_LINKS.terms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="description" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  Términos y condiciones
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Condiciones de uso del servicio
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => openLegal(LEGAL_LINKS.privacy)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="privacy-tip" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  Política de privacidad
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Cómo tratamos tus datos personales
                 </CustomTextComponent>
               </View>
               <Icon name="chevron-right" size={24} color={colors.textTertiary} />

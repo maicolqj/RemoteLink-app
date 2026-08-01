@@ -22,6 +22,7 @@ const ICON_SIZE = SCREEN_HEIGHT * 0.024;
 const FONT_SIZE = SCREEN_HEIGHT * 0.015;
 const PADDING_HORIZONTAL = SCREEN_WIDTH * 0.001;
 const BORDER_RADIUS = SCREEN_WIDTH * 0.03;
+const SPACING_INNER = SCREEN_WIDTH * 0.03;
 
 type KeyboardType = 'default' | 'email-address' | 'numeric' | 'phone-pad';
 type AutoCapitalize = 'words' | 'none' | 'sentences' | 'characters';
@@ -442,7 +443,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-const SPACING_INNER = SCREEN_WIDTH * 0.03;
 
 export default React.memo(CustomInputComponent);

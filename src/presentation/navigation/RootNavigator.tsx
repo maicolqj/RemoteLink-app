@@ -9,7 +9,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, Platform, StatusBar, View } from 'react-native';
 import type { RootStackParamList } from './types/NavigationTypes';
 import MainNavigator from './MainNavigator';
-import LoginScreen from '../screens/auth/LoginScreen';
+import AuthStack from './stacks/AuthStack';
+import LegalScreen from '../screens/generals/LegalScreen';
+import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
@@ -19,8 +21,15 @@ import {
   getFCMToken,
   initNotificationListeners,
   handleInitialNotification,
+  navigateToApprovalIfNeeded,
   type FCMData,
 } from '../../infraestructure/services/NotificationService';
+import {
+  isDevicePinLinked,
+  fetchPendingDeviceApprovals,
+  wasPinPromptShown,
+  markPinPromptShown,
+} from '../../infraestructure/services/deviceAuth.service';
 import { fetchMyResidentProfile, refreshSession } from '../../infraestructure/services/auth.service';
 import { tokenRefreshService } from '../../infraestructure/services/TokenRefreshService';
 import { createNotificationChannels } from '../../infraestructure/services/NotifeeService';
@@ -124,6 +133,81 @@ function ProfileBootstrap() {
   return null;
 }
 
+// ─── Device security bootstrap ────────────────────────────────────────────────
+
+/**
+ * Al abrir la app con sesión: (1) consulta las solicitudes de ingreso
+ * pendientes —respaldo para cuando el push no llega, y vencen en 5 minutos— y
+ * (2) si el dispositivo aún no tiene PIN, ofrece crearlo una sola vez.
+ */
+function DeviceSecurityBootstrap({
+  navigationRef,
+}: {
+  navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>;
+}) {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const { showQuestion } = useAlert();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const pending = await fetchPendingDeviceApprovals();
+        if (cancelled) return;
+        if (pending.length) {
+          const nav = navigationRef.current;
+          const { approvalId, approvalCode, requestedFromLabel, requestedFromIp, expiresAt } = pending[0];
+          if (nav?.isReady()) {
+            nav.navigate('ApproveDevice', {
+              approvalId,
+              approvalCode,
+              requestedFromLabel: requestedFromLabel ?? undefined,
+              requestedFromIp: requestedFromIp ?? undefined,
+              expiresAt,
+            });
+          }
+          return; // la aprobación manda: no encimar el diálogo del PIN
+        }
+      } catch {
+        // Sin conexión o backend sin el flujo desplegado: no bloquea el arranque.
+      }
+
+      const [linked, promptShown] = await Promise.all([isDevicePinLinked(), wasPinPromptShown()]);
+      if (cancelled || linked || promptShown) return;
+
+      markPinPromptShown();
+      showQuestion(
+        'Crea un PIN de 6 dígitos para entrar en este dispositivo sin esperar códigos por WhatsApp.',
+        'Ingresa más rápido',
+        {
+          buttons: [
+            { text: 'Ahora no', style: 'secondary', onPress: () => {} },
+            {
+              text: 'Crear PIN',
+              style: 'primary',
+              onPress: () => {
+                const nav = navigationRef.current;
+                if (nav?.isReady()) {
+                  nav.navigate('Main', {
+                    screen: 'ProfileTab',
+                    params: { screen: 'SetDevicePin', params: { firstTime: true } },
+                  });
+                }
+              },
+            },
+          ],
+        },
+      );
+    })();
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated, navigationRef, showQuestion]);
+
+  return null;
+}
+
 // ─── Notification bootstrap ───────────────────────────────────────────────────
 
 function NotificationBootstrap({
@@ -199,8 +283,13 @@ function NotificationBootstrap({
         // Notifee initial notification — handles non-panic notifications tapped
         // from killed state (visits, payments, etc.).
         const notifeeInitial = await notifee.getInitialNotification();
-        if (notifeeInitial?.notification?.data?.type === 'PANIC_ALERT') {
-          handlePanic(notifeeInitial.notification.data as FCMData);
+        const notifeeData = notifeeInitial?.notification?.data as FCMData | undefined;
+        if (notifeeData?.type === 'PANIC_ALERT') {
+          handlePanic(notifeeData);
+        } else if (notifeeData && navReady) {
+          // La solicitud de ingreso llega data-only (la muestra Notifee), así que
+          // su pulsación desde app cerrada solo aparece por esta vía.
+          navigateToApprovalIfNeeded(navReady, notifeeData);
         }
       }, 600);
     }
@@ -275,9 +364,22 @@ function NotificationBootstrap({
 // ─── Inner navigator (has access to ThemeContext) ─────────────────────────────
 
 function ThemedNavigator() {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+  // `null` = aún sin resolver. AuthStack fija su ruta inicial en el montaje, así
+  // que hay que conocer el dato ANTES de renderizarlo.
+  const [pinLinked, setPinLinked] = useState<boolean | null>(null);
+
+  useEffect(() => { isDevicePinLinked().then(setPinLinked); }, []);
+
+  if (!isAuthenticated && pinLinked === null) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <AuthGate>
@@ -290,12 +392,30 @@ function ThemedNavigator() {
         theme={isDark ? navDarkTheme : navLightTheme}>
         <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
+        <DeviceSecurityBootstrap navigationRef={navigationRef} />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
-            <Stack.Screen name="Main" component={MainNavigator} />
+            <>
+              <Stack.Screen name="Main" component={MainNavigator} />
+              {/* Fuera de los tabs: la solicitud de ingreso llega por push desde
+                  cualquier pantalla y vence en 5 minutos. */}
+              <Stack.Screen
+                name="ApproveDevice"
+                component={ApproveDeviceScreen}
+                options={{ animation: 'slide_from_bottom' }}
+              />
+            </>
           ) : (
-            <Stack.Screen name="Auth" component={LoginScreen} />
+            <Stack.Screen name="Auth">
+              {() => <AuthStack pinLinked={pinLinked === true} />}
+            </Stack.Screen>
           )}
+          {/* Fuera del condicional: los legales deben abrirse con y sin sesión. */}
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
       {isAuthenticated && <PanicFAB />}

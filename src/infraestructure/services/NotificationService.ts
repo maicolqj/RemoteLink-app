@@ -20,10 +20,15 @@ import {
   initNotifeeForegroundListener,
 } from './NotifeeService';
 
+import { parseLoginApprovalMetadata } from './deviceAuth.service';
+
+/** Push que pide aprobar el ingreso de otro equipo (contrato §03). */
+export const LOGIN_APPROVAL_TYPE = 'LOGIN_APPROVAL_REQUEST';
+
 // Data payload keys sent from backend FCM messages
 export interface FCMData {
   notificationId?: string;
-  type?: NotificationType | 'PANIC_ALERT';
+  type?: NotificationType | 'PANIC_ALERT' | typeof LOGIN_APPROVAL_TYPE;
   targetStack?: string;
   targetScreen?: string;
   params?: string; // JSON string
@@ -42,7 +47,11 @@ function buildNotification(
   const data = (remoteMessage.data ?? {}) as FCMData;
   return {
     id: data.notificationId ?? remoteMessage.messageId ?? Date.now().toString(),
-    type: data.type ?? 'general',
+    // El store solo maneja categorías de UI; PANIC_ALERT y la solicitud de
+    // ingreso entran como 'alert'.
+    type: data.type === 'PANIC_ALERT' || data.type === LOGIN_APPROVAL_TYPE
+      ? 'alert'
+      : data.type ?? 'general',
     title: remoteMessage.notification?.title ?? 'RemoteLink',
     body: remoteMessage.notification?.body ?? '',
     isRead: false,
@@ -52,11 +61,32 @@ function buildNotification(
 }
 
 // Navigate to the correct screen based on FCM data payload
+/**
+ * La solicitud de ingreso no trae targetStack/targetScreen: su destino es fijo
+ * y su `metadata` viaja serializado como string (requisito de FCM), así que hay
+ * que parsearlo antes de navegar. Devuelve true si consumió el payload.
+ */
+export function navigateToApprovalIfNeeded(
+  navigationRef: NavigationContainerRef<RootStackParamList>,
+  data: FCMData,
+): boolean {
+  if (data.type !== LOGIN_APPROVAL_TYPE) return false;
+  if (!navigationRef.isReady()) return true;
+
+  const payload = parseLoginApprovalMetadata(data.metadata);
+  // Sin metadata usable igual abrimos la pantalla: ella cae al respaldo
+  // pendingDeviceApprovals para no perder la solicitud.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (navigationRef as any).navigate('ApproveDevice', payload ?? undefined);
+  return true;
+}
+
 function navigateFromPayload(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   data: FCMData,
 ) {
   if (!navigationRef.isReady()) return;
+  if (navigateToApprovalIfNeeded(navigationRef, data)) return;
 
   const stack = data.targetStack;
   const screen = data.targetScreen;

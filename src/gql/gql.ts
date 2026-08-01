@@ -17,8 +17,23 @@ type Documents = {
     "\n  mutation ApproveAccessRequest($requestId: String!) {\n    approveAccessRequest(requestId: $requestId) {\n      id\n      status\n      resolvedAt\n    }\n  }\n": typeof types.ApproveAccessRequestDocument,
     "\n  mutation RejectAccessRequest($input: RejectAccessRequestInput!) {\n    rejectAccessRequest(input: $input) {\n      id\n      status\n      rejectionReason\n      resolvedAt\n    }\n  }\n": typeof types.RejectAccessRequestDocument,
     "\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.LoginResidentDocument,
+    "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n": typeof types.ResendResidentSystemCodeDocument,
     "\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.RefreshTokenDocument,
     "\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n": typeof types.GetMyResidentProfileDocument,
+    "\n  mutation SetDevicePin($input: SetDevicePinInput!) {\n    setResidentDevicePin(input: $input) {\n      id\n      deviceId\n      label\n      platform\n      createdAt\n    }\n  }\n": typeof types.SetDevicePinDocument,
+    "\n  mutation LoginWithDevicePin($input: LoginDevicePinInput!) {\n    loginWithDevicePin(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.LoginWithDevicePinDocument,
+    "\n  query MyDevices {\n    myResidentDevices {\n      id\n      deviceId\n      label\n      platform\n      lastUsedAt\n      lockedUntil\n      createdAt\n    }\n  }\n": typeof types.MyDevicesDocument,
+    "\n  mutation RevokeDevice($deviceId: ID!) {\n    revokeResidentDevice(deviceId: $deviceId)\n  }\n": typeof types.RevokeDeviceDocument,
+    "\n  query WaLoginAvailable {\n    whatsAppLoginAvailable\n  }\n": typeof types.WaLoginAvailableDocument,
+    "\n  mutation RequestWaLogin($identity: String!) {\n    requestWhatsAppLoginChallenge(identity: $identity) {\n      challengeId\n      nonce\n      whatsappUrl\n      messageText\n      expiresAt\n      warning\n    }\n  }\n": typeof types.RequestWaLoginDocument,
+    "\n  query WaLoginStatus($challengeId: ID!) {\n    whatsAppLoginChallengeStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n": typeof types.WaLoginStatusDocument,
+    "\n  mutation RedeemWaLogin($challengeId: ID!) {\n    redeemWhatsAppLoginChallenge(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.RedeemWaLoginDocument,
+    "\n  mutation RequestApproval($identity: String!) {\n    requestDeviceApproval(identity: $identity) {\n      challengeId\n      approvalCode\n      expiresAt\n      instructions\n    }\n  }\n": typeof types.RequestApprovalDocument,
+    "\n  query ApprovalStatus($challengeId: ID!) {\n    deviceApprovalStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n": typeof types.ApprovalStatusDocument,
+    "\n  mutation RedeemApproval($challengeId: ID!) {\n    redeemDeviceApproval(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": typeof types.RedeemApprovalDocument,
+    "\n  query PendingApprovals {\n    pendingDeviceApprovals {\n      approvalId\n      approvalCode\n      requestedFromLabel\n      requestedFromIp\n      expiresAt\n      createdAt\n    }\n  }\n": typeof types.PendingApprovalsDocument,
+    "\n  mutation Approve($approvalId: ID!) {\n    approveDeviceApproval(approvalId: $approvalId)\n  }\n": typeof types.ApproveDocument,
+    "\n  mutation Deny($approvalId: ID!) {\n    denyDeviceApproval(approvalId: $approvalId)\n  }\n": typeof types.DenyDocument,
     "\n  query GetUnitBalance($unitId: String!, $complexId: String!) {\n    unitBalance(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      totalDebt\n      overdueCount\n      pendingCount\n      totalPaid\n    }\n  }\n": typeof types.GetUnitBalanceDocument,
     "\n  query GetUnitAccountStatement($unitId: String!, $complexId: String!, $period: String) {\n    unitAccountStatement(unitId: $unitId, complexId: $complexId, period: $period) {\n      unitId\n      unitNumber\n      building\n      totalDebits\n      totalCredits\n      currentBalance\n      walletBalance\n      movements {\n        id\n        date\n        type\n        description\n        debit\n        credit\n        balance\n        reference\n      }\n    }\n  }\n": typeof types.GetUnitAccountStatementDocument,
     "\n  query GetPaymentsByCharge($chargeId: String!) {\n    paymentsByCharge(chargeId: $chargeId) {\n      id\n      amount\n      method\n      reference\n      receiptUrl\n      paidAt\n      notes\n      isReversed\n      reversalReason\n      reversedAt\n      createdAt\n    }\n  }\n": typeof types.GetPaymentsByChargeDocument,
@@ -51,8 +66,23 @@ const documents: Documents = {
     "\n  mutation ApproveAccessRequest($requestId: String!) {\n    approveAccessRequest(requestId: $requestId) {\n      id\n      status\n      resolvedAt\n    }\n  }\n": types.ApproveAccessRequestDocument,
     "\n  mutation RejectAccessRequest($input: RejectAccessRequestInput!) {\n    rejectAccessRequest(input: $input) {\n      id\n      status\n      rejectionReason\n      resolvedAt\n    }\n  }\n": types.RejectAccessRequestDocument,
     "\n  mutation LoginResident($input: LoginResidentInput!) {\n    loginResident(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.LoginResidentDocument,
+    "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n": types.ResendResidentSystemCodeDocument,
     "\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.RefreshTokenDocument,
     "\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n": types.GetMyResidentProfileDocument,
+    "\n  mutation SetDevicePin($input: SetDevicePinInput!) {\n    setResidentDevicePin(input: $input) {\n      id\n      deviceId\n      label\n      platform\n      createdAt\n    }\n  }\n": types.SetDevicePinDocument,
+    "\n  mutation LoginWithDevicePin($input: LoginDevicePinInput!) {\n    loginWithDevicePin(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.LoginWithDevicePinDocument,
+    "\n  query MyDevices {\n    myResidentDevices {\n      id\n      deviceId\n      label\n      platform\n      lastUsedAt\n      lockedUntil\n      createdAt\n    }\n  }\n": types.MyDevicesDocument,
+    "\n  mutation RevokeDevice($deviceId: ID!) {\n    revokeResidentDevice(deviceId: $deviceId)\n  }\n": types.RevokeDeviceDocument,
+    "\n  query WaLoginAvailable {\n    whatsAppLoginAvailable\n  }\n": types.WaLoginAvailableDocument,
+    "\n  mutation RequestWaLogin($identity: String!) {\n    requestWhatsAppLoginChallenge(identity: $identity) {\n      challengeId\n      nonce\n      whatsappUrl\n      messageText\n      expiresAt\n      warning\n    }\n  }\n": types.RequestWaLoginDocument,
+    "\n  query WaLoginStatus($challengeId: ID!) {\n    whatsAppLoginChallengeStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n": types.WaLoginStatusDocument,
+    "\n  mutation RedeemWaLogin($challengeId: ID!) {\n    redeemWhatsAppLoginChallenge(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.RedeemWaLoginDocument,
+    "\n  mutation RequestApproval($identity: String!) {\n    requestDeviceApproval(identity: $identity) {\n      challengeId\n      approvalCode\n      expiresAt\n      instructions\n    }\n  }\n": types.RequestApprovalDocument,
+    "\n  query ApprovalStatus($challengeId: ID!) {\n    deviceApprovalStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n": types.ApprovalStatusDocument,
+    "\n  mutation RedeemApproval($challengeId: ID!) {\n    redeemDeviceApproval(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n": types.RedeemApprovalDocument,
+    "\n  query PendingApprovals {\n    pendingDeviceApprovals {\n      approvalId\n      approvalCode\n      requestedFromLabel\n      requestedFromIp\n      expiresAt\n      createdAt\n    }\n  }\n": types.PendingApprovalsDocument,
+    "\n  mutation Approve($approvalId: ID!) {\n    approveDeviceApproval(approvalId: $approvalId)\n  }\n": types.ApproveDocument,
+    "\n  mutation Deny($approvalId: ID!) {\n    denyDeviceApproval(approvalId: $approvalId)\n  }\n": types.DenyDocument,
     "\n  query GetUnitBalance($unitId: String!, $complexId: String!) {\n    unitBalance(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      totalDebt\n      overdueCount\n      pendingCount\n      totalPaid\n    }\n  }\n": types.GetUnitBalanceDocument,
     "\n  query GetUnitAccountStatement($unitId: String!, $complexId: String!, $period: String) {\n    unitAccountStatement(unitId: $unitId, complexId: $complexId, period: $period) {\n      unitId\n      unitNumber\n      building\n      totalDebits\n      totalCredits\n      currentBalance\n      walletBalance\n      movements {\n        id\n        date\n        type\n        description\n        debit\n        credit\n        balance\n        reference\n      }\n    }\n  }\n": types.GetUnitAccountStatementDocument,
     "\n  query GetPaymentsByCharge($chargeId: String!) {\n    paymentsByCharge(chargeId: $chargeId) {\n      id\n      amount\n      method\n      reference\n      receiptUrl\n      paidAt\n      notes\n      isReversed\n      reversalReason\n      reversedAt\n      createdAt\n    }\n  }\n": types.GetPaymentsByChargeDocument,
@@ -111,11 +141,71 @@ export function graphql(source: "\n  mutation LoginResident($input: LoginResiden
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n"): (typeof documents)["\n  mutation ResendResidentSystemCode($identity: String!) {\n    resendResidentSystemCode(identity: $identity) {\n      success\n      message\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"): (typeof documents)["\n  mutation RefreshToken($refreshToken: String!) {\n    refreshToken(refreshToken: $refreshToken) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n"): (typeof documents)["\n  query GetMyResidentProfile {\n    myResidentProfile {\n      id\n      type\n      status\n      isMainResident\n      startDate\n      user {\n        id\n        name\n        lastName\n        email\n        phoneNumber\n        identity\n        rating\n      }\n      unit {\n        id\n        number\n        floor\n        building {\n          id\n          name\n          floors\n        }\n      }\n      complex {\n        id\n        name\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetDevicePin($input: SetDevicePinInput!) {\n    setResidentDevicePin(input: $input) {\n      id\n      deviceId\n      label\n      platform\n      createdAt\n    }\n  }\n"): (typeof documents)["\n  mutation SetDevicePin($input: SetDevicePinInput!) {\n    setResidentDevicePin(input: $input) {\n      id\n      deviceId\n      label\n      platform\n      createdAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation LoginWithDevicePin($input: LoginDevicePinInput!) {\n    loginWithDevicePin(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"): (typeof documents)["\n  mutation LoginWithDevicePin($input: LoginDevicePinInput!) {\n    loginWithDevicePin(input: $input) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MyDevices {\n    myResidentDevices {\n      id\n      deviceId\n      label\n      platform\n      lastUsedAt\n      lockedUntil\n      createdAt\n    }\n  }\n"): (typeof documents)["\n  query MyDevices {\n    myResidentDevices {\n      id\n      deviceId\n      label\n      platform\n      lastUsedAt\n      lockedUntil\n      createdAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RevokeDevice($deviceId: ID!) {\n    revokeResidentDevice(deviceId: $deviceId)\n  }\n"): (typeof documents)["\n  mutation RevokeDevice($deviceId: ID!) {\n    revokeResidentDevice(deviceId: $deviceId)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query WaLoginAvailable {\n    whatsAppLoginAvailable\n  }\n"): (typeof documents)["\n  query WaLoginAvailable {\n    whatsAppLoginAvailable\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RequestWaLogin($identity: String!) {\n    requestWhatsAppLoginChallenge(identity: $identity) {\n      challengeId\n      nonce\n      whatsappUrl\n      messageText\n      expiresAt\n      warning\n    }\n  }\n"): (typeof documents)["\n  mutation RequestWaLogin($identity: String!) {\n    requestWhatsAppLoginChallenge(identity: $identity) {\n      challengeId\n      nonce\n      whatsappUrl\n      messageText\n      expiresAt\n      warning\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query WaLoginStatus($challengeId: ID!) {\n    whatsAppLoginChallengeStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  query WaLoginStatus($challengeId: ID!) {\n    whatsAppLoginChallengeStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RedeemWaLogin($challengeId: ID!) {\n    redeemWhatsAppLoginChallenge(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"): (typeof documents)["\n  mutation RedeemWaLogin($challengeId: ID!) {\n    redeemWhatsAppLoginChallenge(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RequestApproval($identity: String!) {\n    requestDeviceApproval(identity: $identity) {\n      challengeId\n      approvalCode\n      expiresAt\n      instructions\n    }\n  }\n"): (typeof documents)["\n  mutation RequestApproval($identity: String!) {\n    requestDeviceApproval(identity: $identity) {\n      challengeId\n      approvalCode\n      expiresAt\n      instructions\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ApprovalStatus($challengeId: ID!) {\n    deviceApprovalStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  query ApprovalStatus($challengeId: ID!) {\n    deviceApprovalStatus(challengeId: $challengeId) {\n      status\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RedeemApproval($challengeId: ID!) {\n    redeemDeviceApproval(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"): (typeof documents)["\n  mutation RedeemApproval($challengeId: ID!) {\n    redeemDeviceApproval(challengeId: $challengeId) {\n      accessToken\n      refreshToken\n      expiresIn\n      sessionId\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PendingApprovals {\n    pendingDeviceApprovals {\n      approvalId\n      approvalCode\n      requestedFromLabel\n      requestedFromIp\n      expiresAt\n      createdAt\n    }\n  }\n"): (typeof documents)["\n  query PendingApprovals {\n    pendingDeviceApprovals {\n      approvalId\n      approvalCode\n      requestedFromLabel\n      requestedFromIp\n      expiresAt\n      createdAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation Approve($approvalId: ID!) {\n    approveDeviceApproval(approvalId: $approvalId)\n  }\n"): (typeof documents)["\n  mutation Approve($approvalId: ID!) {\n    approveDeviceApproval(approvalId: $approvalId)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation Deny($approvalId: ID!) {\n    denyDeviceApproval(approvalId: $approvalId)\n  }\n"): (typeof documents)["\n  mutation Deny($approvalId: ID!) {\n    denyDeviceApproval(approvalId: $approvalId)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

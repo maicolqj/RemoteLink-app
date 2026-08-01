@@ -11,7 +11,7 @@ import notifee, {
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { RootStackParamList } from '../../presentation/navigation/types/NavigationTypes';
-import type { FCMData } from './NotificationService';
+import { LOGIN_APPROVAL_TYPE, navigateToApprovalIfNeeded, type FCMData } from './NotificationService';
 
 // ─── Channel IDs ─────────────────────────────────────────────────────────────
 
@@ -37,6 +37,8 @@ const TYPE_CHANNEL: Record<string, string> = {
   payment: CHANNEL.PAYMENTS,
   alert: CHANNEL.ALERTS,
   general: CHANNEL.GENERAL,
+  // Vence en 5 minutos y es de seguridad: canal de alertas, no el general.
+  [LOGIN_APPROVAL_TYPE]: CHANNEL.ALERTS,
 };
 
 // ─── Create Android channels (call once on app start) ────────────────────────
@@ -153,8 +155,10 @@ export async function displayForegroundNotification(
 
   await notifee.displayNotification({
     id: data.notificationId ?? remoteMessage.messageId,
-    title: remoteMessage.notification?.title ?? 'RemoteLink',
-    body: remoteMessage.notification?.body ?? '',
+    // Los push de seguridad (aprobación de ingreso) llegan data-only: sin
+    // `notification`, el título y el cuerpo vienen dentro del data payload.
+    title: remoteMessage.notification?.title ?? data.title ?? 'RemoteLink',
+    body: remoteMessage.notification?.body ?? data.body ?? '',
     data: remoteMessage.data as Record<string, string>,
     android,
   });
@@ -168,6 +172,7 @@ function navigateFromData(
 ) {
   if (!navigationRef.isReady()) return;
   const d = data as FCMData;
+  if (navigateToApprovalIfNeeded(navigationRef, d)) return;
   if (!d.targetStack) return;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
