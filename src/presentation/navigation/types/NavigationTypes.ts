@@ -56,8 +56,11 @@ export type ProfileStackParamList = {
   ResidentDirectory: undefined;
   ResidentDetail: { residentId: string };
   Settings: undefined;
-  // Seguridad del dispositivo: PIN local y equipos vinculados.
-  SetDevicePin: { firstTime?: boolean } | undefined;
+  // Seguridad de la cuenta: clave de acceso y equipos vinculados.
+  // `mandatory` bloquea la salida de la pantalla: se usa en el primer ingreso y
+  // cuando el residente volvió a entrar por haber olvidado la clave. La única
+  // salida es cerrar sesión, para no dejar vinculado un dispositivo prestado.
+  SetAccessCode: { firstTime?: boolean; mandatory?: boolean } | undefined;
   MyDevices: undefined;
 };
 
@@ -65,7 +68,7 @@ export type ProfileStackParamList = {
 // `LoginIdentity` (documento + código) es el fallback universal y el punto de
 // entrada para vincular el primer dispositivo.
 export type AuthStackParamList = {
-  LoginPin: undefined;
+  LoginAccessCode: undefined;
   LoginIdentity: { notice?: string } | undefined;
   LoginWhatsApp: { identity?: string } | undefined;
   LoginApproval: { identity?: string } | undefined;

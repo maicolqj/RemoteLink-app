@@ -8,7 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  ActivityIndicator,
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,13 +19,13 @@ import CustomInputComponent from '../../components/CustomInputComponent';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { loginResident, requestSystemCode } from '../../../infraestructure/services/auth.service';
+import { loginResident } from '../../../infraestructure/services/auth.service';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import {
   persistSession,
   saveLastIdentity,
   getLastIdentity,
-  isDevicePinLinked,
+  isDeviceLinked,
   isWhatsAppLoginAvailable,
 } from '../../../infraestructure/services/deviceAuth.service';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
@@ -40,7 +39,6 @@ const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HERO_HEIGHT = hp * 0.38;
-const RESEND_COOLDOWN = 60;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,8 +46,6 @@ const isValidIdentity = (v: string) => v.trim().length >= 6;
 const isValidCode = (v: string) => v.length === 5;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
-
-type RequestState = 'idle' | 'loading' | 'sent' | 'error';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'LoginIdentity'>;
 type Route = RouteProp<AuthStackParamList, 'LoginIdentity'>;
@@ -69,10 +65,10 @@ export default function LoginScreen() {
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [identity, setIdentity] = useState('');
-  // Aviso que trae la pantalla del PIN cuando el dispositivo dejó de estar
+  // Aviso que trae la pantalla de la clave cuando el dispositivo dejó de estar
   // vinculado (DEVICE_NOT_LINKED / DEVICE_REVOKED).
   const [notice, setNotice] = useState(route.params?.notice ?? '');
-  const [pinLinked, setPinLinked] = useState(false);
+  const [deviceLinked, setDeviceLinked] = useState(false);
   // El canal de WhatsApp entrante se oculta si el servidor ya respondió
   // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
   const [waAvailable, setWaAvailable] = useState(true);
@@ -83,21 +79,14 @@ export default function LoginScreen() {
   const [identityTouched, setIdentityTouched] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [requestState, setRequestState] = useState<RequestState>('idle');
-  const [requestMessage, setRequestMessage] = useState('');
-  const [resendTimer, setResendTimer] = useState(0);
 
   // ── Animations ─────────────────────────────────────────────────────────────
   const heroIconScale = useRef(new Animated.Value(1)).current;
-  const sentBadgeOpacity = useRef(new Animated.Value(0)).current;
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => () => { timerRef.current && clearInterval(timerRef.current); }, []);
-
-  // Prefill del último documento usado + disponibilidad del acceso por PIN.
+  // Prefill del último documento usado + si este equipo ya está vinculado.
   useEffect(() => {
     getLastIdentity().then(v => v && setIdentity(prev => prev || v));
-    isDevicePinLinked().then(setPinLinked);
+    isDeviceLinked().then(setDeviceLinked);
   }, []);
 
   // Se reevalúa en cada foco, no solo al montar: la pantalla sigue montada
@@ -108,62 +97,6 @@ export default function LoginScreen() {
       isWhatsAppLoginAvailable().then(setWaAvailable);
     }, []),
   );
-
-  // ── Resend countdown ───────────────────────────────────────────────────────
-  const startResendTimer = useCallback(() => {
-    timerRef.current && clearInterval(timerRef.current);
-    setResendTimer(RESEND_COOLDOWN);
-    timerRef.current = setInterval(() => {
-      setResendTimer(prev => {
-        if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  const bounceIcon = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(heroIconScale, { toValue: 1.2, duration: 140, useNativeDriver: true }),
-      Animated.spring(heroIconScale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 7 }),
-    ]).start();
-  }, [heroIconScale]);
-
-  const showSentBadge = useCallback(() => {
-    sentBadgeOpacity.setValue(0);
-    Animated.sequence([
-      Animated.timing(sentBadgeOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      Animated.delay(3000),
-      Animated.timing(sentBadgeOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start();
-  }, [sentBadgeOpacity]);
-
-  // ── Request code (resend system code via WhatsApp) ─────────────────────────
-  const handleRequestCode = useCallback(async () => {
-    if (!isValidIdentity(identity)) {
-      setIdentityError('Primero ingresa tu número de identidad (mínimo 6 dígitos)');
-      setIdentityTouched(true);
-      return;
-    }
-    setRequestState('loading');
-    setSubmitError('');
-    setRequestMessage('');
-    try {
-      const { message } = await requestSystemCode(identity);
-      // El backend responde con un mensaje genérico a propósito (no revela si la
-      // identidad existe). Se muestra tal cual, sin reemplazarlo por lógica local.
-      setRequestState('sent');
-      setRequestMessage(message);
-      startResendTimer();
-      bounceIcon();
-      showSentBadge();
-    } catch (err: any) {
-      // Mensaje ya normalizado por la capa de servicio (parseApiError).
-      setRequestState('error');
-      setSubmitError(err?.message ?? 'No se pudo enviar el código. Intenta de nuevo.');
-      // Rate limit del backend (3 por identidad / 10 min): el botón sigue bloqueado.
-      if (err?.rateLimited) startResendTimer();
-    }
-  }, [identity, startResendTimer, bounceIcon, showSentBadge]);
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
@@ -199,16 +132,6 @@ export default function LoginScreen() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const canSubmit = isValidIdentity(identity) && isValidCode(code) && !isSubmitting;
-  const isRequesting = requestState === 'loading';
-
-  const requestLabel = () => {
-    if (isRequesting) return null;
-    if (resendTimer > 0) return `Reenviar código en ${resendTimer}s`;
-    if (requestState === 'sent') return 'Reenviar código';
-    return '¿No tienes tu código? Solicitar';
-  };
-
-  const requestIconName = requestState === 'sent' ? 'send' : 'sms';
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -230,18 +153,6 @@ export default function LoginScreen() {
               </View>
             </Animated.View>
 
-            {/* "Código enviado" badge */}
-            <Animated.View
-              style={[styles.sentBadge, { opacity: sentBadgeOpacity, backgroundColor: colors.success }]}
-              pointerEvents="none">
-              <Icon name="check-circle" size={14} color="#FFFFFF" />
-              <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium} color="#FFFFFF">
-                Solicitud enviada
-              </CustomTextComponent>
-            </Animated.View>
-
-
-       
           </View>
         </View>
 
@@ -262,10 +173,10 @@ export default function LoginScreen() {
               color={colors.textSecondary}
               textAlign="center"
               style={styles.cardSubtitle}>
-              Ingresa tu identidad y tu código de residente
+              Ingresa tu número de identidad y elige cómo confirmar que eres tú
             </CustomTextComponent>
 
-            {/* ── Aviso traído desde el login por PIN ── */}
+            {/* ── Aviso traído desde el login con clave ── */}
             {notice ? (
               <View
                 style={[styles.infoBanner, { backgroundColor: colors.warning + '14', borderColor: colors.warning + '40' }]}
@@ -285,7 +196,7 @@ export default function LoginScreen() {
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setRequestMessage(''); setNotice(''); if (requestState === 'error') setRequestState('idle'); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setNotice(''); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -296,16 +207,7 @@ export default function LoginScreen() {
               editable={!isSubmitting}
             />
 
-            {/* ── Code field ── */}
             <View style={styles.codeSection}>
-              <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                fontWeight={FONT_WEIGHT.medium}
-                color={colors.textSecondary}
-                style={styles.codeLabel}>
-                CÓDIGO DE ACCESO
-              </CustomTextComponent>
-
               <CodeSegmentInput
                 value={code}
                 onChange={v => { setCode(v); setCodeError(''); setSubmitError(''); }}
@@ -314,66 +216,62 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* ── Request code link ── */}
-            <TouchableOpacity
-              onPress={handleRequestCode}
-              disabled={isRequesting || resendTimer > 0 || isSubmitting}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={[
-                styles.requestRow,
-                { backgroundColor: colors.primarySurface, borderColor: colors.primary + '30' },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={requestLabel() ?? 'Solicitando código'}>
-              {isRequesting ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.primary}>
-                    Enviando código…
+            {/* ── Formas de ingresar sin costo por mensaje ──
+                 Van antes del código porque son el camino normal: el codigo de
+                 residente ya no se puede pedir desde la app, solo lo entrega la
+                 administración. */}
+            <View style={styles.altBlock}>
+              {deviceLinked ? (
+                <TouchableOpacity
+                  style={[styles.altRow, { borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('LoginAccessCode')}
+                  activeOpacity={0.7}
+                  accessibilityRole="button">
+                  <Icon name="pin" size={ICON_SIZE.sm} color={colors.primary} />
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                    Con mi clave de acceso
                   </CustomTextComponent>
-                </>
-              ) : (
-                <>
-                  <Icon
-                    name={requestIconName}
-                    size={ICON_SIZE.sm}
-                    color={resendTimer > 0 ? colors.textTertiary : colors.primary}
-                  />
-                  <CustomTextComponent
-                    fontSize={FONT_SIZE.sm}
-                    fontWeight={FONT_WEIGHT.medium}
-                    color={resendTimer > 0 ? colors.textTertiary : colors.primary}>
-                    {requestLabel()}
-                  </CustomTextComponent>
-                </>
-              )}
-            </TouchableOpacity>
+                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ) : null}
 
-            {/* ── WhatsApp helper ── */}
-            <View style={styles.helperRow}>
-              <Icon name="chat" size={14} color={colors.textTertiary} />
-              <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                color={colors.textTertiary}
-                style={styles.helperText}>
-                Te enviamos tu código por WhatsApp al número registrado
-              </CustomTextComponent>
+              {waAvailable ? (
+                <TouchableOpacity
+                  style={[styles.altRow, { borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined })}
+                  activeOpacity={0.7}
+                  accessibilityRole="button">
+                  <Icon name="chat" size={ICON_SIZE.sm} color="#25D366" />
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                    Enviando un WhatsApp desde mi celular
+                  </CustomTextComponent>
+                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.altRow, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('LoginApproval', { identity: identity.trim() || undefined })}
+                activeOpacity={0.7}
+                accessibilityRole="button">
+                <Icon name="phonelink-lock" size={ICON_SIZE.sm} color={colors.primary} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                  Aprobando desde mi otro dispositivo
+                </CustomTextComponent>
+                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
             </View>
 
-            {/* ── Backend message (genérico, se muestra tal cual) ── */}
-            {requestMessage ? (
-              <View
-                style={[styles.infoBanner, { backgroundColor: colors.success + '14', borderColor: colors.success + '40' }]}
-                accessibilityRole="alert">
-                <Icon name="check-circle-outline" size={ICON_SIZE.sm} color={colors.success} />
-                <CustomTextComponent
-                  fontSize={FONT_SIZE.sm}
-                  color={colors.success}
-                  style={styles.errorBannerText}>
-                  {requestMessage}
-                </CustomTextComponent>
-              </View>
-            ) : null}
+            {/* ── Código entregado por la administración ──
+            <View style={styles.altDivider}>
+              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                o con un código de la administración
+              </CustomTextComponent>
+              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
+            </View> */}
+
+            
 
             {/* ── Error banner ── */}
             {submitError ? (
@@ -412,57 +310,6 @@ export default function LoginScreen() {
                   : undefined
               }
             />
-
-            {/* ── Otras formas de ingresar (sin costo por mensaje) ── */}
-            <View style={styles.altBlock}>
-              <View style={styles.altDivider}>
-                <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-                <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-                  o ingresa de otra forma
-                </CustomTextComponent>
-                <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-              </View>
-
-              {pinLinked ? (
-                <TouchableOpacity
-                  style={[styles.altRow, { borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('LoginPin')}
-                  activeOpacity={0.7}
-                  accessibilityRole="button">
-                  <Icon name="pin" size={ICON_SIZE.sm} color={colors.primary} />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                    Con el PIN de este dispositivo
-                  </CustomTextComponent>
-                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ) : null}
-
-              {waAvailable ? (
-                <TouchableOpacity
-                  style={[styles.altRow, { borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined })}
-                  activeOpacity={0.7}
-                  accessibilityRole="button">
-                  <Icon name="chat" size={ICON_SIZE.sm} color="#25D366" />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                    Enviando un WhatsApp desde mi celular
-                  </CustomTextComponent>
-                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                style={[styles.altRow, { borderColor: colors.border }]}
-                onPress={() => navigation.navigate('LoginApproval', { identity: identity.trim() || undefined })}
-                activeOpacity={0.7}
-                accessibilityRole="button">
-                <Icon name="phonelink-lock" size={ICON_SIZE.sm} color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                  Aprobando desde mi otro dispositivo
-                </CustomTextComponent>
-                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-            </View>
 
             {/* ── Security note ── */}
             <View style={[styles.securityNote, { backgroundColor: colors.background }]}>
@@ -574,17 +421,6 @@ const styles = StyleSheet.create({
     height: hp * 0.3,
     resizeMode: 'contain',
   },
-  sentBadge: {
-    position: 'absolute',
-    top: -12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs / 2,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: RADIUS.full,
-  },
-
   // Card
   cardOuter: {
     flex: 1,
@@ -611,21 +447,6 @@ const styles = StyleSheet.create({
   codeSection: {
     gap: SPACING.sm,
   },
-  codeLabel: {
-    letterSpacing: 0.8,
-  },
-
-  // Request link
-  requestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    minHeight: 44,
-  },
-
   // Submit
   submitBtn: {
     borderRadius: RADIUS.md,
@@ -639,17 +460,6 @@ const styles = StyleSheet.create({
   },
 
   // WhatsApp helper
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginTop: -SPACING.xs,
-  },
-  helperText: {
-    flex: 1,
-    lineHeight: FONT_SIZE.xs * 1.4,
-  },
-
   // Info banner
   infoBanner: {
     flexDirection: 'row',

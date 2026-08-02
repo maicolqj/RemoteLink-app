@@ -12,7 +12,8 @@ import { useAlert } from '../../providers/context/AlertContext';
 import {
   fetchMyDevices,
   revokeDevice,
-  setDevicePinLinked,
+  revokeOtherDevices,
+  setDeviceLinked,
   type ResidentDevice,
   type DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
@@ -27,9 +28,6 @@ const formatDate = (iso?: string | null): string => {
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const isLocked = (lockedUntil?: string | null): boolean =>
-  !!lockedUntil && new Date(lockedUntil).getTime() > Date.now();
-
 export default function MyDevicesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -41,6 +39,7 @@ export default function MyDevicesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [isRevokingOthers, setIsRevokingOthers] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -77,7 +76,7 @@ export default function MyDevicesScreen() {
               try {
                 // El backend recibe el `id` del registro, no el `deviceId`.
                 await revokeDevice(device.id);
-                if (isCurrent) await setDevicePinLinked(false);
+                if (isCurrent) await setDeviceLinked(false);
                 setDevices(prev => prev.filter(d => d.id !== device.id));
                 showSuccess('Dispositivo desvinculado.', 'Listo');
               } catch (e) {
@@ -92,9 +91,46 @@ export default function MyDevicesScreen() {
     );
   }, [currentDeviceId, showQuestion, showError, showSuccess]);
 
+  /**
+   * Celular perdido: en vez de pedirle al residente que identifique cuál de los
+   * equipos de la lista era el suyo —cosa que rara vez sabe—, se dejan solo el
+   * actual y se cierran las demás sesiones de una vez.
+   */
+  const confirmRevokeOthers = useCallback(() => {
+    showQuestion(
+      'Se cerrará la sesión en todos tus otros equipos. Este seguirá funcionando con tu clave.',
+      '¿Desvincular los demás dispositivos?',
+      {
+        buttons: [
+          { text: 'Cancelar', style: 'secondary', onPress: () => {} },
+          {
+            text: 'Desvincular',
+            style: 'danger',
+            onPress: async () => {
+              setIsRevokingOthers(true);
+              try {
+                const count = await revokeOtherDevices();
+                setDevices(prev => prev.filter(d => d.deviceId === currentDeviceId));
+                showSuccess(
+                  count === 0
+                    ? 'No había otros dispositivos vinculados.'
+                    : `Se desvincularon ${count} dispositivo(s).`,
+                  'Listo',
+                );
+              } catch (e) {
+                showError((e as DeviceAuthError).message);
+              } finally {
+                setIsRevokingOthers(false);
+              }
+            },
+          },
+        ],
+      },
+    );
+  }, [currentDeviceId, showQuestion, showError, showSuccess]);
+
   const renderItem = useCallback(({ item }: { item: ResidentDevice }) => {
     const isCurrent = item.deviceId === currentDeviceId;
-    const locked = isLocked(item.lockedUntil);
 
     return (
       <Card style={styles.card}>
@@ -128,14 +164,6 @@ export default function MyDevicesScreen() {
               Último uso: {formatDate(item.lastUsedAt)} · Vinculado: {formatDate(item.createdAt)}
             </CustomTextComponent>
 
-            {locked ? (
-              <View style={styles.lockRow}>
-                <Icon name="lock-clock" size={14} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.error}>
-                  Bloqueado por intentos fallidos
-                </CustomTextComponent>
-              </View>
-            ) : null}
           </View>
 
           {revokingId === item.id ? (
@@ -176,20 +204,39 @@ export default function MyDevicesScreen() {
             />
           }
           ListHeaderComponent={
-            error ? (
-              <View style={[styles.errorBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}>
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-                  {error}
-                </CustomTextComponent>
-              </View>
-            ) : null
+            <>
+              {error ? (
+                <View style={[styles.errorBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}>
+                  <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
+                    {error}
+                  </CustomTextComponent>
+                </View>
+              ) : null}
+
+              {devices.length > 1 ? (
+                <TouchableOpacity
+                  onPress={confirmRevokeOthers}
+                  disabled={isRevokingOthers}
+                  style={styles.bulkRow}
+                  accessibilityRole="button">
+                  {isRevokingOthers ? (
+                    <ActivityIndicator size="small" color={colors.error} />
+                  ) : (
+                    <Icon name="phonelink-erase" size={ICON_SIZE.sm} color={colors.error} />
+                  )}
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
+                    Perdí un dispositivo · Desvincular todos menos este
+                  </CustomTextComponent>
+                </TouchableOpacity>
+              ) : null}
+            </>
           }
           ListEmptyComponent={
             <EmptyState
               icon="devices"
               title="Sin dispositivos vinculados"
-              description="Cuando crees un PIN en un dispositivo, aparecerá aquí y podrás desvincularlo cuando quieras."
+              description="Los equipos donde inicies sesión aparecerán aquí y podrás desvincularlos cuando quieras."
             />
           }
         />
@@ -231,11 +278,11 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: RADIUS.full,
   },
-  lockRow: {
+  bulkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs / 2,
-    marginTop: 2,
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
   },
   errorBanner: {
     flexDirection: 'row',

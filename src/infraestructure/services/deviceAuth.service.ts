@@ -2,10 +2,12 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apolloClient from '../../data/lib/apollo/client';
 import {
-  SET_DEVICE_PIN,
-  LOGIN_WITH_DEVICE_PIN,
+  SET_ACCESS_CODE,
+  LOGIN_WITH_ACCESS_CODE,
+  HAS_ACCESS_CODE,
   MY_DEVICES,
   REVOKE_DEVICE,
+  REVOKE_OTHER_DEVICES,
   WA_LOGIN_AVAILABLE,
   REQUEST_WA_LOGIN,
   WA_LOGIN_STATUS,
@@ -25,7 +27,7 @@ import type { LoginResult } from './auth.service';
 
 /**
  * Error de cualquier flujo de este servicio. `code` es el `extensions.code`
- * tipado del backend (DEVICE_PIN_INVALID, APPROVAL_DENIED, …). La UI debe
+ * tipado del backend (ACCESS_CODE_INVALID, APPROVAL_DENIED, …). La UI debe
  * ramificar SIEMPRE por `code`, nunca por el texto de `message` — que ya viene
  * redactado en español y es apto para mostrarse tal cual.
  */
@@ -51,7 +53,6 @@ export interface ResidentDevice {
   label?: string | null;
   platform?: string | null;
   lastUsedAt?: string | null;
-  lockedUntil?: string | null;
   createdAt: string;
 }
 
@@ -95,28 +96,55 @@ export interface LoginApprovalPushPayload {
 
 // ─── Preferencias locales ────────────────────────────────────────────────────
 
-const PIN_LINKED_KEY = 'auth.devicePinLinked';
+const DEVICE_LINKED_KEY = 'auth.deviceLinked';
 const LAST_IDENTITY_KEY = 'auth.lastIdentity';
-const PIN_PROMPT_KEY = 'auth.devicePinPromptShown';
+const CODE_FORGOTTEN_KEY = 'auth.accessCodeForgotten';
 
 /**
- * Pista local de "este dispositivo ya tiene PIN". No es una credencial ni una
+ * Pista local de "este dispositivo está vinculado". No es una credencial ni una
  * fuente de verdad: solo decide qué pantalla de login se muestra primero. La
  * autoridad es el backend, que responde DEVICE_NOT_LINKED si no coincide.
  * Debe sobrevivir al logout, igual que el x-device-id.
  */
-export const setDevicePinLinked = async (linked: boolean): Promise<void> => {
+export const setDeviceLinked = async (linked: boolean): Promise<void> => {
   try {
-    await AsyncStorage.setItem(PIN_LINKED_KEY, linked ? '1' : '0');
+    await AsyncStorage.setItem(DEVICE_LINKED_KEY, linked ? '1' : '0');
   } catch {}
 };
 
-export const isDevicePinLinked = async (): Promise<boolean> => {
+export const isDeviceLinked = async (): Promise<boolean> => {
   try {
-    return (await AsyncStorage.getItem(PIN_LINKED_KEY)) === '1';
+    return (await AsyncStorage.getItem(DEVICE_LINKED_KEY)) === '1';
   } catch {
     return false;
   }
+};
+
+/**
+ * El residente declaró haber olvidado su clave.
+ *
+ * La cuenta sigue teniendo clave en el servidor, así que preguntarle a él no
+ * alcanza para saber que hay que pedir una nueva: sin esta marca entraría por
+ * WhatsApp y volvería a encontrarse con la misma clave que no recuerda.
+ */
+export const markAccessCodeForgotten = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(CODE_FORGOTTEN_KEY, '1');
+  } catch {}
+};
+
+export const wasAccessCodeForgotten = async (): Promise<boolean> => {
+  try {
+    return (await AsyncStorage.getItem(CODE_FORGOTTEN_KEY)) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const clearAccessCodeForgotten = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(CODE_FORGOTTEN_KEY);
+  } catch {}
 };
 
 /** Prefill de los flujos de recuperación; el documento no es un secreto. */
@@ -183,20 +211,6 @@ export const isWhatsAppLoginAvailable = async (): Promise<boolean> => {
   }
 };
 
-export const wasPinPromptShown = async (): Promise<boolean> => {
-  try {
-    return (await AsyncStorage.getItem(PIN_PROMPT_KEY)) === '1';
-  } catch {
-    return true; // ante la duda no molestar
-  }
-};
-
-export const markPinPromptShown = async (): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(PIN_PROMPT_KEY, '1');
-  } catch {}
-};
-
 // ─── Sesión ──────────────────────────────────────────────────────────────────
 
 /**
@@ -215,31 +229,33 @@ export async function persistSession(result: LoginResult): Promise<void> {
   useAuthStore.getState().setSession(result.accessToken, result.sessionId);
 }
 
-// ─── 01 · PIN de dispositivo ─────────────────────────────────────────────────
+// ─── 01 · Clave de acceso ────────────────────────────────────────────────────
 
-export const PIN_LENGTH = 6;
+export const ACCESS_CODE_LENGTH = 6;
 
 /**
  * Réplica de la validación del servidor para dar retroalimentación inmediata.
  * El servidor sigue siendo la autoridad: puede rechazar patrones que esto deje
- * pasar, y ese rechazo llega como DEVICE_PIN_TOO_WEAK.
+ * pasar, y ese rechazo llega como ACCESS_CODE_TOO_WEAK.
  */
-export function validatePinStrength(pin: string): string | null {
-  if (!/^\d{6}$/.test(pin)) return 'El PIN debe tener exactamente 6 dígitos';
+export function validateAccessCode(code: string): string | null {
+  const value = code.trim().toUpperCase();
 
-  if (/^(\d)\1{5}$/.test(pin)) return 'Un PIN de dígitos repetidos es demasiado fácil de adivinar';
-
-  const digits = pin.split('').map(Number);
-  const ascending = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 1) % 10);
-  const descending = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 9) % 10);
-  if (ascending || descending) return 'Las secuencias como 123456 son demasiado fáciles de adivinar';
-
-  // Patrones repetidos: 121212 (par de 2) y 123123 (par de 3).
-  if (pin.slice(0, 2) === pin.slice(2, 4) && pin.slice(2, 4) === pin.slice(4, 6)) {
-    return 'Ese patrón es demasiado fácil de adivinar';
+  if (!/^[A-Z0-9]{6}$/.test(value)) {
+    return 'La clave debe tener 6 caracteres, solo letras y números';
   }
-  if (pin.slice(0, 3) === pin.slice(3, 6)) {
-    return 'Ese patrón es demasiado fácil de adivinar';
+
+  // Exigir ambos tipos evita que el espacio alfanumérico se degrade al de un
+  // PIN numérico, que es lo que pasa cuando todos eligen solo cifras.
+  if (!/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
+    return 'Combina al menos una letra y un número';
+  }
+
+  if (/^(.)\1{5}$/.test(value)) return 'Una clave de caracteres repetidos es muy fácil de adivinar';
+
+  if ('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.includes(value)) return 'Las secuencias son muy fáciles de adivinar';
+  if ('0123456789'.includes(value) || '9876543210'.includes(value)) {
+    return 'Las secuencias como 123456 son muy fáciles de adivinar';
   }
 
   return null;
@@ -249,43 +265,68 @@ export function validatePinStrength(pin: string): string | null {
 export const defaultDeviceLabel = (): string =>
   Platform.OS === 'ios' ? 'Mi iPhone' : 'Mi Android';
 
-export async function setResidentDevicePin(
-  pin: string,
+/**
+ * Fija o cambia la clave de la CUENTA y vincula este equipo.
+ *
+ * La clave es una sola para todos los dispositivos del residente: vincular uno
+ * nuevo no obliga a inventar otra.
+ */
+export async function setAccessCode(
+  code: string,
   label?: string,
 ): Promise<ResidentDevice> {
   try {
-    const { data, error } = await apolloClient.mutate<{ setResidentDevicePin: ResidentDevice }>({
-      mutation: SET_DEVICE_PIN,
-      variables: { input: { pin, ...(label ? { label: label.slice(0, 120) } : {}) } },
+    const { data, error } = await apolloClient.mutate<{ setResidentAccessCode: ResidentDevice }>({
+      mutation: SET_ACCESS_CODE,
+      variables: {
+        input: { code: code.trim().toUpperCase(), ...(label ? { label: label.slice(0, 120) } : {}) },
+      },
       fetchPolicy: 'no-cache',
     });
     if (error) throw error;
-    if (!data?.setResidentDevicePin) throw new DeviceAuthError('Respuesta inválida del servidor');
-    await setDevicePinLinked(true);
-    return data.setResidentDevicePin;
+    if (!data?.setResidentAccessCode) throw new DeviceAuthError('Respuesta inválida del servidor');
+    await setDeviceLinked(true);
+    // Hay una clave que el residente acaba de elegir: la marca de "la olvidé"
+    // dejó de aplicar. El servidor, del lado suyo, también limpia el bloqueo y
+    // los intentos fallidos.
+    await clearAccessCodeForgotten();
+    return data.setResidentAccessCode;
   } catch (e) {
     if (e instanceof DeviceAuthError) throw e;
-    throw toDeviceAuthError(e, 'No se pudo guardar el PIN. Intenta de nuevo');
+    throw toDeviceAuthError(e, 'No se pudo guardar la clave. Intenta de nuevo');
   }
 }
 
-export async function loginWithDevicePin(pin: string): Promise<LoginResult> {
+/**
+ * ¿La cuenta ya tiene clave? Se pregunta al servidor, no al almacenamiento
+ * local: la clave vive en la cuenta y puede haberse creado desde otro equipo.
+ */
+export async function hasAccessCode(): Promise<boolean> {
+  const { data, error } = await apolloClient.query<{ residentHasAccessCode: boolean }>({
+    query: HAS_ACCESS_CODE,
+    fetchPolicy: 'network-only',
+  });
+  if (error) throw toDeviceAuthError(error, 'No se pudo consultar tu clave de acceso');
+  return data?.residentHasAccessCode ?? false;
+}
+
+export async function loginWithAccessCode(code: string): Promise<LoginResult> {
   try {
-    const { data, error } = await apolloClient.mutate<{ loginWithDevicePin: LoginResult }>({
-      mutation: LOGIN_WITH_DEVICE_PIN,
-      variables: { input: { pin } },
+    const { data, error } = await apolloClient.mutate<{ loginWithAccessCode: LoginResult }>({
+      mutation: LOGIN_WITH_ACCESS_CODE,
+      variables: { input: { code: code.trim().toUpperCase() } },
       context: { skipAuth: true },
       fetchPolicy: 'no-cache',
     });
     if (error) throw error;
-    if (!data?.loginWithDevicePin) throw new DeviceAuthError('Respuesta inválida del servidor');
-    return data.loginWithDevicePin;
+    if (!data?.loginWithAccessCode) throw new DeviceAuthError('Respuesta inválida del servidor');
+    return data.loginWithAccessCode;
   } catch (e) {
     if (e instanceof DeviceAuthError) throw e;
-    const err = toDeviceAuthError(e, 'No se pudo iniciar sesión con el PIN');
-    // El dispositivo dejó de estar vinculado: no volver a ofrecer el PIN primero.
+    const err = toDeviceAuthError(e, 'No se pudo iniciar sesión con tu clave');
+    // El dispositivo dejó de estar vinculado: no volver a ofrecer la clave primero.
     if (err.code === 'DEVICE_NOT_LINKED' || err.code === 'DEVICE_REVOKED') {
-      await setDevicePinLinked(false);
+      await setDeviceLinked(false);
     }
     throw err;
   }
@@ -301,6 +342,23 @@ export async function fetchMyDevices(): Promise<ResidentDevice[]> {
     return data?.myResidentDevices ?? [];
   } catch (e) {
     throw toDeviceAuthError(e, 'No se pudieron cargar tus dispositivos');
+  }
+}
+
+/**
+ * Celular perdido: deja vinculado solo el equipo actual y cierra las demás
+ * sesiones. Devuelve cuántos se desvincularon.
+ */
+export async function revokeOtherDevices(): Promise<number> {
+  try {
+    const { data, error } = await apolloClient.mutate<{ revokeMyOtherDevices: number }>({
+      mutation: REVOKE_OTHER_DEVICES,
+      fetchPolicy: 'no-cache',
+    });
+    if (error) throw error;
+    return data?.revokeMyOtherDevices ?? 0;
+  } catch (e) {
+    throw toDeviceAuthError(e, 'No se pudieron desvincular los otros dispositivos');
   }
 }
 
@@ -370,13 +428,22 @@ export async function fetchWhatsAppLoginStatus(
   }
 }
 
-export async function redeemWhatsAppLogin(challengeId: string): Promise<LoginResult> {
+/**
+ * `accessCode` es obligatorio cuando la cuenta ya tiene clave: enviarse el
+ * WhatsApp prueba posesión del teléfono, y quien lo roba se lleva también la
+ * línea. La clave aporta el factor que el ladrón no tiene. Si falta, el
+ * servidor responde ACCESS_CODE_REQUIRED y la UI la pide sin reiniciar el flujo.
+ */
+export async function redeemWhatsAppLogin(
+  challengeId: string,
+  accessCode?: string,
+): Promise<LoginResult> {
   try {
     const { data, error } = await apolloClient.mutate<{
       redeemWhatsAppLoginChallenge: LoginResult;
     }>({
       mutation: REDEEM_WA_LOGIN,
-      variables: { challengeId },
+      variables: { challengeId, accessCode: accessCode?.trim().toUpperCase() || null },
       context: { skipAuth: true },
       fetchPolicy: 'no-cache',
     });
@@ -431,11 +498,15 @@ export async function fetchDeviceApprovalStatus(
   }
 }
 
-export async function redeemDeviceApproval(challengeId: string): Promise<LoginResult> {
+/** Mismo criterio que el canje por WhatsApp: ver redeemWhatsAppLogin. */
+export async function redeemDeviceApproval(
+  challengeId: string,
+  accessCode?: string,
+): Promise<LoginResult> {
   try {
     const { data, error } = await apolloClient.mutate<{ redeemDeviceApproval: LoginResult }>({
       mutation: REDEEM_APPROVAL,
-      variables: { challengeId },
+      variables: { challengeId, accessCode: accessCode?.trim().toUpperCase() || null },
       context: { skipAuth: true },
       fetchPolicy: 'no-cache',
     });

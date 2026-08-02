@@ -1511,10 +1511,10 @@ export type LogCallInput = {
   unitNumber?: InputMaybe<Scalars['String']['input']>;
 };
 
-/** Credenciales de login por dispositivo vinculado + PIN (residentes) */
-export type LoginDevicePinInput = {
-  /** PIN de 6 dígitos del dispositivo vinculado */
-  pin: Scalars['String']['input'];
+/** Credenciales de login con la clave de acceso del residente */
+export type LoginAccessCodeInput = {
+  /** Clave alfanumérica de 6 caracteres */
+  code: Scalars['String']['input'];
 };
 
 /** Credenciales para inicio de sesión con email y contraseña */
@@ -1670,8 +1670,8 @@ export type Mutation = {
   logCall: CallLog;
   /** Inicia sesión como residente usando número de identidad y código de sistema. Exclusivo para RESIDENT_ROL. */
   loginResident: AuthResponse;
-  /** Inicia sesión con el PIN del dispositivo vinculado (header x-device-id). Exclusivo para RESIDENT_ROL. No envía ningún mensaje. */
-  loginWithDevicePin: AuthResponse;
+  /** Inicia sesión con la clave de acceso desde un dispositivo ya vinculado (header x-device-id). Exclusivo para RESIDENT_ROL. No envía ningún mensaje. */
+  loginWithAccessCode: AuthResponse;
   /** Inicia sesión con email y contraseña. Disponible para: SUPER_ADMIN_ROL, COMPILANCE_OFFICER_ROL, COMPLEX_ROL, ACCOUNTANT_ROL */
   loginWithEmail: AuthResponse;
   /** Inicia sesión con email y código de sistema. Disponible para: SUPERVISOR_ROL, SECURITY_ROL, RESIDENT_ROL */
@@ -1761,6 +1761,8 @@ export type Mutation = {
   /** Revierte una acción registrada en el historial a su estado anterior. Solo disponible para SUPER_ADMIN_ROL. Una acción solo puede revertirse una vez. */
   revertAudit: RevertAuditResponse;
   reviewSignedDpa: ResidentialComplex;
+  /** Desvincula todos los equipos del residente salvo el actual y cierra sus sesiones. Pensado para el celular perdido: se entra desde el equipo nuevo y se corta el acceso del anterior. Devuelve cuántos se revocaron. */
+  revokeMyOtherDevices: Scalars['Float']['output'];
   /** Desvincula un dispositivo (ej. celular perdido) y cierra su sesión. Las sesiones de los demás dispositivos del residente no se ven afectadas. */
   revokeResidentDevice: Scalars['Boolean']['output'];
   saveMobileToken: PushSubscriptionResult;
@@ -1772,8 +1774,8 @@ export type Mutation = {
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
   setParkingRate: VisitorParkingConfig;
-  /** Vincula el dispositivo actual (header x-device-id) al residente autenticado y fija su PIN de 6 dígitos. A partir de aquí el residente inicia sesión con loginWithDevicePin, sin consumir mensajes de WhatsApp. */
-  setResidentDevicePin: ResidentDevice;
+  /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. */
+  setResidentAccessCode: ResidentDevice;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
   /** Registra el check-out del supervisor. Cierra la visita activa (status: CLOSED). */
@@ -2125,8 +2127,8 @@ export type MutationLoginResidentArgs = {
 };
 
 
-export type MutationLoginWithDevicePinArgs = {
-  input: LoginDevicePinInput;
+export type MutationLoginWithAccessCodeArgs = {
+  input: LoginAccessCodeInput;
 };
 
 
@@ -2198,6 +2200,7 @@ export type MutationReactivateVehicleArgs = {
 
 
 export type MutationRedeemDeviceApprovalArgs = {
+  accessCode?: InputMaybe<Scalars['String']['input']>;
   challengeId: Scalars['ID']['input'];
 };
 
@@ -2209,6 +2212,7 @@ export type MutationRedeemQrTokenArgs = {
 
 
 export type MutationRedeemWhatsAppLoginChallengeArgs = {
+  accessCode?: InputMaybe<Scalars['String']['input']>;
   challengeId: Scalars['ID']['input'];
 };
 
@@ -2497,8 +2501,8 @@ export type MutationSetParkingRateArgs = {
 };
 
 
-export type MutationSetResidentDevicePinArgs = {
-  input: SetDevicePinInput;
+export type MutationSetResidentAccessCodeArgs = {
+  input: SetAccessCodeInput;
 };
 
 
@@ -3443,6 +3447,8 @@ export type Query = {
   pucAccounts: Array<PucAccount>;
   recurringCharges: Array<RecurringCharge>;
   resident: Resident;
+  /** Indica si la cuenta ya tiene clave de acceso. El cliente la consulta tras iniciar sesión para exigir su creación cuando falta. */
+  residentHasAccessCode: Scalars['Boolean']['output'];
   residentHistoryByUnit: Array<Resident>;
   residentStats: ResidentStatsResponse;
   residents: PaginatedResidentsResponse;
@@ -4342,7 +4348,7 @@ export type Resident = {
   userId: Scalars['String']['output'];
 };
 
-/** Dispositivo vinculado a un residente para login por PIN */
+/** Dispositivo vinculado a un residente */
 export type ResidentDevice = {
   __typename?: 'ResidentDevice';
   createdAt: Scalars['DateTime']['output'];
@@ -4353,8 +4359,6 @@ export type ResidentDevice = {
   /** Nombre legible del dispositivo */
   label?: Maybe<Scalars['String']['output']>;
   lastUsedAt?: Maybe<Scalars['DateTime']['output']>;
-  /** Bloqueo temporal por intentos fallidos */
-  lockedUntil?: Maybe<Scalars['DateTime']['output']>;
   platform?: Maybe<Scalars['String']['output']>;
   revokedReason?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
@@ -4813,12 +4817,12 @@ export type SentNotificationPaginatedResult = {
   pagination: PaginationReponse;
 };
 
-/** Fija el PIN del dispositivo actual para el residente autenticado */
-export type SetDevicePinInput = {
+/** Fija o cambia la clave de acceso del residente autenticado */
+export type SetAccessCodeInput = {
+  /** Clave alfanumérica de 6 caracteres */
+  code: Scalars['String']['input'];
   /** Nombre del dispositivo (ej. "iPhone de Juan") */
   label?: InputMaybe<Scalars['String']['input']>;
-  /** PIN de 6 dígitos */
-  pin: Scalars['String']['input'];
 };
 
 /** Datos para configurar o actualizar la tarifa de parqueadero */
@@ -5458,6 +5462,8 @@ export type User = {
   acceptTermsAdnConditions: Scalars['Boolean']['output'];
   /** Indicates whether the user agrees to receive marketing emails. */
   acceptsMarketing: Scalars['Boolean']['output'];
+  /** Bloqueo temporal por intentos fallidos de clave de acceso */
+  accessCodeLockedUntil?: Maybe<Scalars['DateTime']['output']>;
   /** Date until which the account is blocked due to failed attempts */
   accountLockedUntil?: Maybe<Scalars['DateTime']['output']>;
   /** Edad calculada del usuario basada en su fecha de nacimiento */
@@ -5531,8 +5537,6 @@ export type User = {
   status: UserStatus;
   /** Reason for account suspension */
   suspensionReason?: Maybe<Scalars['String']['output']>;
-  /** Código de sistema asignado a todo usuario (formato RES-xxxxx) */
-  systemCode?: Maybe<Scalars['String']['output']>;
   /** Preferred time zone */
   timezone: Scalars['String']['output'];
   /** token version */
@@ -5612,8 +5616,6 @@ export type UserInfoCompleteResponse = {
   rating: Scalars['Float']['output'];
   /** Estado actual de la cuenta */
   status: UserStatus;
-  /** Zona horaria preferida */
-  systemCode?: Maybe<Scalars['String']['output']>;
   /** Zona horaria preferida */
   timezone?: Maybe<Scalars['String']['output']>;
   /** Fecha de última actualización */
@@ -6211,24 +6213,29 @@ export type GetMyResidentProfileQueryVariables = Exact<{ [key: string]: never; }
 
 export type GetMyResidentProfileQuery = { __typename?: 'Query', myResidentProfile: { __typename?: 'Resident', id: string, type: ResidentType, status: ResidentStatus, isMainResident: boolean, startDate: string, user?: { __typename?: 'User', id: string, name: string, lastName: string, email: string, phoneNumber: string, identity?: string | null, rating: number } | null, unit?: { __typename?: 'Unit', id: string, number: string, floor: number, building?: { __typename?: 'Building', id: string, name: string, floors: number } | null } | null, complex?: { __typename?: 'ResidentialComplex', id: string, name: string } | null } };
 
-export type SetDevicePinMutationVariables = Exact<{
-  input: SetDevicePinInput;
+export type SetAccessCodeMutationVariables = Exact<{
+  input: SetAccessCodeInput;
 }>;
 
 
-export type SetDevicePinMutation = { __typename?: 'Mutation', setResidentDevicePin: { __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, createdAt: any } };
+export type SetAccessCodeMutation = { __typename?: 'Mutation', setResidentAccessCode: { __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, createdAt: any } };
 
-export type LoginWithDevicePinMutationVariables = Exact<{
-  input: LoginDevicePinInput;
+export type LoginWithAccessCodeMutationVariables = Exact<{
+  input: LoginAccessCodeInput;
 }>;
 
 
-export type LoginWithDevicePinMutation = { __typename?: 'Mutation', loginWithDevicePin: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
+export type LoginWithAccessCodeMutation = { __typename?: 'Mutation', loginWithAccessCode: { __typename?: 'AuthResponse', accessToken: string, refreshToken: string, expiresIn: number, sessionId: string } };
+
+export type ResidentHasAccessCodeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ResidentHasAccessCodeQuery = { __typename?: 'Query', residentHasAccessCode: boolean };
 
 export type MyDevicesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MyDevicesQuery = { __typename?: 'Query', myResidentDevices: Array<{ __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, lastUsedAt?: any | null, lockedUntil?: any | null, createdAt: any }> };
+export type MyDevicesQuery = { __typename?: 'Query', myResidentDevices: Array<{ __typename?: 'ResidentDevice', id: string, deviceId: string, label?: string | null, platform?: string | null, lastUsedAt?: any | null, createdAt: any }> };
 
 export type RevokeDeviceMutationVariables = Exact<{
   deviceId: Scalars['ID']['input'];
@@ -6236,6 +6243,11 @@ export type RevokeDeviceMutationVariables = Exact<{
 
 
 export type RevokeDeviceMutation = { __typename?: 'Mutation', revokeResidentDevice: boolean };
+
+export type RevokeMyOtherDevicesMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RevokeMyOtherDevicesMutation = { __typename?: 'Mutation', revokeMyOtherDevices: number };
 
 export type WaLoginAvailableQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -6258,6 +6270,7 @@ export type WaLoginStatusQuery = { __typename?: 'Query', whatsAppLoginChallengeS
 
 export type RedeemWaLoginMutationVariables = Exact<{
   challengeId: Scalars['ID']['input'];
+  accessCode?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
@@ -6279,6 +6292,7 @@ export type ApprovalStatusQuery = { __typename?: 'Query', deviceApprovalStatus: 
 
 export type RedeemApprovalMutationVariables = Exact<{
   challengeId: Scalars['ID']['input'];
+  accessCode?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
@@ -6510,17 +6524,19 @@ export const LoginResidentDocument = {"__meta__":{"hash":"b1e2df147e890a65b1d0b8
 export const ResendResidentSystemCodeDocument = {"__meta__":{"hash":"01a150c4906dcc1bab370c37a1300839cf93ce75e94944cdc94e6f111a882fac"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResendResidentSystemCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resendResidentSystemCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<ResendResidentSystemCodeMutation, ResendResidentSystemCodeMutationVariables>;
 export const RefreshTokenDocument = {"__meta__":{"hash":"909a47dddea0f8ea32c2c9ba6702f714820f7e64ee99980a0508ab84ee13378c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RefreshToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"refreshToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"refreshToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RefreshTokenMutation, RefreshTokenMutationVariables>;
 export const GetMyResidentProfileDocument = {"__meta__":{"hash":"cc660b5d95a3a5e0bb4d81ca4485e49152030f96a017d71a3ad9bc2fee2fd6aa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"isMainResident"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floors"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"complex"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetMyResidentProfileQuery, GetMyResidentProfileQueryVariables>;
-export const SetDevicePinDocument = {"__meta__":{"hash":"90a9a30399daadf811e8869a620af41a725eec8cf0b7d425b4001d4453778181"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetDevicePin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetDevicePinInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setResidentDevicePin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<SetDevicePinMutation, SetDevicePinMutationVariables>;
-export const LoginWithDevicePinDocument = {"__meta__":{"hash":"fe3459c10396c9d70d2733dad50356735d89b2270f77a4a705b00e78a6f398aa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginWithDevicePin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginDevicePinInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginWithDevicePin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginWithDevicePinMutation, LoginWithDevicePinMutationVariables>;
-export const MyDevicesDocument = {"__meta__":{"hash":"b78682e7ac23867cf3853a9194e78c2f1c7cf1884194a64b4f0bb481eac4e9df"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsedAt"}},{"kind":"Field","name":{"kind":"Name","value":"lockedUntil"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<MyDevicesQuery, MyDevicesQueryVariables>;
+export const SetAccessCodeDocument = {"__meta__":{"hash":"8def4618aff1531ab989f99a0c00efc3f66bf5d940bfa6be314320bfb1b319bc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetAccessCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetAccessCodeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setResidentAccessCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<SetAccessCodeMutation, SetAccessCodeMutationVariables>;
+export const LoginWithAccessCodeDocument = {"__meta__":{"hash":"ebe62a2e72089b7661140e986baf764b7c1037655db68034e5a1b518678f66ee"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginWithAccessCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginAccessCodeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginWithAccessCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginWithAccessCodeMutation, LoginWithAccessCodeMutationVariables>;
+export const ResidentHasAccessCodeDocument = {"__meta__":{"hash":"daff72effedb9a568174d81f8dcc1ca3de1c6aac085a62ceaaaecb561d9ca2bd"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResidentHasAccessCode"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"residentHasAccessCode"}}]}}]} as unknown as DocumentNode<ResidentHasAccessCodeQuery, ResidentHasAccessCodeQueryVariables>;
+export const MyDevicesDocument = {"__meta__":{"hash":"2b6312238043c65a6adc3dd215a0e8734418400cec68458a312e593213813b58"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"lastUsedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<MyDevicesQuery, MyDevicesQueryVariables>;
 export const RevokeDeviceDocument = {"__meta__":{"hash":"83d9429c25dfb59510f9990fe093a0f984d5881c3864a98b4aa4ef4e7ec5ca1a"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeDevice"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeResidentDevice"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceId"}}}]}]}}]} as unknown as DocumentNode<RevokeDeviceMutation, RevokeDeviceMutationVariables>;
+export const RevokeMyOtherDevicesDocument = {"__meta__":{"hash":"39c2c6e0602b15e8a0fc19f6b041972667bfe155ab4d20739c79b0b106631999"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeMyOtherDevices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeMyOtherDevices"}}]}}]} as unknown as DocumentNode<RevokeMyOtherDevicesMutation, RevokeMyOtherDevicesMutationVariables>;
 export const WaLoginAvailableDocument = {"__meta__":{"hash":"3614f0354bf4ff036d44a3d1641a1b5e5efee298f388748797fa9e82e6a793a6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WaLoginAvailable"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"whatsAppLoginAvailable"}}]}}]} as unknown as DocumentNode<WaLoginAvailableQuery, WaLoginAvailableQueryVariables>;
 export const RequestWaLoginDocument = {"__meta__":{"hash":"078316c4bc6e80d24b02314a33babf4317002d849aeaa1e8e618cd40da120002"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestWaLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestWhatsAppLoginChallenge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"challengeId"}},{"kind":"Field","name":{"kind":"Name","value":"nonce"}},{"kind":"Field","name":{"kind":"Name","value":"whatsappUrl"}},{"kind":"Field","name":{"kind":"Name","value":"messageText"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"warning"}}]}}]}}]} as unknown as DocumentNode<RequestWaLoginMutation, RequestWaLoginMutationVariables>;
 export const WaLoginStatusDocument = {"__meta__":{"hash":"0890f25a5cf64c65d9f96257798a822080737a86e17a0d6f111a0b8d117f7ed4"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"WaLoginStatus"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"whatsAppLoginChallengeStatus"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}}]}}]}}]} as unknown as DocumentNode<WaLoginStatusQuery, WaLoginStatusQueryVariables>;
-export const RedeemWaLoginDocument = {"__meta__":{"hash":"7da106991f65ae54250626b893fbcd2b710c4caaa267b1f9a80fcc24dee819d2"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemWaLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemWhatsAppLoginChallenge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemWaLoginMutation, RedeemWaLoginMutationVariables>;
+export const RedeemWaLoginDocument = {"__meta__":{"hash":"a48059f3f24a9d01fcb5af096d863137323e633a36e8591ec71ee7a1232ffe6d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemWaLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"accessCode"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemWhatsAppLoginChallenge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}},{"kind":"Argument","name":{"kind":"Name","value":"accessCode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"accessCode"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemWaLoginMutation, RedeemWaLoginMutationVariables>;
 export const RequestApprovalDocument = {"__meta__":{"hash":"f497b2c8b058acb266e141ef1e7116ca914b65530bf0e97d73d5be6f742cb2f2"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestApproval"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"challengeId"}},{"kind":"Field","name":{"kind":"Name","value":"approvalCode"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"instructions"}}]}}]}}]} as unknown as DocumentNode<RequestApprovalMutation, RequestApprovalMutationVariables>;
 export const ApprovalStatusDocument = {"__meta__":{"hash":"ebb65c6633ae75cbdde2fc62cb7cd71ac393d8ad0447dd9df6c7ad3e3c484357"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ApprovalStatus"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deviceApprovalStatus"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}}]}}]}}]} as unknown as DocumentNode<ApprovalStatusQuery, ApprovalStatusQueryVariables>;
-export const RedeemApprovalDocument = {"__meta__":{"hash":"2e0a7b17e39cc3d54fff3450c712fb4c8470f892c829e7bd5e9cc9ce0c69eb5f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemApproval"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemApprovalMutation, RedeemApprovalMutationVariables>;
+export const RedeemApprovalDocument = {"__meta__":{"hash":"a8709ac52195e8cb872eb49a58cf90200e2339cb086fd31bb689f841bd5c983d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RedeemApproval"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"accessCode"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"redeemDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"challengeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"challengeId"}}},{"kind":"Argument","name":{"kind":"Name","value":"accessCode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"accessCode"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RedeemApprovalMutation, RedeemApprovalMutationVariables>;
 export const PendingApprovalsDocument = {"__meta__":{"hash":"388458ba35a2f7509fe1c30f1e380754d101a1efa8a38e94da923f09652bda87"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PendingApprovals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pendingDeviceApprovals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approvalId"}},{"kind":"Field","name":{"kind":"Name","value":"approvalCode"}},{"kind":"Field","name":{"kind":"Name","value":"requestedFromLabel"}},{"kind":"Field","name":{"kind":"Name","value":"requestedFromIp"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<PendingApprovalsQuery, PendingApprovalsQueryVariables>;
 export const ApproveDocument = {"__meta__":{"hash":"514b15c91aebc6a052fc97a2ff4ea4b658a6942c1766cd3197ca82f22445be01"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Approve"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approveDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"approvalId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}}}]}]}}]} as unknown as DocumentNode<ApproveMutation, ApproveMutationVariables>;
 export const DenyDocument = {"__meta__":{"hash":"493684588e4d2ae28aba19f05457d994392a043fad48d55cb64e97afb771d29b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"Deny"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"denyDeviceApproval"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"approvalId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"approvalId"}}}]}]}}]} as unknown as DocumentNode<DenyMutation, DenyMutationVariables>;

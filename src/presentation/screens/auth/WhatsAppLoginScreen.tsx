@@ -57,6 +57,9 @@ export default function WhatsAppLoginScreen() {
   // Datos visibles del challenge. El `challengeId` NO vive aquí: se guarda solo
   // en memoria (ref) y nunca se muestra en pantalla ni se persiste.
   const [challenge, setChallenge] = useState<Omit<WhatsAppLoginChallenge, 'challengeId'> | null>(null);
+  const [needsAccessCode, setNeedsAccessCode] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+
   const challengeIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -75,18 +78,34 @@ export default function WhatsAppLoginScreen() {
     getLastIdentity().then(v => v && setIdentity(prev => prev || v));
   }, [route.params?.identity]);
 
-  const redeem = useCallback(async () => {
+  /**
+   * `code` solo viaja cuando la cuenta ya tiene clave. El servidor lo exige para
+   * vincular un equipo nuevo: enviarse el WhatsApp prueba que se tiene el
+   * teléfono, y quien lo roba se lleva también la línea. La clave aporta el
+   * factor que el ladrón no tiene.
+   */
+  const redeem = useCallback(async (code?: string) => {
     const challengeId = challengeIdRef.current;
     if (!challengeId) return;
     stopTimers();
     setIsRedeeming(true);
     try {
-      const result = await redeemWhatsAppLogin(challengeId);
+      const result = await redeemWhatsAppLogin(challengeId, code);
       await saveLastIdentity(identity);
       await persistSession(result);
     } catch (e) {
       const err = e as DeviceAuthError;
       setIsRedeeming(false);
+
+      // El challenge quedó confirmado y sigue vivo: solo falta la clave. Se pide
+      // en esta misma pantalla, sin reiniciar el flujo ni gastar otro mensaje.
+      if (err.code === 'ACCESS_CODE_REQUIRED' || err.code === 'ACCESS_CODE_INVALID') {
+        setNeedsAccessCode(true);
+        setAccessCode('');
+        setError(err.code === 'ACCESS_CODE_INVALID' ? err.message : '');
+        return;
+      }
+
       setError(err.message);
       if (err.code === 'WA_LOGIN_CHALLENGE_EXPIRED' || err.code === 'WA_LOGIN_CHALLENGE_CONSUMED') {
         setExpired(true);
@@ -263,6 +282,53 @@ export default function WhatsAppLoginScreen() {
                 textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
               />
             )}
+          </>
+        ) : needsAccessCode ? (
+          <>
+            {/* El mensaje ya llegó y el intento quedó confirmado: solo falta el
+                segundo factor. Se pide aquí para no gastar otro mensaje ni
+                reiniciar el flujo. */}
+            <View style={[styles.warning, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}>
+              <View style={styles.warningHead}>
+                <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.bold} color={colors.primary}>
+                  Confirma tu clave
+                </CustomTextComponent>
+              </View>
+              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
+                Recibimos tu mensaje. Para autorizar este dispositivo ingresa la clave de tu cuenta.
+              </CustomTextComponent>
+            </View>
+
+            <CustomInputComponent
+              nameInput="Clave de acceso"
+              placeholder="Ej. K7M2Q4"
+              value={accessCode}
+              onChangeText={v => { setAccessCode(v.toUpperCase()); if (error) setError(''); }}
+              autoCapitalize="characters"
+              secureTextEntry
+              maxLength={6}
+              leftIcon={{ name: 'lock', color: colors.primary }}
+              error={error}
+              touched={!!error}
+              editable={!isRedeeming}
+            />
+
+            <CustomButtonComponent
+              text="Autorizar dispositivo"
+              onPress={() => redeem(accessCode)}
+              isLoading={isRedeeming}
+              disabled={accessCode.length !== 6 || isRedeeming}
+              loaderColor="#FFFFFF"
+              style={[styles.primaryBtn, { backgroundColor: accessCode.length === 6 ? colors.primary : colors.border }]}
+              textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
+            />
+
+            <TouchableOpacity onPress={goToApproval} accessibilityRole="button">
+              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} textAlign="center">
+                No recuerdo mi clave · Aprobar desde otro dispositivo
+              </CustomTextComponent>
+            </TouchableOpacity>
           </>
         ) : (
           <>
