@@ -193,9 +193,19 @@ function DeviceSecurityBootstrap({
 
       const nav = navigationRef.current;
       if (nav?.isReady()) {
+        // `initial: false` es obligatorio acá: sin él, navegar a una pantalla
+        // anidada de un navegador que todavía no se montó la deja como ÚNICA
+        // ruta del stack de perfil. El resultado es que la pestaña Perfil pierde
+        // su pantalla principal y muestra siempre la creación de clave, incluso
+        // después de crearla. Con `initial: false` se apila encima de Profile,
+        // que queda debajo y vuelve a aparecer al salir.
         nav.navigate('Main', {
           screen: 'ProfileTab',
-          params: { screen: 'SetAccessCode', params: { firstTime: true, mandatory: true } },
+          params: {
+            screen: 'SetAccessCode',
+            params: { firstTime: true, mandatory: true },
+            initial: false,
+          },
         });
       }
     })();
