@@ -64,11 +64,10 @@ export type ProfileStackParamList = {
   MyDevices: undefined;
 };
 
-// Stack de autenticación: cuatro formas de entrar, todas sin costo por mensaje.
-// `LoginIdentity` (documento + código) es el fallback universal y el punto de
-// entrada para vincular el primer dispositivo.
+// Stack de autenticación: tres formas de entrar, todas sin costo por mensaje.
+// `LoginIdentity` reúne el documento y la clave; las otras dos pantallas son
+// para vincular un equipo nuevo o recuperar el acceso.
 export type AuthStackParamList = {
-  LoginAccessCode: undefined;
   LoginIdentity: { notice?: string } | undefined;
   LoginWhatsApp: { identity?: string } | undefined;
   LoginApproval: { identity?: string } | undefined;
