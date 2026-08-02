@@ -270,16 +270,27 @@ export const defaultDeviceLabel = (): string =>
  *
  * La clave es una sola para todos los dispositivos del residente: vincular uno
  * nuevo no obliga a inventar otra.
+ *
+ * `currentCode` es obligatorio para CAMBIARLA, salvo que el ingreso reciente
+ * haya sido por WhatsApp entrante o aprobación —el camino del olvido—. El
+ * servidor decide cuál caso aplica; si falta, responde
+ * CURRENT_ACCESS_CODE_REQUIRED.
  */
 export async function setAccessCode(
   code: string,
   label?: string,
+  currentCode?: string,
 ): Promise<ResidentDevice> {
   try {
     const { data, error } = await apolloClient.mutate<{ setResidentAccessCode: ResidentDevice }>({
       mutation: SET_ACCESS_CODE,
       variables: {
-        input: { code: code.trim().toUpperCase(), ...(label ? { label: label.slice(0, 120) } : {}) },
+        input: {
+          code: code.trim().toUpperCase(),
+          ...(label ? { label: label.slice(0, 120) } : {}),
+          // Solo se envía al cambiar una clave existente; al crearla no aplica.
+          ...(currentCode ? { currentCode: currentCode.trim().toUpperCase() } : {}),
+        },
       },
       fetchPolicy: 'no-cache',
     });

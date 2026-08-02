@@ -14,7 +14,7 @@ import { SPACING } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import PanicSound from '../../../shared/modules/PanicSoundModule';
-import { isDeviceLinked } from '../../../infraestructure/services/deviceAuth.service';
+import { hasAccessCode } from '../../../infraestructure/services/deviceAuth.service';
 import { useAlert } from '../../providers/context/AlertContext';
 
 // First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
@@ -59,7 +59,9 @@ export default function SettingsScreen() {
 
   const isAndroid = Platform.OS === 'android';
   const [batteryExempt, setBatteryExempt] = useState(true);
-  const [deviceLinked, setDeviceLinked] = useState(false);
+  // Se pregunta al servidor: la clave es de la cuenta y pudo crearse en otro
+  // equipo, así que la vinculación local no responde si ya existe.
+  const [accountHasCode, setAccountHasCode] = useState<boolean | null>(null);
 
   // First-run walkthrough targets + trigger.
   const biometricRef = useCoachmarkTarget('settings.biometric');
@@ -68,7 +70,7 @@ export default function SettingsScreen() {
   const autostartRef = useCoachmarkTarget('settings.autostart');
 
   const refreshPermissions = useCallback(() => {
-    isDeviceLinked().then(setDeviceLinked);
+    hasAccessCode().then(setAccountHasCode).catch(() => setAccountHasCode(null));
     if (!isAndroid) return;
     PanicSound?.isIgnoringBatteryOptimizations().then(setBatteryExempt);
   }, [isAndroid]);
@@ -177,18 +179,27 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <TouchableOpacity
               style={styles.row}
+              // Deshabilitada hasta saber que la cuenta ya tiene clave: crearla
+              // desde aquí no aplica, porque ese camino es la pantalla
+              // obligatoria del primer ingreso.
+              disabled={accountHasCode !== true}
               onPress={() => (navigation as any).navigate('SetAccessCode')}
               activeOpacity={0.7}
             >
               <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                <Icon name="pin" size={20} color={colors.primary} />
+                <Icon name="lock" size={20} color={accountHasCode === true ? colors.primary : colors.textTertiary} />
               </View>
               <View style={gs.flex1}>
-                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                  {deviceLinked ? 'Cambiar mi clave de acceso' : 'Crear mi clave de acceso'}
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.md}
+                  fontWeight={FONT_WEIGHT.medium as any}
+                  color={accountHasCode === true ? colors.textPrimary : colors.textTertiary}>
+                  Cambiar mi clave de acceso
                 </CustomTextComponent>
                 <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
-                  Ingresa con 6 dígitos, sin esperar códigos
+                  {accountHasCode === true
+                    ? 'Te pediremos la clave actual para confirmar que eres tú'
+                    : 'Disponible cuando tengas una clave creada'}
                 </CustomTextComponent>
               </View>
               <Icon name="chevron-right" size={24} color={colors.textTertiary} />
