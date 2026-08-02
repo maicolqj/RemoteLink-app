@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
-import CustomInputComponent from '../../components/CustomInputComponent';
+import CodeSegmentInput from '../../components/CodeSegmentInput';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import { useTheme } from '../../providers/context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
@@ -144,19 +144,16 @@ export default function AccessCodeLoginScreen() {
         </View>
       ) : null}
 
-      <CustomInputComponent
-        nameInput="Clave de acceso"
-        placeholder="Ej. K7M2Q4"
+      {/* Una casilla por caracter: la clave se lee mejor y se corrige sin
+          seleccionar texto. El componente ya normaliza a mayúsculas, que es como
+          la guarda el servidor. */}
+      <CodeSegmentInput
         value={code}
-        onChangeText={v => { setCode(v.toUpperCase()); if (error) setError(''); }}
-        // Alfanumérica: se escribe con el teclado del sistema, en mayúsculas
-        // para que coincida con la normalización del servidor.
-        autoCapitalize="characters"
-        secureTextEntry
-        maxLength={ACCESS_CODE_LENGTH}
-        leftIcon={{ name: 'lock', color: colors.primary }}
+        onChange={v => { setCode(v); if (error) setError(''); }}
+        length={ACCESS_CODE_LENGTH}
+        prefix={null}
+        hint="Toca para ingresar tu clave"
         error={error}
-        touched={!!error}
         editable={!isSubmitting && !locked}
       />
 

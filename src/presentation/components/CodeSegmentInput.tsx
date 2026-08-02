@@ -19,16 +19,25 @@ interface Props {
   error?: string;
   autoFocus?: boolean;
   editable?: boolean;
+  /** Cantidad de casillas. 5 para el código RES, 6 para la clave de acceso. */
+  length?: number;
+  /**
+   * Prefijo fijo a la izquierda. `RES` para el código que emite el sistema;
+   * la clave que elige el residente no lleva ninguno.
+   */
+  prefix?: string | null;
+  /** Texto de ayuda bajo las casillas cuando no hay error. */
+  hint?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TOTAL_CHARS = 5; // RES-XXXXX → 5 variable chars
+const DEFAULT_CHARS = 5; // RES-XXXXX → 5 caracteres variables
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const sanitize = (raw: string) =>
-  raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, TOTAL_CHARS);
+const sanitize = (raw: string, max: number) =>
+  raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, max);
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -38,13 +47,16 @@ const CodeSegmentInput: React.FC<Props> = ({
   error,
   autoFocus = false,
   editable = true,
+  length = DEFAULT_CHARS,
+  prefix = 'RES',
+  hint = 'Toca para ingresar el código',
 }) => {
   const { colors } = useTheme();
   const inputRef = useRef<TextInput>(null);
 
   const handleChange = useCallback(
-    (raw: string) => onChange(sanitize(raw)),
-    [onChange],
+    (raw: string) => onChange(sanitize(raw, length)),
+    [onChange, length],
   );
 
   const focusInput = () => editable && inputRef.current?.focus();
@@ -86,29 +98,29 @@ const CodeSegmentInput: React.FC<Props> = ({
         onPress={focusInput}
         accessible={false}>
         <View style={styles.row}>
-          {/* Static RES prefix */}
-          <View style={[styles.prefixBox, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}>
-            <CustomTextComponent
-              fontSize={FONT_SIZE.md}
-              fontWeight={FONT_WEIGHT.bold}
-              color={colors.primary}>
-              RES
-            </CustomTextComponent>
-          </View>
+          {prefix ? (
+            <>
+              <View style={[styles.prefixBox, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}>
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.md}
+                  fontWeight={FONT_WEIGHT.bold}
+                  color={colors.primary}>
+                  {prefix}
+                </CustomTextComponent>
+              </View>
 
-          <CustomTextComponent
-            fontSize={FONT_SIZE.xl}
-            fontWeight={FONT_WEIGHT.bold}
-            color={colors.textTertiary}
-            style={styles.dash}>
-            —
-          </CustomTextComponent>
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xl}
+                fontWeight={FONT_WEIGHT.bold}
+                color={colors.textTertiary}
+                style={styles.dash}>
+                —
+              </CustomTextComponent>
+            </>
+          ) : null}
 
-          {/* 5 character boxes */}
           <View style={styles.segment}>
-            {Array.from({ length: TOTAL_CHARS }).map((_, i) =>
-              renderChar(value[i], i),
-            )}
+            {Array.from({ length }).map((_, i) => renderChar(value[i], i))}
           </View>
         </View>
 
@@ -117,7 +129,7 @@ const CodeSegmentInput: React.FC<Props> = ({
           ref={inputRef}
           value={value}
           onChangeText={handleChange}
-          maxLength={TOTAL_CHARS}
+          maxLength={length}
           autoFocus={autoFocus}
           autoCapitalize="characters"
           autoCorrect={false}
@@ -126,7 +138,7 @@ const CodeSegmentInput: React.FC<Props> = ({
           style={styles.hiddenInput}
           caretHidden
           accessibilityLabel="Código de acceso"
-          accessibilityHint="Ingresa los 5 caracteres del código que recibiste"
+          accessibilityHint={`Ingresa los ${length} caracteres`}
           {...(Platform.OS === 'android' && { importantForAccessibility: 'no' })}
         />
       </TouchableOpacity>
@@ -145,7 +157,7 @@ const CodeSegmentInput: React.FC<Props> = ({
           color={colors.textTertiary}
           textAlign="center"
           style={styles.message}>
-          Toca para ingresar el código
+          {hint}
         </CustomTextComponent>
       )}
     </View>

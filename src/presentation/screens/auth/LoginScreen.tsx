@@ -16,14 +16,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
-import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { loginResident } from '../../../infraestructure/services/auth.service';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import {
-  persistSession,
-  saveLastIdentity,
   getLastIdentity,
   isWhatsAppLoginAvailable,
 } from '../../../infraestructure/services/deviceAuth.service';
@@ -41,8 +36,6 @@ const HERO_HEIGHT = hp * 0.38;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const isValidIdentity = (v: string) => v.trim().length >= 6;
-const isValidCode = (v: string) => v.length === 5;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -70,13 +63,9 @@ export default function LoginScreen() {
   // El canal de WhatsApp entrante se oculta si el servidor ya respondió
   // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
   const [waAvailable, setWaAvailable] = useState(true);
-  const [code, setCode] = useState('');
   const [identityError, setIdentityError] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [submitError, setSubmitError] = useState('');
   const [identityTouched, setIdentityTouched] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Animations ─────────────────────────────────────────────────────────────
   const heroIconScale = useRef(new Animated.Value(1)).current;
@@ -95,40 +84,6 @@ export default function LoginScreen() {
     }, []),
   );
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async () => {
-    let hasError = false;
-    if (!isValidIdentity(identity)) {
-      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
-      setIdentityTouched(true);
-      hasError = true;
-    }
-    if (!isValidCode(code)) {
-      setCodeError('El código debe tener 5 caracteres (ej. E5E45)');
-      hasError = true;
-    }
-    if (hasError) return;
-
-    setIsSubmitting(true);
-    setIdentityError('');
-    setCodeError('');
-    setSubmitError('');
-    try {
-      const systemCode = `RES-${code}`;
-      const result = await loginResident(identity.trim(), systemCode);
-      await saveLastIdentity(identity);
-      await persistSession(result);
-    } catch (err: any) {
-      // El mensaje ya viene normalizado y legible desde la capa de servicio
-      // (auth.service → getApiErrorMessage). Lo mostramos en el banner.
-      setSubmitError(err?.message ?? 'No se pudo iniciar sesión. Intenta de nuevo.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [identity, code]);
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const canSubmit = isValidIdentity(identity) && isValidCode(code) && !isSubmitting;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -193,7 +148,7 @@ export default function LoginScreen() {
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setNotice(''); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setNotice(''); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -201,17 +156,8 @@ export default function LoginScreen() {
               error={identityError}
               touched={identityTouched}
               maxLength={20}
-              editable={!isSubmitting}
             />
 
-            {/* <View style={styles.codeSection}>
-              <CodeSegmentInput
-                value={code}
-                onChange={v => { setCode(v); setCodeError(''); setSubmitError(''); }}
-                error={codeError}
-                editable={!isSubmitting}
-              />
-            </View> */}
 
             {/* ── Formas de ingresar sin costo por mensaje ──
                  Van antes del código porque son el camino normal: el codigo de
@@ -263,54 +209,8 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Código entregado por la administración ──
-            <View style={styles.altDivider}>
-              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-                o con un código de la administración
-              </CustomTextComponent>
-              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-            </View> */}
 
-            
 
-            {/* ── Error banner ── */}
-            {submitError ? (
-              <View
-                style={[styles.errorBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}
-                accessibilityRole="alert">
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent
-                  fontSize={FONT_SIZE.sm}
-                  color={colors.error}
-                  style={styles.errorBannerText}>
-                  {submitError}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {/* ── Submit button ── */}
-            <CustomButtonComponent
-              text="Ingresar"
-              onPress={handleSubmit}
-              isLoading={isSubmitting}
-              disabled={!canSubmit}
-              loaderColor="#FFFFFF"
-              style={[
-                styles.submitBtn,
-                { backgroundColor: canSubmit ? colors.primary : colors.border },
-              ]}
-              textStyle={{
-                color: canSubmit ? colors.textInverse : colors.textTertiary,
-                fontSize: FONT_SIZE.md,
-                fontWeight: FONT_WEIGHT.semibold,
-              }}
-              iconRight={
-                !isSubmitting
-                  ? { name: 'login', type: 'material', size: 18, color: canSubmit ? colors.textInverse : colors.textTertiary }
-                  : undefined
-              }
-            />
 
             {/* ── Security note ── */}
             <View style={[styles.securityNote, { backgroundColor: colors.background }]}>

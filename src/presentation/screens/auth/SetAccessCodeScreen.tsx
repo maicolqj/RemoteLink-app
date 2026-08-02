@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
+import CodeSegmentInput from '../../components/CodeSegmentInput';
 import AppHeader from '../../components/AppHeader';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
@@ -240,20 +241,16 @@ export default function SetAccessCodeScreen() {
               : `Elige una clave de ${ACCESS_CODE_LENGTH} caracteres, con letras y números`}
         </CustomTextComponent>
 
-        <CustomInputComponent
-          nameInput={isCurrent ? 'Clave actual' : isConfirm ? 'Repite la clave nueva' : 'Clave nueva'}
-          placeholder="Ej. K7M2Q4"
+        <CodeSegmentInput
           value={fieldValue}
-          onChangeText={v => {
-            setFieldValue(v.toUpperCase());
+          onChange={v => {
+            setFieldValue(v);
             if (error) setError('');
           }}
-          autoCapitalize="characters"
-          secureTextEntry
-          maxLength={ACCESS_CODE_LENGTH}
-          leftIcon={{ name: 'lock', color: colors.primary }}
+          length={ACCESS_CODE_LENGTH}
+          prefix={null}
+          hint={isCurrent ? 'Toca para ingresar tu clave actual' : 'Toca para ingresar la clave'}
           error={error}
-          touched={!!error}
           editable={!isSaving}
         />
 
