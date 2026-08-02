@@ -251,7 +251,7 @@ export default function DeviceApprovalLoginScreen() {
             <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '55' }]}>
               <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
               <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                Aprobado. Para autorizar este dispositivo ingresa la clave de tu cuenta.
+                Aprobado. Tu cuenta ya tiene una clave asignada: ingrésala para autorizar este dispositivo.
               </CustomTextComponent>
             </View>
 

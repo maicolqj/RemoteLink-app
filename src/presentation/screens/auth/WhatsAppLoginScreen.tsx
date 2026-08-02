@@ -296,7 +296,7 @@ export default function WhatsAppLoginScreen() {
                 </CustomTextComponent>
               </View>
               <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                Recibimos tu mensaje. Para autorizar este dispositivo ingresa la clave de tu cuenta.
+                Recibimos tu mensaje. Tu cuenta ya tiene una clave asignada: ingrésala para autorizar este dispositivo.
               </CustomTextComponent>
             </View>
 

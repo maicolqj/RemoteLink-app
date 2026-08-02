@@ -25,7 +25,6 @@ import {
   persistSession,
   saveLastIdentity,
   getLastIdentity,
-  isDeviceLinked,
   isWhatsAppLoginAvailable,
 } from '../../../infraestructure/services/deviceAuth.service';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
@@ -68,7 +67,6 @@ export default function LoginScreen() {
   // Aviso que trae la pantalla de la clave cuando el dispositivo dejó de estar
   // vinculado (DEVICE_NOT_LINKED / DEVICE_REVOKED).
   const [notice, setNotice] = useState(route.params?.notice ?? '');
-  const [deviceLinked, setDeviceLinked] = useState(false);
   // El canal de WhatsApp entrante se oculta si el servidor ya respondió
   // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
   const [waAvailable, setWaAvailable] = useState(true);
@@ -86,7 +84,6 @@ export default function LoginScreen() {
   // Prefill del último documento usado + si este equipo ya está vinculado.
   useEffect(() => {
     getLastIdentity().then(v => v && setIdentity(prev => prev || v));
-    isDeviceLinked().then(setDeviceLinked);
   }, []);
 
   // Se reevalúa en cada foco, no solo al montar: la pantalla sigue montada
@@ -221,19 +218,23 @@ export default function LoginScreen() {
                  residente ya no se puede pedir desde la app, solo lo entrega la
                  administración. */}
             <View style={styles.altBlock}>
-              {deviceLinked ? (
-                <TouchableOpacity
-                  style={[styles.altRow, { borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('LoginAccessCode')}
-                  activeOpacity={0.7}
-                  accessibilityRole="button">
-                  <Icon name="pin" size={ICON_SIZE.sm} color={colors.primary} />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                    Con mi clave de acceso
-                  </CustomTextComponent>
-                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ) : null}
+              {/* Siempre visible, aunque la pista local diga que este equipo no
+                  está vinculado: al reinstalar la app esa pista se pierde, pero
+                  el x-device-id vive en el llavero y puede sobrevivir. Quien
+                  tiene clave debe poder intentarlo; si el equipo de verdad no
+                  está vinculado, el servidor responde DEVICE_NOT_LINKED y la
+                  pantalla deriva al ingreso por WhatsApp. */}
+              <TouchableOpacity
+                style={[styles.altRow, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('LoginAccessCode')}
+                activeOpacity={0.7}
+                accessibilityRole="button">
+                <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                  Con mi clave de acceso
+                </CustomTextComponent>
+                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
 
               {waAvailable ? (
                 <TouchableOpacity
