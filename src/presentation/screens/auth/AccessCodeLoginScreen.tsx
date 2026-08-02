@@ -5,22 +5,24 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
-import PinPadInput from '../../components/PinPadInput';
+import CustomInputComponent from '../../components/CustomInputComponent';
+import CustomButtonComponent from '../../components/CustomButtonComponent';
 import { useTheme } from '../../providers/context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import {
-  loginWithDevicePin,
+  loginWithAccessCode,
   persistSession,
-  PIN_LENGTH,
+  markAccessCodeForgotten,
+  ACCESS_CODE_LENGTH,
   DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
 
-type Nav = NativeStackNavigationProp<AuthStackParamList, 'LoginPin'>;
+type Nav = NativeStackNavigationProp<AuthStackParamList, 'LoginAccessCode'>;
 
-/** El backend bloquea el dispositivo 15 minutos tras 5 intentos fallidos. */
+/** El backend bloquea la CUENTA 15 minutos tras 5 intentos fallidos. */
 const LOCK_SECONDS = 15 * 60;
 
 const formatLock = (secs: number) => {
@@ -29,12 +31,12 @@ const formatLock = (secs: number) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-export default function DevicePinLoginScreen() {
+export default function AccessCodeLoginScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
 
-  const [pin, setPin] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockRemaining, setLockRemaining] = useState(0);
@@ -58,21 +60,37 @@ export default function DevicePinLoginScreen() {
     [navigation],
   );
 
+  /**
+   * Deja constancia de que esta clave ya no sirve antes de mandar al residente a
+   * los otros métodos. Al volver a entrar, la app le pedirá una nueva de forma
+   * obligatoria; sin la marca, la cuenta seguiría con la clave que no recuerda y
+   * volvería a quedarse afuera en el siguiente arranque.
+   */
+  const forgotCode = useCallback(() => {
+    markAccessCodeForgotten();
+    goToIdentityLogin();
+  }, [goToIdentityLogin]);
+
   const submit = useCallback(async (value: string) => {
     setIsSubmitting(true);
     setError('');
     try {
-      const result = await loginWithDevicePin(value);
+      const result = await loginWithAccessCode(value);
       await persistSession(result);
     } catch (e) {
       const err = e as DeviceAuthError;
-      setPin('');
+      setCode('');
       // La lógica ramifica por `code`; `message` ya viene redactado en español
-      // (incluye los intentos restantes en DEVICE_PIN_INVALID) y se muestra tal cual.
+      // (incluye los intentos restantes en ACCESS_CODE_INVALID) y se muestra tal cual.
       switch (err.code) {
-        case 'DEVICE_LOCKED':
+        case 'ACCESS_CODE_LOCKED':
           startLock();
           setError(err.message);
+          break;
+        case 'ACCESS_CODE_NOT_SET':
+          // La cuenta no tiene clave: hay que crearla, y para eso primero entrar
+          // por un canal que pruebe identidad.
+          goToIdentityLogin(err.message);
           break;
         case 'DEVICE_NOT_LINKED':
         case 'DEVICE_REVOKED':
@@ -107,13 +125,13 @@ export default function DevicePinLoginScreen() {
           fontWeight={FONT_WEIGHT.bold}
           color={colors.textPrimary}
           textAlign="center">
-          Ingresa tu PIN
+          Ingresa tu clave
         </CustomTextComponent>
         <CustomTextComponent
           fontSize={FONT_SIZE.sm}
           color={colors.textSecondary}
           textAlign="center">
-          {PIN_LENGTH} dígitos · solo funciona en este dispositivo
+          {ACCESS_CODE_LENGTH} caracteres · solo funciona en este dispositivo
         </CustomTextComponent>
       </View>
 
@@ -121,23 +139,40 @@ export default function DevicePinLoginScreen() {
         <View style={[styles.lockBanner, { backgroundColor: colors.errorLight, borderColor: colors.error + '55' }]}>
           <Icon name="lock-clock" size={ICON_SIZE.sm} color={colors.error} />
           <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-            Dispositivo bloqueado. Podrás reintentar en {formatLock(lockRemaining)}.
+            Cuenta bloqueada. Podrás reintentar en {formatLock(lockRemaining)}.
           </CustomTextComponent>
         </View>
       ) : null}
 
-      <PinPadInput
-        value={pin}
-        onChange={v => { setPin(v); if (error) setError(''); }}
-        onComplete={submit}
-        length={PIN_LENGTH}
+      <CustomInputComponent
+        nameInput="Clave de acceso"
+        placeholder="Ej. K7M2Q4"
+        value={code}
+        onChangeText={v => { setCode(v.toUpperCase()); if (error) setError(''); }}
+        // Alfanumérica: se escribe con el teclado del sistema, en mayúsculas
+        // para que coincida con la normalización del servidor.
+        autoCapitalize="characters"
+        secureTextEntry
+        maxLength={ACCESS_CODE_LENGTH}
+        leftIcon={{ name: 'lock', color: colors.primary }}
         error={error}
-        disabled={isSubmitting || locked}
+        touched={!!error}
+        editable={!isSubmitting && !locked}
+      />
+
+      <CustomButtonComponent
+        text="Ingresar"
+        onPress={() => submit(code)}
+        isLoading={isSubmitting}
+        disabled={code.length !== ACCESS_CODE_LENGTH || locked}
+        loaderColor="#FFFFFF"
+        style={{ backgroundColor: code.length === ACCESS_CODE_LENGTH && !locked ? colors.primary : colors.border }}
+        textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
       />
 
       <View style={styles.altBlock}>
         <TouchableOpacity
-          onPress={() => goToIdentityLogin()}
+          onPress={forgotCode}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button">
           <CustomTextComponent
@@ -145,7 +180,7 @@ export default function DevicePinLoginScreen() {
             fontWeight={FONT_WEIGHT.medium}
             color={colors.primary}
             textAlign="center">
-            Olvidé mi PIN · Ingresar con documento
+            Olvidé mi clave · Ingresar con documento
           </CustomTextComponent>
         </TouchableOpacity>
 

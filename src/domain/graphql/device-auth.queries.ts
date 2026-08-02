@@ -5,7 +5,7 @@ import { gql } from '@apollo/client';
  *
  * Todas dependen del header `x-device-id` que inyecta el authLink de Apollo:
  * el servidor deriva de él el fingerprint del dispositivo. Sin el header, el
- * login por PIN responde DEVICE_ID_REQUIRED y los canjes de los flujos de
+ * login con clave responde DEVICE_ID_REQUIRED y los canjes de los flujos de
  * aprobación no encuentran el challenge (llegan como *_NOT_FOUND).
  *
  * Los nombres de operación son los del contrato: el manifest de trusted
@@ -13,12 +13,12 @@ import { gql } from '@apollo/client';
  * obliga a re-sincronizar el manifest del backend.
  */
 
-// ─── 01 · Login por PIN de dispositivo ───────────────────────────────────────
+// ─── 01 · Clave de acceso del residente ──────────────────────────────────────
 
-/** Requiere sesión activa (RESIDENT_ROL): vincula ESTE dispositivo y fija su PIN. */
-export const SET_DEVICE_PIN = gql`
-  mutation SetDevicePin($input: SetDevicePinInput!) {
-    setResidentDevicePin(input: $input) {
+/** Requiere sesión activa (RESIDENT_ROL): fija la clave de la CUENTA y vincula ESTE equipo. */
+export const SET_ACCESS_CODE = gql`
+  mutation SetAccessCode($input: SetAccessCodeInput!) {
+    setResidentAccessCode(input: $input) {
       id
       deviceId
       label
@@ -29,14 +29,25 @@ export const SET_DEVICE_PIN = gql`
 `;
 
 /** Pública. El dispositivo no viaja en el input: sale del header x-device-id. */
-export const LOGIN_WITH_DEVICE_PIN = gql`
-  mutation LoginWithDevicePin($input: LoginDevicePinInput!) {
-    loginWithDevicePin(input: $input) {
+export const LOGIN_WITH_ACCESS_CODE = gql`
+  mutation LoginWithAccessCode($input: LoginAccessCodeInput!) {
+    loginWithAccessCode(input: $input) {
       accessToken
       refreshToken
       expiresIn
       sessionId
     }
+  }
+`;
+
+/**
+ * ¿La cuenta ya tiene clave? La app la exige tras iniciar sesión.
+ * La pregunta es por CUENTA: con la clave compartida entre equipos, saber si
+ * este dispositivo está vinculado ya no dice nada sobre si falta crearla.
+ */
+export const HAS_ACCESS_CODE = gql`
+  query ResidentHasAccessCode {
+    residentHasAccessCode
   }
 `;
 
@@ -48,7 +59,6 @@ export const MY_DEVICES = gql`
       label
       platform
       lastUsedAt
-      lockedUntil
       createdAt
     }
   }
@@ -58,6 +68,13 @@ export const MY_DEVICES = gql`
 export const REVOKE_DEVICE = gql`
   mutation RevokeDevice($deviceId: ID!) {
     revokeResidentDevice(deviceId: $deviceId)
+  }
+`;
+
+/** Celular perdido: deja vivo solo el equipo actual. Devuelve cuántos revocó. */
+export const REVOKE_OTHER_DEVICES = gql`
+  mutation RevokeMyOtherDevices {
+    revokeMyOtherDevices
   }
 `;
 
@@ -93,8 +110,8 @@ export const WA_LOGIN_STATUS = gql`
 `;
 
 export const REDEEM_WA_LOGIN = gql`
-  mutation RedeemWaLogin($challengeId: ID!) {
-    redeemWhatsAppLoginChallenge(challengeId: $challengeId) {
+  mutation RedeemWaLogin($challengeId: ID!, $accessCode: String) {
+    redeemWhatsAppLoginChallenge(challengeId: $challengeId, accessCode: $accessCode) {
       accessToken
       refreshToken
       expiresIn
@@ -126,8 +143,8 @@ export const APPROVAL_STATUS = gql`
 `;
 
 export const REDEEM_APPROVAL = gql`
-  mutation RedeemApproval($challengeId: ID!) {
-    redeemDeviceApproval(challengeId: $challengeId) {
+  mutation RedeemApproval($challengeId: ID!, $accessCode: String) {
+    redeemDeviceApproval(challengeId: $challengeId, accessCode: $accessCode) {
       accessToken
       refreshToken
       expiresIn

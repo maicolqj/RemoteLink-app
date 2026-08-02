@@ -14,7 +14,7 @@ import { SPACING } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import PanicSound from '../../../shared/modules/PanicSoundModule';
-import { isDevicePinLinked } from '../../../infraestructure/services/deviceAuth.service';
+import { isDeviceLinked } from '../../../infraestructure/services/deviceAuth.service';
 import { useAlert } from '../../providers/context/AlertContext';
 
 // First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
@@ -59,7 +59,7 @@ export default function SettingsScreen() {
 
   const isAndroid = Platform.OS === 'android';
   const [batteryExempt, setBatteryExempt] = useState(true);
-  const [devicePinLinked, setDevicePinLinked] = useState(false);
+  const [deviceLinked, setDeviceLinked] = useState(false);
 
   // First-run walkthrough targets + trigger.
   const biometricRef = useCoachmarkTarget('settings.biometric');
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
   const autostartRef = useCoachmarkTarget('settings.autostart');
 
   const refreshPermissions = useCallback(() => {
-    isDevicePinLinked().then(setDevicePinLinked);
+    isDeviceLinked().then(setDeviceLinked);
     if (!isAndroid) return;
     PanicSound?.isIgnoringBatteryOptimizations().then(setBatteryExempt);
   }, [isAndroid]);
@@ -173,11 +173,11 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* PIN de dispositivo: entrar sin esperar códigos por WhatsApp. */}
+            {/* Clave de acceso: entrar sin esperar códigos por WhatsApp. */}
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <TouchableOpacity
               style={styles.row}
-              onPress={() => (navigation as any).navigate('SetDevicePin')}
+              onPress={() => (navigation as any).navigate('SetAccessCode')}
               activeOpacity={0.7}
             >
               <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
@@ -185,7 +185,7 @@ export default function SettingsScreen() {
               </View>
               <View style={gs.flex1}>
                 <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                  {devicePinLinked ? 'Cambiar PIN de este dispositivo' : 'Crear PIN de este dispositivo'}
+                  {deviceLinked ? 'Cambiar mi clave de acceso' : 'Crear mi clave de acceso'}
                 </CustomTextComponent>
                 <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
                   Ingresa con 6 dígitos, sin esperar códigos

@@ -25,10 +25,10 @@ import {
   type FCMData,
 } from '../../infraestructure/services/NotificationService';
 import {
-  isDevicePinLinked,
+  hasAccessCode,
+  wasAccessCodeForgotten,
+  isDeviceLinked,
   fetchPendingDeviceApprovals,
-  wasPinPromptShown,
-  markPinPromptShown,
 } from '../../infraestructure/services/deviceAuth.service';
 import { fetchMyResidentProfile, refreshSession } from '../../infraestructure/services/auth.service';
 import { tokenRefreshService } from '../../infraestructure/services/TokenRefreshService';
@@ -138,7 +138,7 @@ function ProfileBootstrap() {
 /**
  * Al abrir la app con sesión: (1) consulta las solicitudes de ingreso
  * pendientes —respaldo para cuando el push no llega, y vencen en 5 minutos— y
- * (2) si el dispositivo aún no tiene PIN, ofrece crearlo una sola vez.
+ * (2) si la cuenta aún no tiene clave de acceso, manda a crearla.
  */
 function DeviceSecurityBootstrap({
   navigationRef,
@@ -146,7 +146,6 @@ function DeviceSecurityBootstrap({
   navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>;
 }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  const { showQuestion } = useAlert();
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -168,42 +167,41 @@ function DeviceSecurityBootstrap({
               expiresAt,
             });
           }
-          return; // la aprobación manda: no encimar el diálogo del PIN
+          return; // la aprobación manda: no encimar la pantalla de la clave
         }
       } catch {
         // Sin conexión o backend sin el flujo desplegado: no bloquea el arranque.
       }
 
-      const [linked, promptShown] = await Promise.all([isDevicePinLinked(), wasPinPromptShown()]);
-      if (cancelled || linked || promptShown) return;
+      // La clave es obligatoria. Antes era un diálogo con "Ahora no" que además
+      // se marcaba como visto para siempre: quien lo descartaba una vez no volvía
+      // a verlo nunca y seguía dependiendo de un canal externo en cada ingreso.
+      //
+      // Se le pregunta al SERVIDOR, no al almacenamiento local: la clave vive en
+      // la cuenta y pudo haberse creado desde otro equipo. Una cuenta que ya la
+      // tiene pero cuyo dueño declaró haberla olvidado cuenta como si no la
+      // tuviera: entró por otro método justamente porque no la recuerda.
+      let accountHasCode: boolean;
+      try {
+        accountHasCode = await hasAccessCode();
+      } catch {
+        return; // sin red no se puede decidir; se reintenta en el próximo arranque
+      }
 
-      markPinPromptShown();
-      showQuestion(
-        'Crea un PIN de 6 dígitos para entrar en este dispositivo sin esperar códigos por WhatsApp.',
-        'Ingresa más rápido',
-        {
-          buttons: [
-            { text: 'Ahora no', style: 'secondary', onPress: () => {} },
-            {
-              text: 'Crear PIN',
-              style: 'primary',
-              onPress: () => {
-                const nav = navigationRef.current;
-                if (nav?.isReady()) {
-                  nav.navigate('Main', {
-                    screen: 'ProfileTab',
-                    params: { screen: 'SetDevicePin', params: { firstTime: true } },
-                  });
-                }
-              },
-            },
-          ],
-        },
-      );
+      const forgotten = await wasAccessCodeForgotten();
+      if (cancelled || (accountHasCode && !forgotten)) return;
+
+      const nav = navigationRef.current;
+      if (nav?.isReady()) {
+        nav.navigate('Main', {
+          screen: 'ProfileTab',
+          params: { screen: 'SetAccessCode', params: { firstTime: true, mandatory: true } },
+        });
+      }
     })();
 
     return () => { cancelled = true; };
-  }, [isAuthenticated, navigationRef, showQuestion]);
+  }, [isAuthenticated, navigationRef]);
 
   return null;
 }
@@ -369,11 +367,11 @@ function ThemedNavigator() {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
   // `null` = aún sin resolver. AuthStack fija su ruta inicial en el montaje, así
   // que hay que conocer el dato ANTES de renderizarlo.
-  const [pinLinked, setPinLinked] = useState<boolean | null>(null);
+  const [deviceLinked, setDeviceLinked] = useState<boolean | null>(null);
 
-  useEffect(() => { isDevicePinLinked().then(setPinLinked); }, []);
+  useEffect(() => { isDeviceLinked().then(setDeviceLinked); }, []);
 
-  if (!isAuthenticated && pinLinked === null) {
+  if (!isAuthenticated && deviceLinked === null) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -407,7 +405,7 @@ function ThemedNavigator() {
             </>
           ) : (
             <Stack.Screen name="Auth">
-              {() => <AuthStack pinLinked={pinLinked === true} />}
+              {() => <AuthStack deviceLinked={deviceLinked === true} />}
             </Stack.Screen>
           )}
           {/* Fuera del condicional: los legales deben abrirse con y sin sesión. */}

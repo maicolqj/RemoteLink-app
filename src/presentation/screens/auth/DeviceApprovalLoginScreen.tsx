@@ -49,6 +49,8 @@ export default function DeviceApprovalLoginScreen() {
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<'denied' | 'expired' | null>(null);
   const [remaining, setRemaining] = useState(0);
+  const [needsAccessCode, setNeedsAccessCode] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
 
   // El challengeId se queda en este equipo y es lo único que canjea la sesión;
   // solo vive en memoria y nunca se muestra.
@@ -71,18 +73,32 @@ export default function DeviceApprovalLoginScreen() {
     getLastIdentity().then(v => v && setIdentity(prev => prev || v));
   }, [route.params?.identity]);
 
-  const redeem = useCallback(async () => {
+  /**
+   * `code` solo viaja cuando la cuenta ya tiene clave: aprobar desde el otro
+   * equipo no alcanza por sí solo para vincular este. Ver el contrato §3.1.
+   */
+  const redeem = useCallback(async (code?: string) => {
     const challengeId = challengeIdRef.current;
     if (!challengeId) return;
     stopTimers();
     setIsRedeeming(true);
     try {
-      const result = await redeemDeviceApproval(challengeId);
+      const result = await redeemDeviceApproval(challengeId, code);
       await saveLastIdentity(identity);
       await persistSession(result);
     } catch (e) {
       const err = e as DeviceAuthError;
       setIsRedeeming(false);
+
+      // La aprobación sigue válida: solo falta el segundo factor. Se pide aquí
+      // para no obligar al residente a repetir todo el flujo.
+      if (err.code === 'ACCESS_CODE_REQUIRED' || err.code === 'ACCESS_CODE_INVALID') {
+        setNeedsAccessCode(true);
+        setAccessCode('');
+        setError(err.code === 'ACCESS_CODE_INVALID' ? err.message : '');
+        return;
+      }
+
       setError(err.message);
       if (err.code === 'APPROVAL_EXPIRED') setFinished('expired');
     }
@@ -226,6 +242,40 @@ export default function DeviceApprovalLoginScreen() {
               disabled={!isValidIdentity(identity) || isRequesting}
               loaderColor="#FFFFFF"
               style={[styles.primaryBtn, { backgroundColor: isValidIdentity(identity) ? colors.primary : colors.border }]}
+              textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
+            />
+          </>
+        ) : needsAccessCode ? (
+          <>
+            {/* Ya aprobaron desde el otro equipo: falta el segundo factor. */}
+            <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '55' }]}>
+              <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
+              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
+                Aprobado. Para autorizar este dispositivo ingresa la clave de tu cuenta.
+              </CustomTextComponent>
+            </View>
+
+            <CustomInputComponent
+              nameInput="Clave de acceso"
+              placeholder="Ej. K7M2Q4"
+              value={accessCode}
+              onChangeText={v => { setAccessCode(v.toUpperCase()); if (error) setError(''); }}
+              autoCapitalize="characters"
+              secureTextEntry
+              maxLength={6}
+              leftIcon={{ name: 'lock', color: colors.primary }}
+              error={error}
+              touched={!!error}
+              editable={!isRedeeming}
+            />
+
+            <CustomButtonComponent
+              text="Autorizar dispositivo"
+              onPress={() => redeem(accessCode)}
+              isLoading={isRedeeming}
+              disabled={accessCode.length !== 6 || isRedeeming}
+              loaderColor="#FFFFFF"
+              style={[styles.primaryBtn, { backgroundColor: accessCode.length === 6 ? colors.primary : colors.border }]}
               textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
             />
           </>
