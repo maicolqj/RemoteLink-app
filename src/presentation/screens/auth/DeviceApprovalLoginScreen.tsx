@@ -5,6 +5,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
+import CodeSegmentInput from '../../components/CodeSegmentInput';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import AppHeader from '../../components/AppHeader';
 import { useTheme } from '../../providers/context/ThemeContext';
@@ -251,21 +252,18 @@ export default function DeviceApprovalLoginScreen() {
             <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '55' }]}>
               <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
               <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                Aprobado. Para autorizar este dispositivo ingresa la clave de tu cuenta.
+                Aprobado. Tu cuenta ya tiene una clave asignada: ingrésala para autorizar este dispositivo.
               </CustomTextComponent>
             </View>
 
-            <CustomInputComponent
-              nameInput="Clave de acceso"
-              placeholder="Ej. K7M2Q4"
+            <CodeSegmentInput
               value={accessCode}
-              onChangeText={v => { setAccessCode(v.toUpperCase()); if (error) setError(''); }}
-              autoCapitalize="characters"
-              secureTextEntry
-              maxLength={6}
-              leftIcon={{ name: 'lock', color: colors.primary }}
+              onChange={v => { setAccessCode(v); if (error) setError(''); }}
+              length={6}
+              prefix={null}
+              hint="Toca para ingresar tu clave"
+              secure
               error={error}
-              touched={!!error}
               editable={!isRedeeming}
             />
 

@@ -16,16 +16,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
-import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { loginResident } from '../../../infraestructure/services/auth.service';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import {
-  persistSession,
-  saveLastIdentity,
   getLastIdentity,
-  isDeviceLinked,
   isWhatsAppLoginAvailable,
 } from '../../../infraestructure/services/deviceAuth.service';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
@@ -42,8 +36,6 @@ const HERO_HEIGHT = hp * 0.38;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const isValidIdentity = (v: string) => v.trim().length >= 6;
-const isValidCode = (v: string) => v.length === 5;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -68,17 +60,12 @@ export default function LoginScreen() {
   // Aviso que trae la pantalla de la clave cuando el dispositivo dejó de estar
   // vinculado (DEVICE_NOT_LINKED / DEVICE_REVOKED).
   const [notice, setNotice] = useState(route.params?.notice ?? '');
-  const [deviceLinked, setDeviceLinked] = useState(false);
   // El canal de WhatsApp entrante se oculta si el servidor ya respondió
   // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
   const [waAvailable, setWaAvailable] = useState(true);
-  const [code, setCode] = useState('');
   const [identityError, setIdentityError] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [submitError, setSubmitError] = useState('');
   const [identityTouched, setIdentityTouched] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Animations ─────────────────────────────────────────────────────────────
   const heroIconScale = useRef(new Animated.Value(1)).current;
@@ -86,7 +73,6 @@ export default function LoginScreen() {
   // Prefill del último documento usado + si este equipo ya está vinculado.
   useEffect(() => {
     getLastIdentity().then(v => v && setIdentity(prev => prev || v));
-    isDeviceLinked().then(setDeviceLinked);
   }, []);
 
   // Se reevalúa en cada foco, no solo al montar: la pantalla sigue montada
@@ -98,40 +84,6 @@ export default function LoginScreen() {
     }, []),
   );
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async () => {
-    let hasError = false;
-    if (!isValidIdentity(identity)) {
-      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
-      setIdentityTouched(true);
-      hasError = true;
-    }
-    if (!isValidCode(code)) {
-      setCodeError('El código debe tener 5 caracteres (ej. E5E45)');
-      hasError = true;
-    }
-    if (hasError) return;
-
-    setIsSubmitting(true);
-    setIdentityError('');
-    setCodeError('');
-    setSubmitError('');
-    try {
-      const systemCode = `RES-${code}`;
-      const result = await loginResident(identity.trim(), systemCode);
-      await saveLastIdentity(identity);
-      await persistSession(result);
-    } catch (err: any) {
-      // El mensaje ya viene normalizado y legible desde la capa de servicio
-      // (auth.service → getApiErrorMessage). Lo mostramos en el banner.
-      setSubmitError(err?.message ?? 'No se pudo iniciar sesión. Intenta de nuevo.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [identity, code]);
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const canSubmit = isValidIdentity(identity) && isValidCode(code) && !isSubmitting;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -196,7 +148,7 @@ export default function LoginScreen() {
               nameInput="Número de identidad"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setSubmitError(''); setNotice(''); }}
+              onChangeText={v => { setIdentity(v); setIdentityError(''); setNotice(''); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -204,36 +156,31 @@ export default function LoginScreen() {
               error={identityError}
               touched={identityTouched}
               maxLength={20}
-              editable={!isSubmitting}
             />
 
-            {/* <View style={styles.codeSection}>
-              <CodeSegmentInput
-                value={code}
-                onChange={v => { setCode(v); setCodeError(''); setSubmitError(''); }}
-                error={codeError}
-                editable={!isSubmitting}
-              />
-            </View> */}
 
             {/* ── Formas de ingresar sin costo por mensaje ──
                  Van antes del código porque son el camino normal: el codigo de
                  residente ya no se puede pedir desde la app, solo lo entrega la
                  administración. */}
             <View style={styles.altBlock}>
-              {deviceLinked ? (
-                <TouchableOpacity
-                  style={[styles.altRow, { borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('LoginAccessCode')}
-                  activeOpacity={0.7}
-                  accessibilityRole="button">
-                  <Icon name="pin" size={ICON_SIZE.sm} color={colors.primary} />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                    Con mi clave de acceso
-                  </CustomTextComponent>
-                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ) : null}
+              {/* Siempre visible, aunque la pista local diga que este equipo no
+                  está vinculado: al reinstalar la app esa pista se pierde, pero
+                  el x-device-id vive en el llavero y puede sobrevivir. Quien
+                  tiene clave debe poder intentarlo; si el equipo de verdad no
+                  está vinculado, el servidor responde DEVICE_NOT_LINKED y la
+                  pantalla deriva al ingreso por WhatsApp. */}
+              <TouchableOpacity
+                style={[styles.altRow, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('LoginAccessCode')}
+                activeOpacity={0.7}
+                accessibilityRole="button">
+                <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
+                  Con mi clave de acceso
+                </CustomTextComponent>
+                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
 
               {waAvailable ? (
                 <TouchableOpacity
@@ -262,54 +209,8 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Código entregado por la administración ──
-            <View style={styles.altDivider}>
-              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-                o con un código de la administración
-              </CustomTextComponent>
-              <View style={[styles.altLine, { backgroundColor: colors.border }]} />
-            </View> */}
 
-            
 
-            {/* ── Error banner ── */}
-            {submitError ? (
-              <View
-                style={[styles.errorBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}
-                accessibilityRole="alert">
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent
-                  fontSize={FONT_SIZE.sm}
-                  color={colors.error}
-                  style={styles.errorBannerText}>
-                  {submitError}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {/* ── Submit button ── */}
-            <CustomButtonComponent
-              text="Ingresar"
-              onPress={handleSubmit}
-              isLoading={isSubmitting}
-              disabled={!canSubmit}
-              loaderColor="#FFFFFF"
-              style={[
-                styles.submitBtn,
-                { backgroundColor: canSubmit ? colors.primary : colors.border },
-              ]}
-              textStyle={{
-                color: canSubmit ? colors.textInverse : colors.textTertiary,
-                fontSize: FONT_SIZE.md,
-                fontWeight: FONT_WEIGHT.semibold,
-              }}
-              iconRight={
-                !isSubmitting
-                  ? { name: 'login', type: 'material', size: 18, color: canSubmit ? colors.textInverse : colors.textTertiary }
-                  : undefined
-              }
-            />
 
             {/* ── Security note ── */}
             <View style={[styles.securityNote, { backgroundColor: colors.background }]}>

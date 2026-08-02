@@ -1774,7 +1774,7 @@ export type Mutation = {
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
   setParkingRate: VisitorParkingConfig;
-  /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. */
+  /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido. */
   setResidentAccessCode: ResidentDevice;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
@@ -4821,6 +4821,8 @@ export type SentNotificationPaginatedResult = {
 export type SetAccessCodeInput = {
   /** Clave alfanumérica de 6 caracteres */
   code: Scalars['String']['input'];
+  /** Clave actual, requerida al cambiarla */
+  currentCode?: InputMaybe<Scalars['String']['input']>;
   /** Nombre del dispositivo (ej. "iPhone de Juan") */
   label?: InputMaybe<Scalars['String']['input']>;
 };
