@@ -250,6 +250,7 @@ export default function SetAccessCodeScreen() {
           length={ACCESS_CODE_LENGTH}
           prefix={null}
           hint={isCurrent ? 'Toca para ingresar tu clave actual' : 'Toca para ingresar la clave'}
+          secure
           error={error}
           editable={!isSaving}
         />

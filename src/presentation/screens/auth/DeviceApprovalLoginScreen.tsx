@@ -262,6 +262,7 @@ export default function DeviceApprovalLoginScreen() {
               length={6}
               prefix={null}
               hint="Toca para ingresar tu clave"
+              secure
               error={error}
               editable={!isRedeeming}
             />

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from './CustomTextComponent';
 import { useTheme } from '../providers/context/ThemeContext';
 import { SPACING, RADIUS } from '../constants/spacing';
@@ -28,6 +29,15 @@ interface Props {
   prefix?: string | null;
   /** Texto de ayuda bajo las casillas cuando no hay error. */
   hint?: string;
+  /**
+   * Oculta los caracteres y ofrece un botón para revelarlos.
+   *
+   * La clave de acceso es una credencial: mostrarla mientras se teclea la deja a
+   * la vista de cualquiera que mire la pantalla. Se enmascara por defecto y el
+   * residente decide cuándo verla —que es lo que evita el error de tipeo
+   * silencioso, sobre todo al cambiarla—.
+   */
+  secure?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -50,9 +60,13 @@ const CodeSegmentInput: React.FC<Props> = ({
   length = DEFAULT_CHARS,
   prefix = 'RES',
   hint = 'Toca para ingresar el código',
+  secure = false,
 }) => {
   const { colors } = useTheme();
   const inputRef = useRef<TextInput>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  const masked = secure && !revealed;
 
   const handleChange = useCallback(
     (raw: string) => onChange(sanitize(raw, length)),
@@ -85,7 +99,7 @@ const CodeSegmentInput: React.FC<Props> = ({
           fontWeight={FONT_WEIGHT.bold}
           color={isFilled ? colors.textInverse : colors.textTertiary}
           style={styles.charText}>
-          {char ?? '·'}
+          {isFilled ? (masked ? '•' : char) : '·'}
         </CustomTextComponent>
       </View>
     );
@@ -142,6 +156,24 @@ const CodeSegmentInput: React.FC<Props> = ({
           {...(Platform.OS === 'android' && { importantForAccessibility: 'no' })}
         />
       </TouchableOpacity>
+
+      {secure ? (
+        <TouchableOpacity
+          onPress={() => setRevealed(prev => !prev)}
+          style={styles.revealRow}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={revealed ? 'Ocultar la clave' : 'Mostrar la clave'}>
+          <Icon
+            name={revealed ? 'visibility-off' : 'visibility'}
+            size={16}
+            color={colors.primary}
+          />
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.primary}>
+            {revealed ? 'Ocultar' : 'Mostrar'}
+          </CustomTextComponent>
+        </TouchableOpacity>
+      ) : null}
 
       {error ? (
         <CustomTextComponent
@@ -210,6 +242,13 @@ const styles = StyleSheet.create({
     left: 0,
   },
   message: {
+    marginTop: SPACING.sm,
+  },
+  revealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: SPACING.xs / 2,
     marginTop: SPACING.sm,
   },
 });

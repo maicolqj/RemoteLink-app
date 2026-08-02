@@ -153,6 +153,7 @@ export default function AccessCodeLoginScreen() {
         length={ACCESS_CODE_LENGTH}
         prefix={null}
         hint="Toca para ingresar tu clave"
+        secure
         error={error}
         editable={!isSubmitting && !locked}
       />
