@@ -207,14 +207,14 @@ export default function LoginScreen() {
               editable={!isSubmitting}
             />
 
-            <View style={styles.codeSection}>
+            {/* <View style={styles.codeSection}>
               <CodeSegmentInput
                 value={code}
                 onChange={v => { setCode(v); setCodeError(''); setSubmitError(''); }}
                 error={codeError}
                 editable={!isSubmitting}
               />
-            </View>
+            </View> */}
 
             {/* ── Formas de ingresar sin costo por mensaje ──
                  Van antes del código porque son el camino normal: el codigo de
