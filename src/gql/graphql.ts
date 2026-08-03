@@ -1515,6 +1515,10 @@ export type LogCallInput = {
 export type LoginAccessCodeInput = {
   /** Clave alfanumérica de 6 caracteres */
   code: Scalars['String']['input'];
+  /** Documento del residente. Obligatorio solo cuando el x-device-id todavía no está vinculado; desde un equipo vinculado el servidor lo ignora. */
+  identity?: InputMaybe<Scalars['String']['input']>;
+  /** Nombre del dispositivo que se vincula en este ingreso (ej. "Mi Android") */
+  label?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Credenciales para inicio de sesión con email y contraseña */
@@ -1670,7 +1674,7 @@ export type Mutation = {
   logCall: CallLog;
   /** Inicia sesión como residente usando número de identidad y código de sistema. Exclusivo para RESIDENT_ROL. */
   loginResident: AuthResponse;
-  /** Inicia sesión con la clave de acceso desde un dispositivo ya vinculado (header x-device-id). Exclusivo para RESIDENT_ROL. No envía ningún mensaje. */
+  /** Inicia sesión con la clave de acceso (header x-device-id). Desde un equipo ya vinculado basta la clave; desde uno nuevo hay que enviar además `identity`, y el ingreso vincula el equipo y avisa por push a los demás. Exclusivo para RESIDENT_ROL. No envía ningún mensaje de WhatsApp. */
   loginWithAccessCode: AuthResponse;
   /** Inicia sesión con email y contraseña. Disponible para: SUPER_ADMIN_ROL, COMPILANCE_OFFICER_ROL, COMPLEX_ROL, ACCOUNTANT_ROL */
   loginWithEmail: AuthResponse;
@@ -2833,6 +2837,7 @@ export type NotificationType =
   | 'DPA_SIGNED'
   | 'LOGIN_APPROVAL_REQUEST'
   | 'MORA_APPLIED'
+  | 'NEW_DEVICE_LINKED'
   | 'PACKAGE_DELIVERED'
   | 'PACKAGE_LOST'
   | 'PACKAGE_READY'
