@@ -80,6 +80,18 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// `versionName` sale de package.json para que no haya dos versiones que
+// mantener sincronizadas a mano: el pie del perfil ya lee la misma. Se bumpea
+// con `yarn version`.
+//
+// `versionCode` NO se deriva de ahí: Play exige que crezca en CADA subida, y un
+// semver no da ese entero de forma inequívoca (0.3.1 y 0.4.0 tendrían que
+// ordenarse solos). Se sube a mano abajo, y equivocarse es visible: Play
+// rechaza el AAB si el número ya se usó.
+def appVersionName = new groovy.json.JsonSlurper()
+        .parseText(file("../../package.json").text)
+        .version
+
 // Release signing credentials live OUTSIDE the repo in android/keystore.properties
 // (gitignored). If the file is absent (e.g. CI without secrets, fresh clone),
 // release/aab fall back to the debug keystore so local builds still work.
@@ -100,8 +112,9 @@ android {
         applicationId "com.alternaqj.remotelink"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "0.3.0"
+        // Súbelo en 1 en CADA subida a Play, aunque el versionName no cambie.
+        versionCode 3
+        versionName appVersionName
     }
     signingConfigs {
         debug {

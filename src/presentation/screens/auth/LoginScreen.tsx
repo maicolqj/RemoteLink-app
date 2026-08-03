@@ -36,6 +36,9 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
+// Misma fuente que el pie del perfil y que `versionName` en build.gradle:
+// se bumpea con `yarn version` y los tres quedan sincronizados.
+import { version as APP_VERSION } from '../../../../package.json';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -154,13 +157,13 @@ export default function LoginScreen() {
           setCodeError(err.message);
           break;
         case 'ACCESS_CODE_NOT_SET':
-        // Freno del alta de equipos nuevos: la cuenta NO está bloqueada, así que
-        // el contador de arriba no aplica. Reintentar acá no sirve.
         case 'DEVICE_ENROLLMENT_THROTTLED':
         case 'DEVICE_NOT_LINKED':
         case 'DEVICE_REVOKED':
           // No sirve reintentar acá: hay que probar identidad por otro canal.
           // El aviso queda arriba, junto a los métodos que sí van a funcionar.
+          // DEVICE_ENROLLMENT_THROTTLED no es bloqueo de cuenta —los equipos ya
+          // vinculados siguen entrando—, por eso no usa la cuenta regresiva.
           setNotice(err.message);
           break;
         default:
@@ -413,10 +416,13 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* TEMP DEBUG — remove after confirming URL */}
-            <CustomTextComponent fontSize={FONT_SIZE.xs} color="red" textAlign="center">
-              {STAGE === 'development' ? <Icon name="brightness1" size={5} color={colors.error} /> : <Icon name="brightness1" size={5} color={colors.successLight} />}
-            </CustomTextComponent>
+            {/* Indicador de entorno: solo fuera de producción, para no dejar un
+                punto de color sin explicación en la pantalla de ingreso. */}
+            {STAGE !== 'production' ? (
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
+                {STAGE}
+              </CustomTextComponent>
+            ) : null}
           </View>
         </View>
 
@@ -425,7 +431,7 @@ export default function LoginScreen() {
           color={colors.textTertiary}
           textAlign="center"
           style={{ marginBottom: insets.bottom + SPACING.md }}>
-          RemoteLink v1.0.0
+          RemoteLink v{APP_VERSION}
         </CustomTextComponent>
       </ScrollView>
     </KeyboardAvoidingView>

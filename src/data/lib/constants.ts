@@ -11,7 +11,6 @@ const _base = (STAGE === 'production'
 export const API_URL      = `${_base}/graphql`;
 console.log(`API URL: ${API_URL}`);
 export const REST_API_URL = _base;
-export const APP_VERSION  = '1.0.0';
 
 export const DEVICE_ID_KEY = 'remotelink_device_id';
 
