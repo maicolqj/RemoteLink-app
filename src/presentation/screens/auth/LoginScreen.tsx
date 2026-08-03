@@ -16,11 +16,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
+import CustomButtonComponent from '../../components/CustomButtonComponent';
+import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import {
   getLastIdentity,
   isWhatsAppLoginAvailable,
+  loginWithAccessCode,
+  markAccessCodeForgotten,
+  persistSession,
+  ACCESS_CODE_LENGTH,
+  type DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
@@ -33,6 +40,15 @@ const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HERO_HEIGHT = hp * 0.38;
+
+/** El backend bloquea la CUENTA 15 minutos tras 5 intentos fallidos. */
+const LOCK_SECONDS = 15 * 60;
+
+const formatLock = (secs: number) => {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -65,6 +81,11 @@ export default function LoginScreen() {
   const [waAvailable, setWaAvailable] = useState(true);
   const [identityError, setIdentityError] = useState('');
   const [identityTouched, setIdentityTouched] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lockRemaining, setLockRemaining] = useState(0);
+  const lockTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
 
   // ── Animations ─────────────────────────────────────────────────────────────
@@ -84,6 +105,68 @@ export default function LoginScreen() {
     }, []),
   );
 
+
+  useEffect(() => () => { lockTimer.current && clearInterval(lockTimer.current); }, []);
+
+  const startLock = useCallback(() => {
+    lockTimer.current && clearInterval(lockTimer.current);
+    setLockRemaining(LOCK_SECONDS);
+    lockTimer.current = setInterval(() => {
+      setLockRemaining(prev => {
+        if (prev <= 1) { clearInterval(lockTimer.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  /**
+   * La clave no necesita el documento: el equipo vinculado ya identifica al
+   * residente. El campo de identidad de arriba es para los otros dos métodos.
+   */
+  const submitCode = useCallback(async () => {
+    setIsSubmitting(true);
+    setCodeError('');
+    setNotice('');
+    try {
+      const result = await loginWithAccessCode(code);
+      await persistSession(result);
+    } catch (e) {
+      const err = e as DeviceAuthError;
+      setCode('');
+      // La lógica ramifica por `code`; `message` ya viene redactado en español
+      // (incluye los intentos restantes en ACCESS_CODE_INVALID).
+      switch (err.code) {
+        case 'ACCESS_CODE_LOCKED':
+          startLock();
+          setCodeError(err.message);
+          break;
+        case 'ACCESS_CODE_NOT_SET':
+        case 'DEVICE_NOT_LINKED':
+        case 'DEVICE_REVOKED':
+          // No sirve reintentar acá: hay que probar identidad por otro canal.
+          // El aviso queda arriba, junto a los métodos que sí van a funcionar.
+          setNotice(err.message);
+          break;
+        default:
+          setCodeError(err.message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [code, startLock]);
+
+  /**
+   * Deja constancia de que la clave ya no sirve antes de mandar al residente al
+   * ingreso por WhatsApp. Al volver a entrar, la app le pedirá una nueva de
+   * forma obligatoria; sin la marca, la cuenta seguiría con la que no recuerda.
+   */
+  const forgotCode = useCallback(() => {
+    markAccessCodeForgotten();
+    navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined });
+  }, [identity, navigation]);
+
+  const locked = lockRemaining > 0;
+  const canSubmitCode = code.length === ACCESS_CODE_LENGTH && !isSubmitting && !locked;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -156,32 +239,77 @@ export default function LoginScreen() {
               error={identityError}
               touched={identityTouched}
               maxLength={20}
+              editable={!isSubmitting}
             />
 
+            {/* ── Clave de acceso ── */}
+            <View style={styles.codeSection}>
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                fontWeight={FONT_WEIGHT.medium}
+                color={colors.textSecondary}>
+                MI CLAVE DE ACCESO
+              </CustomTextComponent>
 
-            {/* ── Formas de ingresar sin costo por mensaje ──
-                 Van antes del código porque son el camino normal: el codigo de
-                 residente ya no se puede pedir desde la app, solo lo entrega la
-                 administración. */}
-            <View style={styles.altBlock}>
-              {/* Siempre visible, aunque la pista local diga que este equipo no
-                  está vinculado: al reinstalar la app esa pista se pierde, pero
-                  el x-device-id vive en el llavero y puede sobrevivir. Quien
-                  tiene clave debe poder intentarlo; si el equipo de verdad no
-                  está vinculado, el servidor responde DEVICE_NOT_LINKED y la
-                  pantalla deriva al ingreso por WhatsApp. */}
-              <TouchableOpacity
-                style={[styles.altRow, { borderColor: colors.border }]}
-                onPress={() => navigation.navigate('LoginAccessCode')}
-                activeOpacity={0.7}
-                accessibilityRole="button">
-                <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                  Con mi clave de acceso
+              <CodeSegmentInput
+                value={code}
+                onChange={v => { setCode(v); if (codeError) setCodeError(''); }}
+                length={ACCESS_CODE_LENGTH}
+                prefix={null}
+                secure
+                hint="Toca para ingresar tu clave"
+                error={codeError}
+                editable={!isSubmitting && !locked}
+              />
+            </View>
+
+            {locked ? (
+              <View
+                style={[styles.infoBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}
+                accessibilityRole="alert">
+                <Icon name="lock-clock" size={ICON_SIZE.sm} color={colors.error} />
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.errorBannerText}>
+                  Cuenta bloqueada. Podrás reintentar en {formatLock(lockRemaining)}.
                 </CustomTextComponent>
-                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
+              </View>
+            ) : null}
 
+            <CustomButtonComponent
+              text="Ingresar"
+              onPress={submitCode}
+              isLoading={isSubmitting}
+              disabled={!canSubmitCode}
+              loaderColor="#FFFFFF"
+              style={[styles.submitBtn, { backgroundColor: canSubmitCode ? colors.primary : colors.border }]}
+              textStyle={{
+                color: canSubmitCode ? colors.textInverse : colors.textTertiary,
+                fontSize: FONT_SIZE.md,
+                fontWeight: FONT_WEIGHT.semibold,
+              }}
+              iconRight={
+                !isSubmitting
+                  ? { name: 'login', type: 'material', size: 18, color: canSubmitCode ? colors.textInverse : colors.textTertiary }
+                  : undefined
+              }
+            />
+
+            <TouchableOpacity
+              onPress={forgotCode}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button">
+              <CustomTextComponent
+                fontSize={FONT_SIZE.sm}
+                fontWeight={FONT_WEIGHT.medium}
+                color={colors.primary}
+                textAlign="center">
+                Olvidé mi clave
+              </CustomTextComponent>
+            </TouchableOpacity>
+
+            {/* ── Si la clave no alcanza ──
+                 Caminos para el equipo que todavía no está vinculado, o para
+                 quien no recuerda su clave. */}
+            <View style={styles.altBlock}>
               {waAvailable ? (
                 <TouchableOpacity
                   style={[styles.altRow, { borderColor: colors.border }]}

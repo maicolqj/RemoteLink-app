@@ -27,7 +27,6 @@ import {
 import {
   hasAccessCode,
   wasAccessCodeForgotten,
-  isDeviceLinked,
   fetchPendingDeviceApprovals,
 } from '../../infraestructure/services/deviceAuth.service';
 import { fetchMyResidentProfile, refreshSession } from '../../infraestructure/services/auth.service';
@@ -372,22 +371,9 @@ function NotificationBootstrap({
 // ─── Inner navigator (has access to ThemeContext) ─────────────────────────────
 
 function ThemedNavigator() {
-  const { isDark, colors } = useTheme();
+  const { isDark } = useTheme();
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
-  // `null` = aún sin resolver. AuthStack fija su ruta inicial en el montaje, así
-  // que hay que conocer el dato ANTES de renderizarlo.
-  const [deviceLinked, setDeviceLinked] = useState<boolean | null>(null);
-
-  useEffect(() => { isDeviceLinked().then(setDeviceLinked); }, []);
-
-  if (!isAuthenticated && deviceLinked === null) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <AuthGate>
@@ -415,7 +401,7 @@ function ThemedNavigator() {
             </>
           ) : (
             <Stack.Screen name="Auth">
-              {() => <AuthStack deviceLinked={deviceLinked === true} />}
+              {() => <AuthStack />}
             </Stack.Screen>
           )}
           {/* Fuera del condicional: los legales deben abrirse con y sin sesión. */}
