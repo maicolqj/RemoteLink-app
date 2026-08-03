@@ -89,6 +89,9 @@ export enum NotificationType {
   COMPLEX_ALERT            = 'COMPLEX_ALERT',
   ACCESS_REQUEST_APPROVED  = 'ACCESS_REQUEST_APPROVED',
   ACCESS_REQUEST_REJECTED  = 'ACCESS_REQUEST_REJECTED',
+  // Aviso de seguridad: alguien entró con el documento y la clave desde un
+  // equipo nuevo. Es la única señal visible de un robo de cuenta por ese camino.
+  NEW_DEVICE_LINKED        = 'NEW_DEVICE_LINKED',
 }
 
 export enum NotificationActionType {

@@ -321,16 +321,45 @@ export async function hasAccessCode(): Promise<boolean> {
   return data?.residentHasAccessCode ?? false;
 }
 
-export async function loginWithAccessCode(code: string): Promise<LoginResult> {
+/**
+ * Ingreso con la clave de la cuenta.
+ *
+ * `identity` es lo que permite entrar desde un equipo que todavía no está
+ * vinculado: sin él, el servidor solo sabe quién eres por el `x-device-id`, y
+ * un celular recién reinstalado quedaba sin ningún camino de vuelta (el canal
+ * de WhatsApp está apagado y la aprobación por push exige otro equipo ya
+ * vinculado). Con documento + clave correctos el servidor emite los tokens y
+ * vincula este equipo en el mismo paso.
+ *
+ * Desde un equipo ya vinculado el servidor lo ignora, así que se manda siempre
+ * que esté disponible: la app no tiene forma confiable de saber si el vínculo
+ * sigue vivo del lado del servidor.
+ */
+export async function loginWithAccessCode(
+  code: string,
+  identity?: string,
+  label?: string,
+): Promise<LoginResult> {
+  const trimmedIdentity = identity?.trim();
   try {
     const { data, error } = await apolloClient.mutate<{ loginWithAccessCode: LoginResult }>({
       mutation: LOGIN_WITH_ACCESS_CODE,
-      variables: { input: { code: code.trim().toUpperCase() } },
+      variables: {
+        input: {
+          code: code.trim().toUpperCase(),
+          ...(trimmedIdentity ? { identity: trimmedIdentity } : {}),
+          ...(label ? { label: label.slice(0, 120) } : {}),
+        },
+      },
       context: { skipAuth: true },
       fetchPolicy: 'no-cache',
     });
     if (error) throw error;
     if (!data?.loginWithAccessCode) throw new DeviceAuthError('Respuesta inválida del servidor');
+    // El ingreso pudo haber vinculado este equipo recién ahora; en cualquier
+    // caso, que el servidor haya aceptado la clave prueba que el vínculo existe.
+    await setDeviceLinked(true);
+    if (trimmedIdentity) await saveLastIdentity(trimmedIdentity);
     return data.loginWithAccessCode;
   } catch (e) {
     if (e instanceof DeviceAuthError) throw e;

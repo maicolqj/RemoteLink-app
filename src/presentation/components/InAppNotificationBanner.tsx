@@ -19,6 +19,7 @@ const TYPE_ICON: Record<string, { icon: string; color: string }> = {
   [NotificationType.PAYMENT_OVERDUE]:     { icon: 'payment',         color: '#EF4444' },
   [NotificationType.SYSTEM_ANNOUNCEMENT]: { icon: 'campaign',        color: '#8B5CF6' },
   [NotificationType.COMPLEX_ALERT]:       { icon: 'apartment',       color: '#3B82F6' },
+  [NotificationType.NEW_DEVICE_LINKED]:   { icon: 'phonelink-lock',  color: '#EF4444' },
 };
 
 // ── Action button labels per actionType ───────────────────────────────────────
