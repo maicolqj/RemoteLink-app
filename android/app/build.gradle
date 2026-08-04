@@ -97,9 +97,33 @@ def appVersionName = new groovy.json.JsonSlurper()
 // release/aab fall back to the debug keystore so local builds still work.
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
-def hasReleaseSigning = keystorePropertiesFile.exists()
-if (hasReleaseSigning) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+def hasReleaseSigning = false
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+
+    // El archivo a medio llenar es un caso real: se crea vacío al seguir la guía
+    // y se rellena después. Sin esta comprobación, Gradle fallaba con
+    // "Cannot convert 'null' to File", que no dice nada de lo que hay que hacer.
+    def required = ['RELEASE_STORE_FILE', 'RELEASE_STORE_PASSWORD',
+                    'RELEASE_KEY_ALIAS', 'RELEASE_KEY_PASSWORD']
+    def missing = required.findAll { !keystoreProperties[it]?.trim() }
+
+    if (missing) {
+        throw new GradleException(
+            "android/keystore.properties existe pero le faltan: ${missing.join(', ')}.\n" +
+            "Complétalo con los valores reales (ver keystore.properties.example) o " +
+            "bórralo para compilar con la llave de debug.")
+    }
+
+    def storeFile = file(keystoreProperties['RELEASE_STORE_FILE'])
+    if (!storeFile.exists()) {
+        throw new GradleException(
+            "RELEASE_STORE_FILE apunta a ${storeFile}, que no existe. La ruta se " +
+            "resuelve desde android/app/.")
+    }
+
+    hasReleaseSigning = true
 }
 
 android {
