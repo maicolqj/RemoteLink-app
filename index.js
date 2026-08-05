@@ -10,6 +10,7 @@ import {
   createNotificationChannels,
 } from './src/infraestructure/services/NotifeeService';
 import PanicSound from './src/shared/modules/PanicSoundModule';
+import { reportPanicDelivered } from './src/infraestructure/services/panicAck';
 import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
 
 // FCM background handler — fires in background AND when killed, but ONLY for
@@ -35,6 +36,9 @@ setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
       triggeredByLabel: d.triggeredByLabel,
     });
     await displayPanicFCMNotification(remoteMessage);
+    // Al final: confirmar la entrega es lo único aquí que puede esperar. Alimenta
+    // la auditoría que mide qué marcas reciben los pánicos y cuáles no.
+    await reportPanicDelivered(d);
     return;
   }
 

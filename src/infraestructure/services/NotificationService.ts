@@ -21,6 +21,7 @@ import {
 } from './NotifeeService';
 
 import { parseLoginApprovalMetadata } from './deviceAuth.service';
+import { reportPanicDelivered } from './panicAck';
 
 /** Push que pide aprobar el ingreso de otro equipo (contrato §03). */
 export const LOGIN_APPROVAL_TYPE = 'LOGIN_APPROVAL_REQUEST';
@@ -153,7 +154,13 @@ export function initNotificationListeners(
   const unsubForeground = onMessage(messaging, async remoteMessage => {
     const data = (remoteMessage.data ?? {}) as FCMData;
     if (__DEV__) console.log('[FCM] onMessage (foreground):', data.type, '| hasNotificationPayload:', !!remoteMessage.notification);
-    if (data.type === 'PANIC_ALERT') return;
+    if (data.type === 'PANIC_ALERT') {
+      // La alarma la dispara el socket en foreground, pero la copia por FCM sí
+      // llegó a este equipo: confirmarla es lo que hace que la estadística de
+      // entrega refleje la realidad y no solo los casos con la app cerrada.
+      void reportPanicDelivered(remoteMessage.data as Record<string, string>);
+      return;
+    }
     // Mensaje de servicio del backend, no del usuario. Aquí importa más que en el
     // handler de background: sin el descarte entraría al buzón del residente
     // como una notificación en blanco y persistiría en la lista.

@@ -16,6 +16,7 @@ interface PanicSoundNative {
   openAutostartSettings: () => Promise<boolean>;
   isAutostartRelevant: () => Promise<boolean>;
   getManufacturer: () => Promise<string>;
+  getDeviceModel: () => Promise<string>;
   areNotificationsEnabled: () => Promise<boolean>;
   canUseFullScreenIntent: () => Promise<boolean>;
   openFullScreenIntentSettings: () => Promise<boolean>;
@@ -59,6 +60,8 @@ export interface PanicSoundApi {
   isAutostartRelevant: () => Promise<boolean>;
   /** Device brand (`Build.MANUFACTURER`), lowercase-compared by callers. */
   getManufacturer: () => Promise<string>;
+  /** Modelo comercial (`Build.MODEL`), para medir la entrega por dispositivo. */
+  getDeviceModel: () => Promise<string>;
   /** False when the user muted the app — no panic alert is displayed at all. */
   areNotificationsEnabled: () => Promise<boolean>;
   /**
@@ -124,6 +127,11 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return '';
         try { return await native.getManufacturer(); }
         catch (e) { console.error('[PanicSound] getManufacturer error:', e); return ''; }
+      },
+      getDeviceModel: async () => {
+        if (Platform.OS !== 'android') return '';
+        try { return await native.getDeviceModel(); }
+        catch (e) { console.error('[PanicSound] getDeviceModel error:', e); return ''; }
       },
       areNotificationsEnabled: async () => {
         if (Platform.OS !== 'android') return true;

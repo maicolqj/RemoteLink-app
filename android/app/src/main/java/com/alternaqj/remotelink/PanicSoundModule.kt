@@ -335,6 +335,14 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         promise.resolve(Build.MANUFACTURER ?: "")
     }
 
+    /** Modelo comercial del equipo. Junto con la marca es lo que permite medir la
+     *  tasa de entrega por dispositivo y ver si los fallos se concentran en
+     *  ciertas ROMs o son transversales. */
+    @ReactMethod
+    fun getDeviceModel(promise: Promise) {
+        promise.resolve(Build.MODEL ?: "")
+    }
+
     /** False when the user denied POST_NOTIFICATIONS or muted the app entirely —
      *  in that state nothing below matters, no panic alert is ever displayed. */
     @ReactMethod
