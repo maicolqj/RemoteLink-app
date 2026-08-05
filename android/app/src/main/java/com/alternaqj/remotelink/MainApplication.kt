@@ -21,6 +21,10 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Before loadReactNative: a panic FCM can be delivered while the app is
+    // killed, and the channel has to already exist when the notification is
+    // posted — waiting for the JS bundle would be too late.
+    PanicChannels.ensure(this)
     loadReactNative(this)
   }
 }

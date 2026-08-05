@@ -1,5 +1,6 @@
 package com.alternaqj.remotelink
 
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -318,6 +319,111 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ─── Panic delivery preconditions (readable permission state) ─────────────
+    // Everything a panic alert needs in order to actually reach the user, in the
+    // one form Android lets us read back. Anything not listed here (autostart,
+    // OEM background pop-ups) has no query API at all — see the section below.
+
+    private val notificationManager by lazy {
+        reactApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    }
+
+    /** Device brand, used to decide which onboarding steps apply. Kept native so
+     *  the app doesn't need react-native-device-info just for one string. */
+    @ReactMethod
+    fun getManufacturer(promise: Promise) {
+        promise.resolve(Build.MANUFACTURER ?: "")
+    }
+
+    /** False when the user denied POST_NOTIFICATIONS or muted the app entirely —
+     *  in that state nothing below matters, no panic alert is ever displayed. */
+    @ReactMethod
+    fun areNotificationsEnabled(promise: Promise) {
+        try {
+            promise.resolve(notificationManager?.areNotificationsEnabled() ?: true)
+        } catch (e: Exception) {
+            Log.w(TAG, "areNotificationsEnabled error: ${e.message}")
+            promise.resolve(true)
+        }
+    }
+
+    /**
+     * Android 14+ turned USE_FULL_SCREEN_INTENT into a special app access that is
+     * auto-granted only to calling/alarm apps; everyone else has to be sent to a
+     * settings screen. When it is denied Android does NOT fail the notification —
+     * it quietly downgrades the full-screen takeover to an ordinary heads-up, so
+     * the alert stops waking a locked screen with no error anywhere. This is the
+     * only way to detect that degradation and tell the user about it.
+     */
+    @ReactMethod
+    fun canUseFullScreenIntent(promise: Promise) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            promise.resolve(true) // Granted at install time below API 34.
+            return
+        }
+        try {
+            promise.resolve(notificationManager?.canUseFullScreenIntent() ?: false)
+        } catch (e: Exception) {
+            Log.w(TAG, "canUseFullScreenIntent error: ${e.message}")
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun openFullScreenIntentSettings(promise: Promise) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            promise.resolve(false) // No such screen before API 34.
+            return
+        }
+        try {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
+            launchIntent(intent)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.w(TAG, "openFullScreenIntentSettings error: ${e.message}")
+            openAppDetailsFallback()
+            promise.resolve(false)
+        }
+    }
+
+    /** Gates whether the panic channel's bypassDnd flag has any effect: without
+     *  policy access Android silently ignores it and the alarm stays muted while
+     *  the guard has Do Not Disturb on — the exact shift when it matters most. */
+    @ReactMethod
+    fun isNotificationPolicyAccessGranted(promise: Promise) {
+        try {
+            promise.resolve(notificationManager?.isNotificationPolicyAccessGranted ?: false)
+        } catch (e: Exception) {
+            Log.w(TAG, "isNotificationPolicyAccessGranted error: ${e.message}")
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun openNotificationPolicySettings(promise: Promise) {
+        try {
+            // Device-wide list, not per-app: there is no way to deep link straight
+            // to this app's row, so the UI has to name the app for the user.
+            launchIntent(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.w(TAG, "openNotificationPolicySettings error: ${e.message}")
+            openAppDetailsFallback()
+            promise.resolve(false)
+        }
+    }
+
+    private fun openAppDetailsFallback() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
+            launchIntent(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "openAppDetailsFallback error: ${e.message}")
+        }
+    }
+
     // ─── Autostart settings (OEM background-launch whitelist) ─────────────────
     // Standard Android has no public "autostart" API — MIUI, ColorOS, FuntouchOS,
     // EMUI/Magic UI and a few others each gate whether a killed app's broadcast
@@ -389,13 +495,7 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
 
         // No OEM-specific screen found (or getActivityInfo rejected every
         // candidate) — send the user to the app's own details page to dig manually.
-        try {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
-            launchIntent(intent)
-        } catch (e: Exception) {
-            Log.w(TAG, "openAutostartSettings fallback error: ${e.message}")
-        }
+        openAppDetailsFallback()
         promise.resolve(false)
     }
 

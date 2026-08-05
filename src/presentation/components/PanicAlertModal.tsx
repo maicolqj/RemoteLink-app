@@ -17,6 +17,7 @@ import { ValidRoles } from '../../domain/interfaces/ValidRoles';
 import { useAuthStore } from '../store/auth.store';
 import type { GetUnitResponseModel, GetResidentByUserIdResponseModel } from '../../domain/responses/UnitResponseModel';
 import PanicSound from '../../shared/modules/PanicSoundModule';
+import { cancelPanicNotifications } from '../../infraestructure/services/NotifeeService';
 
 
 const PANIC_ROLES = [
@@ -104,6 +105,10 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
     blinkLoop.current = null;
     // Stops the native alarm service (tone + vibration + ongoing notification).
     PanicSound?.stop();
+    // The panic notification is `ongoing`, so the user cannot swipe it away —
+    // dismissing it here is the only thing that clears it from the tray.
+    // Never rejects: it handles its own errors.
+    cancelPanicNotifications();
   }, []);
 
   useEffect(() => {
