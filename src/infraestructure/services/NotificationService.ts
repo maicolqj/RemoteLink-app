@@ -154,6 +154,14 @@ export function initNotificationListeners(
     const data = (remoteMessage.data ?? {}) as FCMData;
     if (__DEV__) console.log('[FCM] onMessage (foreground):', data.type, '| hasNotificationPayload:', !!remoteMessage.notification);
     if (data.type === 'PANIC_ALERT') return;
+    // Mensaje de servicio del backend, no del usuario. Aquí importa más que en el
+    // handler de background: sin el descarte entraría al buzón del residente
+    // como una notificación en blanco y persistiría en la lista.
+    //
+    // Se compara sobre el dato crudo y no sobre FCMData a propósito: no es un
+    // tipo de notificación y no debe entrar en ese enum, porque nada de la app
+    // del residente lo maneja ni debería.
+    if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
     onNewNotification(buildNotification(remoteMessage));
     await displayForegroundNotification(remoteMessage);
   });
