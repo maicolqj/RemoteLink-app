@@ -1,25 +1,33 @@
 # HandOff — Sistema de alertas de pánico (EntryLink / RemoteLink)
 
-> Traspaso de sesión. Cubre **tres repositorios**. Todo está subido y con PR
-> abierto; **nada mergeado todavía**. Última actualización: 2026-08-05.
+> Traspaso de sesión. Cubre **tres repositorios**. Los cuatro PRs están
+> **mergeados a `main`**; falta **desplegar el backend**.
+> Última actualización: 2026-08-06.
 
-| Repo | Rama | PR |
+| Repo | PR | Estado |
 |---|---|---|
-| Backend `…\BACKEND\phone-dialer-nestjs` | `feat/panic-alert-aggregate` (desde `main`) | [EntryLink-nestjs#138](https://github.com/maicolqj/EntryLink-nestjs/pull/138) → `main` |
-| RemoteLink `…\react-native\remotelink` | `chore/release-1.0.0-android` | [RemoteLink-app#41](https://github.com/maicolqj/RemoteLink-app/pull/41) → `main` |
-| RemoteLink | `feat/panic-alerts` (desde la de release) | [RemoteLink-app#42](https://github.com/maicolqj/RemoteLink-app/pull/42) → **#41**, apilado |
-| EntryLink `…\react-native\PhoneDialerApp` | `feat/panic-native-alert` | [EntryLinkApp#18](https://github.com/maicolqj/EntryLinkApp/pull/18) → `main` |
+| Backend `…\BACKEND\phone-dialer-nestjs` | [EntryLink-nestjs#138](https://github.com/maicolqj/EntryLink-nestjs/pull/138) | ✅ merge `bd66195` (squash) |
+| RemoteLink `…\react-native\remotelink` | [RemoteLink-app#41](https://github.com/maicolqj/RemoteLink-app/pull/41) | ✅ merge commit `d78cb42` |
+| RemoteLink | [RemoteLink-app#42](https://github.com/maicolqj/RemoteLink-app/pull/42) | ✅ merge `0714db9` (squash, re-apuntado a `main`) |
+| EntryLink `…\react-native\PhoneDialerApp` | [EntryLinkApp#18](https://github.com/maicolqj/EntryLinkApp/pull/18) | ✅ merge `62786ce` (squash) |
 
-## ORDEN DE MERGE — no improvisar
+#41 se mergeó con **merge commit** a propósito, no con squash: #42 estaba apilado
+sobre él y un squash le habría metido los mismos cambios por segunda vez al
+re-apuntarlo a `main`.
 
-1. **#138 (backend) y desplegar.** Todo lo demás depende de él: `ackUrl`,
-   health-check, metadata de equipo en `SaveMobileTokenInput`, `residentByUserId`.
-   Publicar cualquier app antes deja los equipos **sin token registrado y por
-   tanto sin ningún push**: GraphQL rechaza la mutación completa ante un campo
-   desconocido.
-2. Borrar los overrides de schema en las dos apps (ver §5).
-3. #41 → `gh pr edit 42 --base main` → #42.
-4. #18.
+## LO QUE SIGUE MANDANDO SOBRE EL ORDEN
+
+El merge no es el despliegue. **Ninguna de las dos apps puede publicarse hasta
+que el backend esté desplegado**: los cuatro campos de metadata de equipo en
+`SaveMobileTokenInput` y las tres mutaciones de salud no existen en el servidor
+en producción todavía, y GraphQL rechaza la **mutación completa** ante un campo
+desconocido — no lo ignora. Publicar antes deja los equipos **sin token
+registrado y por tanto sin ningún push**.
+
+Al desplegar: verificar que `API_PUBLIC_URL` de producción sea
+`https://api.alternaqj.com`. Quedó apuntando a la IP LAN para las pruebas
+locales; si sale así, ningún equipo confirma entrega y el escalamiento trata
+toda alerta como no entregada.
 
 ---
 
@@ -88,8 +96,24 @@ cubre con el escalamiento del backend.
 - ACK de entrega (background y foreground) + envío de marca/modelo/SO/versión.
 - **Auto-apagado nativo a los 3 min** (mismo plazo que EntryLink) y **barrido de
   alerta huérfana** cuando el servidor confirma que ya no hay nada activo.
-- `SaveMobileTokenInput` con la metadata de equipo en `schema.overrides.gql`
-  (el espejo del backend aún no la trae) → tipos generados y mutación tipada.
+- `SaveMobileTokenInput` con la metadata de equipo, ya en el espejo del backend
+  → tipos generados y mutación tipada.
+
+**Overrides de schema — eliminados el 2026-08-06** (paso 2 del plan viejo, hecho)
+
+Ambos `schema.overrides.gql` quedaron **sin bloques activos** y ambos siguen
+cableados en `codegen.ts`: un overrides con solo comentarios no le molesta a
+codegen (verificado en las dos apps) y así el mecanismo espera a la próxima rama.
+
+- RemoteLink: se fue el `extend input SaveMobileTokenInput`. Los tipos generados
+  solo perdieron las descripciones —el espejo del backend no publica los
+  `"""…"""` de los campos— y `persisted-documents.json` no se movió.
+- EntryLink: se fueron las cinco definiciones de salud de equipos. Salida
+  generada **byte a byte idéntica**.
+- `tsc --noEmit`: RemoteLink limpio. EntryLink arrastra **23 errores previos**
+  (parking, `useVoiceDictation`, `audit.store`, `package.store`), ninguno de
+  schema ni de pánico — `src/gql/` no cambió, así que no salen de aquí. Sin
+  tocar: son de otro frente.
 
 ### ⚠️ A mitad de camino
 
@@ -374,7 +398,9 @@ versionada en RemoteLink y llegó al remoto dentro del PR #42.
 borrado de `refs/original`, reflog expirado y `gc --prune=now`. El commit `5f22783`
 ya no existe en el repositorio ni en el remoto; el archivo sigue en disco,
 ignorado. El patrón pasó a `*.keystore*`, más `*.jks` y `*.p12`.
-→ **Pendiente de decisión: rotar la llave.** Estuvo publicada varias horas.
+→ **Decidido el 2026-08-06: se rota.** Estuvo publicada varias horas y no hay
+forma de saber quién la descargó. Pasos en §6.3. Mientras Google no apruebe el
+restablecimiento, la `.old` sigue siendo la clave de carga válida.
 → **Lección: `filter-branch` deja un respaldo en `refs/original` que nadie borra
 solo.** Sin limpiarlo, el objeto purgado sigue alcanzable y `git log --all` lo
 sigue encontrando — parece limpio y no lo está.
@@ -393,10 +419,11 @@ sigue encontrando — parece limpio y no lo está.
    equipos confirman contra el servidor equivocado (401/404) y ensucian la
    auditoría real.
 2. ~~Resincronizar el manifest de RemoteLink.~~ **No hace falta** (ver §2). Lo que
-   sí manda es el **orden de despliegue**: los cuatro campos de metadata de equipo
-   son desconocidos para el backend sin mergear, y GraphQL rechaza la mutación
-   **completa** por un campo desconocido — no lo ignora. Publicar la app antes que
-   el backend deja a todos los equipos sin token registrado, o sea sin ningún push.
+   sí manda es el **orden de despliegue**, y sigue vigente aunque los PRs ya estén
+   mergeados: mientras el backend no esté **desplegado**, los cuatro campos de
+   metadata de equipo le son desconocidos y GraphQL rechaza la mutación
+   **completa** — no la ignora. Publicar la app antes que el backend deja a todos
+   los equipos sin token registrado, o sea sin ningún push.
 3. ~~**Arrancar el backend**~~ **✅ 2026-08-05.** Bootea limpio, rutas mapeadas,
    sin warning de `API_PUBLIC_URL`. La cola `panic-escalation` **no estaba
    registrada en Bull Board** (solo `otp` y `mail`): se agregó en
@@ -455,22 +482,26 @@ sigue encontrando — parece limpio y no lo está.
     `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
 16. Capturar los GIFs por fabricante y registrarlos en
     `src/presentation/assets/onboarding/index.ts`.
-17. ~~Abrir PRs.~~ **✅ hecho**, los cuatro. Ver el orden de merge al inicio.
+17. ~~Abrir PRs.~~ **✅ hecho**, los cuatro. ~~Mergearlos.~~ **✅ 2026-08-06.**
 
 ---
 
-## 6. Por dónde seguir mañana
+## 6. Por dónde seguir
 
-1. **Mergear #138 y desplegar.** Es el cuello de botella de todo lo demás. Al
-   desplegar, revisar que `API_PUBLIC_URL` de producción sea
-   `https://api.alternaqj.com` — hoy quedó apuntando a la IP LAN para las
-   pruebas locales, y si sale así a producción ningún equipo confirma entrega.
-2. **Borrar los overrides de schema.** En EntryLink codegen fallará y te avisará;
-   en RemoteLink **no avisa** (lección 16), hay que acordarse:
-   - RemoteLink: bloque `extend input SaveMobileTokenInput` de `schema.overrides.gql`
-   - EntryLink: `schema.overrides.gql` completo, y quitarlo de `codegen.ts`
-3. **Decidir sobre la llave de firma** (lección 17): rotarla en Play Console o
-   confirmar que la `.old` ya estaba retirada.
+1. **Desplegar el backend.** Es el cuello de botella de todo lo demás; el merge
+   por sí solo no habilita nada. Revisar `API_PUBLIC_URL` (ver el encabezado) y
+   que las tres migraciones nuevas corran.
+2. ~~Borrar los overrides de schema.~~ **✅ 2026-08-06**, en las dos apps (ver §2).
+3. **Rotar la llave de firma** (lección 17). Decidido el 2026-08-06: se rota, no
+   se asume que la `.old` estaba retirada. Trámite en Play Console con ~2 días
+   hábiles de espera, así que va en paralelo:
+   - generar la nueva keystore con `keytool` (contraseña **fuera del chat**),
+   - exportar su certificado con `keytool -export -rfc`,
+   - Play Console → *Configuración → Integridad de la app → Firma de apps* →
+     *Solicitar restablecimiento de la clave de carga*, adjuntando el PEM,
+   - al aprobarse, actualizar `keystore.properties` local y el CI.
+   - Hasta entonces **la `.old` sigue siendo la clave de carga válida**: no
+     borrarla del disco.
 4. Terminar la **Fase 2-bis** de RemoteLink: auto-apagado a los 3 min, barrido de
    huérfana, toggle de opt-out.
 5. **Fase 4 completa** (escalamiento). La cola ya aparece en Bull Board.
