@@ -40,7 +40,12 @@ import { usePanicStore } from '../store/panic.store';
 import { useSettingsStore } from '../store/settings.store';
 import apolloClientInstance from '../../data/lib/apollo/client';
 import { SAVE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations';
+// Tipo generado por codegen: es lo que hace que un campo mal escrito de la
+// metadata del equipo falle en compilación y no en silencio contra el servidor.
+import type { SaveMobileTokenMutationVariables } from '../../gql/graphql';
 import PanicSound from '../../shared/modules/PanicSoundModule';
+// Versión desde package.json: fuente única, la misma que muestra el perfil.
+import { version as APP_VERSION } from '../../../package.json';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
 import { useAlert } from '../providers/context/AlertContext';
 
@@ -311,13 +316,33 @@ function NotificationBootstrap({
     if (__DEV__) console.log('[FCM] registro check → auth:', isAuthenticated, '| complex:', complexId, '| token:', fcmToken ? fcmToken.slice(0, 20) + '…' : 'null');
     if (!isAuthenticated || !complexId || !fcmToken) return;
     if (__DEV__) console.log('[FCM] enviando token al backend…');
-    apolloClientInstance.mutate<{ saveMobileToken: { success: boolean } }>({
+
+    // Marca y modelo viajan con el token para poder cruzar la tasa real de
+    // entrega contra el fabricante. Es en la app del residente donde más se
+    // nota: su parque de equipos es mucho más variado que el de la portería, así
+    // que es donde mejor se ve si los pánicos que no llegan se concentran en
+    // ciertas ROMs. Si el módulo nativo no responde se registra igual sin esos
+    // campos — el backend solo sobrescribe lo que recibe.
+    void (async () => {
+      const [manufacturer, deviceModel] = await Promise.all([
+        PanicSound?.getManufacturer?.() ?? Promise.resolve(''),
+        PanicSound?.getDeviceModel?.() ?? Promise.resolve(''),
+      ]);
+
+      return apolloClientInstance.mutate<
+        { saveMobileToken: { success: boolean } },
+        SaveMobileTokenMutationVariables
+      >({
       mutation: SAVE_MOBILE_TOKEN,
       variables: {
         input: {
           complexId,
           deviceToken: fcmToken,
           platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+          ...(manufacturer ? { manufacturer } : {}),
+          ...(deviceModel ? { deviceModel } : {}),
+          osVersion: String(Platform.Version),
+          appVersion: APP_VERSION,
         },
       },
     })
@@ -333,6 +358,7 @@ function NotificationBootstrap({
         if (__DEV__) console.log('[FCM] saveMobileToken OK');
       })
       .catch(err => console.warn('[FCM] saveMobileToken error:', getApiErrorMessage(err)));
+    })();
   }, [isAuthenticated, complexId, fcmToken]);
 
   // One-time nudge to the OEM autostart/background-launch whitelist (MIUI, ColorOS,

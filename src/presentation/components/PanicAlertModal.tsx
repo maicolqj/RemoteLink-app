@@ -11,12 +11,16 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useLazyQuery } from '@apollo/client/react';
 import apolloClientInstance from '../../data/lib/apollo/client';
 import { ACKNOWLEDGE_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
-import { GET_UNIT, ACTIVE_PANIC_ALERTS } from '../../domain/graphql/panic.queries';
-import { GET_RESIDENT_BY_USER_ID } from '../../domain/graphql/panic-legacy';
+import {
+  GET_UNIT,
+  ACTIVE_PANIC_ALERTS,
+  GET_RESIDENT_BY_USER_ID,
+} from '../../domain/graphql/panic.queries';
 import { ValidRoles } from '../../domain/interfaces/ValidRoles';
 import { useAuthStore } from '../store/auth.store';
 import type { GetUnitResponseModel, GetResidentByUserIdResponseModel } from '../../domain/responses/UnitResponseModel';
 import PanicSound from '../../shared/modules/PanicSoundModule';
+import { cancelPanicNotifications } from '../../infraestructure/services/NotifeeService';
 
 
 const PANIC_ROLES = [
@@ -69,6 +73,8 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const blinkLoop = useRef<Animated.CompositeAnimation | null>(null);
+  /** true solo mientras este modal es el dueño de la alarma que suena. */
+  const ownsAlarm = useRef(false);
 
   // Fetch unit details when only unitId is provided
   const [fetchUnit, { data: unitData }] = useLazyQuery<GetUnitResponseModel>(GET_UNIT, {
@@ -104,25 +110,44 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
     blinkLoop.current = null;
     // Stops the native alarm service (tone + vibration + ongoing notification).
     PanicSound?.stop();
+    // The panic notification is `ongoing`, so the user cannot swipe it away —
+    // dismissing it here is the only thing that clears it from the tray.
+    // Never rejects: it handles its own errors.
+    cancelPanicNotifications();
   }, []);
 
   useEffect(() => {
-    if (visible) {
-      // Starts/keeps the native alarm service. Idempotent: if it's already blaring
-      // (e.g. launched by the FCM handler from a killed state), this is a no-op.
-      PanicSound?.start();
-      blinkAnim.setValue(1);
-      blinkLoop.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(blinkAnim, { toValue: 0.15, duration: 250, useNativeDriver: true }),
-          Animated.timing(blinkAnim, { toValue: 1,   duration: 250, useNativeDriver: true }),
-        ]),
-      );
-      blinkLoop.current.start();
-    } else {
+    if (!visible) {
+      // Nada que apagar si esta pantalla nunca mostró la alerta.
+      //
+      // Antes se llamaba a stopAll() incondicionalmente, y eso silenciaba la
+      // alarma que el handler headless de FCM había encendido con la app
+      // cerrada: al arrancar, el efecto corre con `visible` en false porque
+      // `panicData` todavía no llegó, y de paso cancelaba la notificación de la
+      // bandeja. En una prueba real dejó 3,5 s de silencio en plena emergencia.
+      if (!ownsAlarm.current) return;
+      ownsAlarm.current = false;
       stopAll();
+      return;
     }
-    return stopAll;
+
+    // Starts/keeps the native alarm service. Idempotent: if it's already blaring
+    // (e.g. launched by the FCM handler from a killed state), this is a no-op.
+    ownsAlarm.current = true;
+    PanicSound?.start();
+    blinkAnim.setValue(1);
+    blinkLoop.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blinkAnim, { toValue: 0.15, duration: 250, useNativeDriver: true }),
+        Animated.timing(blinkAnim, { toValue: 1,   duration: 250, useNativeDriver: true }),
+      ]),
+    );
+    blinkLoop.current.start();
+
+    return () => {
+      ownsAlarm.current = false;
+      stopAll();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 

@@ -10,6 +10,7 @@ import {
   createNotificationChannels,
 } from './src/infraestructure/services/NotifeeService';
 import PanicSound from './src/shared/modules/PanicSoundModule';
+import { reportPanicDelivered } from './src/infraestructure/services/panicAck';
 import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
 
 // FCM background handler — fires in background AND when killed, but ONLY for
@@ -35,8 +36,19 @@ setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
       triggeredByLabel: d.triggeredByLabel,
     });
     await displayPanicFCMNotification(remoteMessage);
+    // Al final: confirmar la entrega es lo único aquí que puede esperar. Alimenta
+    // la auditoría que mide qué marcas reciben los pánicos y cuáles no.
+    await reportPanicDelivered(d);
     return;
   }
+
+  // Los mensajes de servicio del backend no son para el usuario. RemoteLink no
+  // participa en la prueba de humo —es la app del residente, no la de quien
+  // atiende un pánico— pero comparte la tabla de tokens con EntryLink, así que
+  // uno puede llegarle igual. Sin este descarte caería en la rama de abajo y se
+  // pintaría como notificación en blanco, porque el push de prueba no lleva
+  // título ni cuerpo.
+  if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
 
   // Non-panic (visits, payments, packages, …). When the message is data-only the
   // OS shows nothing on its own, so we must render it via Notifee here — otherwise

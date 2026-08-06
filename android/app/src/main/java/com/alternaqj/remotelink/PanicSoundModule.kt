@@ -1,5 +1,6 @@
 package com.alternaqj.remotelink
 
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -9,6 +10,8 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -47,6 +50,19 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         @Volatile private var pendingTriggeredBy: String? = null
         @Volatile private var pendingTriggeredByLabel: String? = null
         @Volatile private var hasPending = false
+
+        /**
+         * Cuánto suena la alarma como máximo si nadie la atiende.
+         *
+         * Sin esto la sirena no tiene quien la apague: cuando el pánico llega con
+         * la app cerrada, quien arranca el motor es el handler headless de FCM, y
+         * ese contexto JS se destruye en cuanto termina — cualquier temporizador
+         * de JS se va con él. El único que sobrevive es este, del lado nativo.
+         *
+         * Mismo valor que EntryLink, para que residente y portería dejen de sonar
+         * a la vez y nadie interprete el silencio de un lado como "ya lo atendieron".
+         */
+        private const val AUTO_STOP_MS = 3 * 60 * 1000L
     }
 
     private val sampleRate = 44100
@@ -55,6 +71,18 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
     private var playThread: Thread? = null
     private var focusRequest: AudioFocusRequest? = null
     private var savedAlarmVolume = -1
+
+    private val autoStopHandler = Handler(Looper.getMainLooper())
+    private val autoStopRunnable = Runnable {
+        Log.w(TAG, "Auto-stop: nadie atendió la alerta en ${AUTO_STOP_MS / 1000}s")
+        // Fuera del hilo principal: apagar espera hasta 600 ms a que el hilo de
+        // audio cierre, y bloquear la UI ese rato es justo lo que el usuario
+        // percibe como que la app se colgó.
+        Thread {
+            stopAlarm()
+            clearPanicNotifications()
+        }.start()
+    }
 
     private val audioManager by lazy {
         reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -101,6 +129,10 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
     fun stopAlarmService() = stopAlarm()
 
     private fun startAlarm() {
+        // Antes del early-return: una segunda alerta que llega con la sirena ya
+        // sonando debe reiniciar la cuenta, no heredar lo que le quedaba a la
+        // primera. Es idempotente, así que reprogramar de más no hace daño.
+        scheduleAutoStop()
         if (!active.compareAndSet(false, true)) return
         forceAlarmVolume()
         requestFocus()
@@ -130,6 +162,9 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
             stopVibration()
             restoreAlarmVolume()
             abandonFocus()
+            // Nunca llegó a sonar: el auto-stop no tiene nada que apagar y borraría
+            // la notificación, que en este equipo es lo único que queda de la alerta.
+            cancelAutoStop()
             return
         }
 
@@ -159,6 +194,10 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
     }
 
     private fun stopAlarm() {
+        // Fuera del early-return: si la alarma ya está apagada pero quedó un
+        // temporizador vivo (arranque fallido, doble stop), dejarlo correr haría
+        // que borre la notificación de una alerta posterior.
+        cancelAutoStop()
         if (!active.compareAndSet(true, false)) return
         try { audioTrack?.pause() } catch (_: Exception) {}
         try { audioTrack?.flush() } catch (_: Exception) {}
@@ -169,6 +208,46 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         stopVibration()
         restoreAlarmVolume()
         abandonFocus()
+    }
+
+    // ─── Auto-apagado ───────────────────────────────────────────────────────────
+
+    private fun scheduleAutoStop() {
+        autoStopHandler.removeCallbacks(autoStopRunnable)
+        autoStopHandler.postDelayed(autoStopRunnable, AUTO_STOP_MS)
+    }
+
+    private fun cancelAutoStop() {
+        autoStopHandler.removeCallbacks(autoStopRunnable)
+    }
+
+    /**
+     * Retira la notificación de pánico de la bandeja.
+     *
+     * Contraparte obligatoria de su `ongoing: true`: esa bandera hace que el
+     * usuario no pueda descartarla ni con "Borrar todo", así que si la app no la
+     * quita queda clavada para siempre. Al vencer el auto-apagado ya no queda
+     * emergencia que anunciar, y el registro del incidente no se pierde: vive en
+     * el backend y se ve en el buzón de notificaciones de la app.
+     *
+     * Barre por canal en vez de por id porque el id lo arma Notifee desde el
+     * payload FCM, que este lado no conoce. El canal es exclusivo del pánico, así
+     * que no hay riesgo de llevarse por delante otra notificación.
+     */
+    private fun clearPanicNotifications() {
+        // API 26 por `channelId`, no 23 por `activeNotifications`: en Android 7 el
+        // getter no existe y la llamada revienta con NoSuchMethodError. Tampoco hay
+        // nada que barrer — los canales nacen en Oreo, así que PanicChannels no
+        // crea ninguno por debajo.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = notificationManager ?: return
+        try {
+            manager.activeNotifications
+                .filter { it.notification?.channelId == PanicChannels.PANIC_CHANNEL_ID }
+                .forEach { manager.cancel(it.tag, it.id) }
+        } catch (e: Exception) {
+            Log.w(TAG, "clearPanicNotifications error: ${e.message}")
+        }
     }
 
     // ─── Launch payload (killed-state cold start) ───────────────────────────────
@@ -318,6 +397,119 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ─── Panic delivery preconditions (readable permission state) ─────────────
+    // Everything a panic alert needs in order to actually reach the user, in the
+    // one form Android lets us read back. Anything not listed here (autostart,
+    // OEM background pop-ups) has no query API at all — see the section below.
+
+    private val notificationManager by lazy {
+        reactApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    }
+
+    /** Device brand, used to decide which onboarding steps apply. Kept native so
+     *  the app doesn't need react-native-device-info just for one string. */
+    @ReactMethod
+    fun getManufacturer(promise: Promise) {
+        promise.resolve(Build.MANUFACTURER ?: "")
+    }
+
+    /** Modelo comercial del equipo. Junto con la marca es lo que permite medir la
+     *  tasa de entrega por dispositivo y ver si los fallos se concentran en
+     *  ciertas ROMs o son transversales. */
+    @ReactMethod
+    fun getDeviceModel(promise: Promise) {
+        promise.resolve(Build.MODEL ?: "")
+    }
+
+    /** False when the user denied POST_NOTIFICATIONS or muted the app entirely —
+     *  in that state nothing below matters, no panic alert is ever displayed. */
+    @ReactMethod
+    fun areNotificationsEnabled(promise: Promise) {
+        try {
+            promise.resolve(notificationManager?.areNotificationsEnabled() ?: true)
+        } catch (e: Exception) {
+            Log.w(TAG, "areNotificationsEnabled error: ${e.message}")
+            promise.resolve(true)
+        }
+    }
+
+    /**
+     * Android 14+ turned USE_FULL_SCREEN_INTENT into a special app access that is
+     * auto-granted only to calling/alarm apps; everyone else has to be sent to a
+     * settings screen. When it is denied Android does NOT fail the notification —
+     * it quietly downgrades the full-screen takeover to an ordinary heads-up, so
+     * the alert stops waking a locked screen with no error anywhere. This is the
+     * only way to detect that degradation and tell the user about it.
+     */
+    @ReactMethod
+    fun canUseFullScreenIntent(promise: Promise) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            promise.resolve(true) // Granted at install time below API 34.
+            return
+        }
+        try {
+            promise.resolve(notificationManager?.canUseFullScreenIntent() ?: false)
+        } catch (e: Exception) {
+            Log.w(TAG, "canUseFullScreenIntent error: ${e.message}")
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun openFullScreenIntentSettings(promise: Promise) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            promise.resolve(false) // No such screen before API 34.
+            return
+        }
+        try {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
+            launchIntent(intent)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.w(TAG, "openFullScreenIntentSettings error: ${e.message}")
+            openAppDetailsFallback()
+            promise.resolve(false)
+        }
+    }
+
+    /** Gates whether the panic channel's bypassDnd flag has any effect: without
+     *  policy access Android silently ignores it and the alarm stays muted while
+     *  the guard has Do Not Disturb on — the exact shift when it matters most. */
+    @ReactMethod
+    fun isNotificationPolicyAccessGranted(promise: Promise) {
+        try {
+            promise.resolve(notificationManager?.isNotificationPolicyAccessGranted ?: false)
+        } catch (e: Exception) {
+            Log.w(TAG, "isNotificationPolicyAccessGranted error: ${e.message}")
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
+    fun openNotificationPolicySettings(promise: Promise) {
+        try {
+            // Device-wide list, not per-app: there is no way to deep link straight
+            // to this app's row, so the UI has to name the app for the user.
+            launchIntent(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.w(TAG, "openNotificationPolicySettings error: ${e.message}")
+            openAppDetailsFallback()
+            promise.resolve(false)
+        }
+    }
+
+    private fun openAppDetailsFallback() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
+            launchIntent(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "openAppDetailsFallback error: ${e.message}")
+        }
+    }
+
     // ─── Autostart settings (OEM background-launch whitelist) ─────────────────
     // Standard Android has no public "autostart" API — MIUI, ColorOS, FuntouchOS,
     // EMUI/Magic UI and a few others each gate whether a killed app's broadcast
@@ -389,13 +581,7 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
 
         // No OEM-specific screen found (or getActivityInfo rejected every
         // candidate) — send the user to the app's own details page to dig manually.
-        try {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.parse("package:${reactApplicationContext.packageName}"))
-            launchIntent(intent)
-        } catch (e: Exception) {
-            Log.w(TAG, "openAutostartSettings fallback error: ${e.message}")
-        }
+        openAppDetailsFallback()
         promise.resolve(false)
     }
 

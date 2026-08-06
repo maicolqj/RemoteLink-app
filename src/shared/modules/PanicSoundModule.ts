@@ -15,6 +15,13 @@ interface PanicSoundNative {
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
   openAutostartSettings: () => Promise<boolean>;
   isAutostartRelevant: () => Promise<boolean>;
+  getManufacturer: () => Promise<string>;
+  getDeviceModel: () => Promise<string>;
+  areNotificationsEnabled: () => Promise<boolean>;
+  canUseFullScreenIntent: () => Promise<boolean>;
+  openFullScreenIntentSettings: () => Promise<boolean>;
+  isNotificationPolicyAccessGranted: () => Promise<boolean>;
+  openNotificationPolicySettings: () => Promise<boolean>;
 }
 
 const native = NativeModules.PanicSound as PanicSoundNative | undefined;
@@ -51,6 +58,25 @@ export interface PanicSoundApi {
    * a setting that doesn't exist on their phone.
    */
   isAutostartRelevant: () => Promise<boolean>;
+  /** Device brand (`Build.MANUFACTURER`), lowercase-compared by callers. */
+  getManufacturer: () => Promise<string>;
+  /** Modelo comercial (`Build.MODEL`), para medir la entrega por dispositivo. */
+  getDeviceModel: () => Promise<string>;
+  /** False when the user muted the app — no panic alert is displayed at all. */
+  areNotificationsEnabled: () => Promise<boolean>;
+  /**
+   * Android 14+ only grants USE_FULL_SCREEN_INTENT automatically to calling and
+   * alarm apps. When denied, the panic alert silently stops taking over a locked
+   * screen and degrades to a heads-up — no error is raised anywhere, so this
+   * check is the only way to know. Always true below API 34.
+   */
+  canUseFullScreenIntent: () => Promise<boolean>;
+  /** Opens the Android 14+ screen granting full-screen alerts. False below API 34. */
+  openFullScreenIntentSettings: () => Promise<boolean>;
+  /** Required for the panic channel to bypass Do Not Disturb. */
+  isNotificationPolicyAccessGranted: () => Promise<boolean>;
+  /** Opens the device-wide DND access list (cannot deep link to this app's row). */
+  openNotificationPolicySettings: () => Promise<boolean>;
 }
 
 const PanicSound: PanicSoundApi | null = native
@@ -96,6 +122,44 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return false;
         try { return await native.isAutostartRelevant(); }
         catch (e) { console.error('[PanicSound] isAutostartRelevant error:', e); return false; }
+      },
+      getManufacturer: async () => {
+        if (Platform.OS !== 'android') return '';
+        try { return await native.getManufacturer(); }
+        catch (e) { console.error('[PanicSound] getManufacturer error:', e); return ''; }
+      },
+      getDeviceModel: async () => {
+        if (Platform.OS !== 'android') return '';
+        try { return await native.getDeviceModel(); }
+        catch (e) { console.error('[PanicSound] getDeviceModel error:', e); return ''; }
+      },
+      areNotificationsEnabled: async () => {
+        if (Platform.OS !== 'android') return true;
+        try { return await native.areNotificationsEnabled(); }
+        catch (e) { console.error('[PanicSound] areNotificationsEnabled error:', e); return true; }
+      },
+      canUseFullScreenIntent: async () => {
+        // iOS has no equivalent gate — critical alerts are a separate entitlement.
+        if (Platform.OS !== 'android') return true;
+        try { return await native.canUseFullScreenIntent(); }
+        // Assume granted on failure: a false negative would nag the user about a
+        // permission screen that may not even exist on their Android version.
+        catch (e) { console.error('[PanicSound] canUseFullScreenIntent error:', e); return true; }
+      },
+      openFullScreenIntentSettings: async () => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.openFullScreenIntentSettings(); }
+        catch (e) { console.error('[PanicSound] openFullScreenIntentSettings error:', e); return false; }
+      },
+      isNotificationPolicyAccessGranted: async () => {
+        if (Platform.OS !== 'android') return true;
+        try { return await native.isNotificationPolicyAccessGranted(); }
+        catch (e) { console.error('[PanicSound] isNotificationPolicyAccessGranted error:', e); return false; }
+      },
+      openNotificationPolicySettings: async () => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.openNotificationPolicySettings(); }
+        catch (e) { console.error('[PanicSound] openNotificationPolicySettings error:', e); return false; }
       },
     }
   : null;

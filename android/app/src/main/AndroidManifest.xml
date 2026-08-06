@@ -13,6 +13,11 @@
     <!-- Lets the app ask to be exempt from battery optimization so FCM panic
          pushes arrive while the app is killed (security-alarm use case) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Required for the panic channel's setBypassDnd(true) to have any effect.
+         Declaring it is not enough on its own: the user must also grant
+         Notification Policy Access, which PanicSoundModule can open. Without
+         both, a panic alert is silenced by Do Not Disturb. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
       android:name=".MainApplication"

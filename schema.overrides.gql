@@ -13,21 +13,35 @@
 # codegen.ts carga ambos archivos y los fusiona.
 #
 # MANTENIMIENTO: cada bloque debe desaparecer en cuanto su rama del backend se
-# mergee. Si no se elimina, codegen fallará con un error de campo duplicado —
-# esa es justamente la señal para borrarlo.
+# mergee.
 #
-# Estado actual: SIN OVERRIDES. Los bloques de `resend-system-code-whatsapp` y
-# de la autenticación de residentes 0.0.15 se eliminaron el 2026-08-01, cuando
-# el espejo pasó a traerlos ya definidos (el segundo, además, con
-# `DeviceApprovalStatusResponse.status` tipado como enum en vez de String, que
-# es lo que hacía fallar la fusión).
+# Ojo: un `extend input` que repita campos IDÉNTICOS a los del espejo NO hace
+# fallar a codegen — la fusión los deduplica en silencio (verificado el
+# 2026-08-05: espejo y override declarando los mismos cuatro campos, salida
+# generada idéntica). Solo choca al redefinir un tipo completo (`type X`) o al
+# declarar un campo con otro tipo. Es decir: aquí no hay error que te avise,
+# hay que acordarse de borrar.
 #
-# El tipo de abajo no lo consume nadie: solo evita que este archivo quede sin
-# ninguna definición, cosa que codegen rechaza al cargarlo como schema. Bórralo
-# en cuanto agregues el primer override real.
+# Estado actual: SIN overrides activos.
+# Los bloques de `resend-system-code-whatsapp` y de la autenticación de
+# residentes 0.0.15 se eliminaron el 2026-08-01, cuando el espejo pasó a traerlos
+# ya definidos (el segundo, además, con `DeviceApprovalStatusResponse.status`
+# tipado como enum en vez de String, que es lo que hacía fallar la fusión).
+#
+# El bloque de metadata de equipo en `SaveMobileTokenInput` (rama backend
+# `feat/panic-alert-aggregate`) se eliminó el 2026-08-06 al mergear el PR #138:
+# el espejo ya declara `manufacturer`, `deviceModel`, `osVersion` y `appVersion`.
 # =============================================================================
 
-"""Marcador de posición. Sin uso: ver el encabezado de este archivo."""
-type SchemaOverridesPlaceholder {
-  _: Boolean
-}
+# ── AVISO sobre el espejo ────────────────────────────────────────────────────
+# El 2026-08-05 el watcher regeneró `schema.gql` desde una rama del backend
+# anterior al ingreso con documento + clave y se llevó por delante
+# `LoginAccessCodeInput.identity`, `.label` y `NotificationType.NEW_DEVICE_LINKED`,
+# que la app sí usa. Se restauró el espejo con `git checkout -- schema.gql`.
+#
+# Si vuelve a pasar, la salida ya no compila igual: el arreglo es restaurar el
+# espejo, no parchear aquí. Un `extend` de algo que el espejo sí trae hace fallar
+# codegen por definición duplicada — que es justamente cómo se detecta.
+#
+# Nota de sintaxis para el próximo bloque real: `extend` NO admite descripciones
+# (`"""…"""`) sobre sí mismo; usar comentarios `#` o codegen no parsea el archivo.

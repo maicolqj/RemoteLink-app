@@ -12,6 +12,7 @@ import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { RootStackParamList } from '../../presentation/navigation/types/NavigationTypes';
 import { LOGIN_APPROVAL_TYPE, navigateToApprovalIfNeeded, type FCMData } from './NotificationService';
+import PanicSound from '../../shared/modules/PanicSoundModule';
 
 // ─── Channel IDs ─────────────────────────────────────────────────────────────
 
@@ -20,7 +21,11 @@ export const CHANNEL = {
   PAYMENTS: 'payments',
   ALERTS: 'alerts',
   GENERAL: 'general',
-  PANIC: 'panic',
+  // Created natively in PanicChannels.kt, NOT below — it needs USAGE_ALARM audio
+  // attributes (so it sounds with media volume at 0) which Notifee's channel API
+  // can't express, and it has to exist before the JS bundle loads. Keep this id in
+  // sync with PanicChannels.PANIC_CHANNEL_ID.
+  PANIC: 'panic_v1',
 } as const;
 
 // ─── Action IDs ──────────────────────────────────────────────────────────────
@@ -80,17 +85,9 @@ export async function createNotificationChannels(): Promise<void> {
       visibility: AndroidVisibility.PUBLIC,
       sound: 'default',
     }),
-    notifee.createChannel({
-      id: CHANNEL.PANIC,
-      name: 'Alarma de Pánico',
-      description: 'Alertas de emergencia — pánico activado en el conjunto',
-      importance: AndroidImportance.HIGH,
-      visibility: AndroidVisibility.PUBLIC,
-      vibration: true,
-      vibrationPattern: [300, 500, 200, 500, 200, 500],
-      sound: 'default',
-      lights: true,
-    }),
+    // CHANNEL.PANIC is deliberately absent: PanicChannels.kt owns it. Recreating
+    // it here would be a no-op anyway (channels are immutable and native runs
+    // first), but it would misrepresent where its configuration actually lives.
   ]);
 }
 
@@ -100,6 +97,14 @@ export async function displayPanicFCMNotification(
   remoteMessage: FirebaseMessagingTypes.RemoteMessage,
 ): Promise<void> {
   const data = (remoteMessage.data ?? {}) as FCMData;
+
+  // Android 14+ withholds USE_FULL_SCREEN_INTENT from apps that aren't in the
+  // calling/alarm category. Posting a full-screen action without it doesn't fail
+  // loudly — the system downgrades it to a plain heads-up — so ask first and omit
+  // the action when denied. The alert still lands: heads-up, alarm-stream sound
+  // from the panic channel, and the in-process siren. That degradation is
+  // acceptable; a lock screen that never lights up with no trace in the logs is not.
+  const canFullScreen = (await PanicSound?.canUseFullScreenIntent()) ?? true;
 
   await notifee.displayNotification({
     id: `panic-${data.complexId ?? remoteMessage.messageId ?? 'alert'}`,
@@ -112,13 +117,62 @@ export async function displayPanicFCMNotification(
       color:      '#cc0000',
       importance: AndroidImportance.HIGH,
       visibility: AndroidVisibility.PUBLIC,
+      // An emergency must not be swipeable into oblivion: it stays until the
+      // alert is acknowledged, and survives "Clear all".
+      ongoing:     true,
+      autoCancel:  false,
       // Opens app immediately — even from lock screen
-      fullScreenAction: { id: 'default', launchActivity: 'default' },
+      ...(canFullScreen && {
+        fullScreenAction: { id: 'default', launchActivity: 'default' },
+      }),
       pressAction:      { id: 'default' },
       vibrationPattern: [300, 500, 200, 500, 200, 500],
       lights:           ['#cc0000', 500, 500],
     },
   });
+}
+
+// ─── Dismiss the panic notification ──────────────────────────────────────────
+
+/**
+ * Clears any displayed panic notification.
+ *
+ * Mandatory counterpart to `ongoing: true`: an ongoing notification ignores swipe
+ * and "Clear all", so the app is the only thing that can ever take it down. Call
+ * this wherever the alarm stops, or a resolved alert stays pinned forever.
+ *
+ * Sweeps by payload type instead of by id because the id falls back to messageId
+ * when complexId is missing, so the caller can't always reconstruct it.
+ */
+export async function cancelPanicNotifications(): Promise<void> {
+  try {
+    const displayed = await notifee.getDisplayedNotifications();
+    await Promise.all(
+      displayed
+        .filter(n => n.notification?.data?.type === 'PANIC_ALERT')
+        .map(n => (n.id ? notifee.cancelNotification(n.id) : Promise.resolve())),
+    );
+  } catch (e) {
+    console.error('[Notifee] cancelPanicNotifications error:', e);
+  }
+}
+
+/**
+ * Apaga y limpia una alerta de pánico que ya no está viva.
+ *
+ * Existe por el caso en que el pánico se resuelve mientras este equipo está
+ * cerrado: la sirena y la notificación `ongoing` las arrancó el handler headless
+ * de FCM, pero el aviso de que alguien la reconoció viaja por socket, y con la
+ * app cerrada no lo recibe nadie. Sin esto el residente se encuentra al abrir la
+ * app con una alarma sonando por una emergencia que ya terminó y una
+ * notificación que no puede descartar.
+ *
+ * Solo debe llamarse cuando se confirmó que NO hay alerta activa — apagar una
+ * que sí lo está es exactamente el fallo que este sistema evita.
+ */
+export async function clearStalePanicAlert(): Promise<void> {
+  PanicSound?.stop();
+  await cancelPanicNotifications();
 }
 
 // ─── Display notification in foreground ──────────────────────────────────────
