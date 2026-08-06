@@ -16,6 +16,7 @@ import {
   mapSocketNotification,
   type SocketNotificationPayload,
 } from '../../infraestructure/services/notifications.service';
+import { clearStalePanicAlert } from '../../infraestructure/services/NotifeeService';
 
 interface Props {
   children: React.ReactNode;
@@ -94,7 +95,15 @@ export function SocketProvider({ children }: Props) {
           a.createdByUserId !== uid &&
           Date.now() - new Date(a.createdAt).getTime() < ACTIVE_ALERT_MAX_AGE_MS,
         );
-        if (!pending) return;
+        if (!pending) {
+          // El servidor dice que no queda nada activo. Si este equipo trae una
+          // alarma encendida es porque el pánico se resolvió mientras estaba
+          // cerrado: el reconocimiento viaja por socket y no llegó a nadie. Esta
+          // es la primera oportunidad de enterarse, y también la única —
+          // `ongoing` impide que el usuario descarte la notificación él mismo.
+          if (!usePanicStore.getState().panicData) void clearStalePanicAlert();
+          return;
+        }
         if (__DEV__) console.log('[Socket] alerta de pánico pendiente al conectar:', pending.id);
         panicReceivedAt.current = Date.now();
         setPanicData({
@@ -126,6 +135,15 @@ export function SocketProvider({ children }: Props) {
       // Ignore acknowledgments arriving within 1s of a new panic — backend
       // sometimes broadcasts acknowledged to clear old state before the new alert.
       if (Date.now() - panicReceivedAt.current < 1000) return;
+      // Sin alerta en pantalla no hay modal que reaccione al reconocimiento, pero
+      // la sirena y la notificación sí pueden estar corriendo: las arrancó el
+      // handler de FCM sin que el modal llegara a montarse (rol sin permiso de
+      // verlo, opt-out activado después, app recién abierta). Apagarlas aquí es
+      // lo que evita que sigan sonando por algo que ya se atendió.
+      if (!usePanicStore.getState().panicData) {
+        void clearStalePanicAlert();
+        return;
+      }
       setAcknowledged(payload);
     });
 

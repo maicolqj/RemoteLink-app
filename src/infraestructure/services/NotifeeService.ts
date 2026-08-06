@@ -157,6 +157,24 @@ export async function cancelPanicNotifications(): Promise<void> {
   }
 }
 
+/**
+ * Apaga y limpia una alerta de pánico que ya no está viva.
+ *
+ * Existe por el caso en que el pánico se resuelve mientras este equipo está
+ * cerrado: la sirena y la notificación `ongoing` las arrancó el handler headless
+ * de FCM, pero el aviso de que alguien la reconoció viaja por socket, y con la
+ * app cerrada no lo recibe nadie. Sin esto el residente se encuentra al abrir la
+ * app con una alarma sonando por una emergencia que ya terminó y una
+ * notificación que no puede descartar.
+ *
+ * Solo debe llamarse cuando se confirmó que NO hay alerta activa — apagar una
+ * que sí lo está es exactamente el fallo que este sistema evita.
+ */
+export async function clearStalePanicAlert(): Promise<void> {
+  PanicSound?.stop();
+  await cancelPanicNotifications();
+}
+
 // ─── Display notification in foreground ──────────────────────────────────────
 
 export async function displayForegroundNotification(
