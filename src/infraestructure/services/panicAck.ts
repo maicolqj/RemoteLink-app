@@ -25,7 +25,13 @@ export async function reportPanicDelivered(
 
   // Backend sin API_PUBLIC_URL configurada, o una versión anterior del payload.
   // No es un fallo del equipo: simplemente no se confirma.
-  if (!url || !token) return;
+  if (!url || !token) {
+    // Sin esta traza el caso "no se confirmó nada" es indistinguible de "se
+    // confirmó y falló": ninguno de los dos deja rastro en el equipo, y desde el
+    // servidor ambos se ven igual (una alerta sin entregas registradas).
+    if (__DEV__) console.log('[PanicAck] sin ackUrl/ackToken en el payload — no se confirma la entrega');
+    return;
+  }
 
   try {
     // El token del equipo es lo que permite atribuir la entrega a un dispositivo
@@ -39,12 +45,19 @@ export async function reportPanicDelivered(
       // Se confirma igual: media entrega registrada vale más que ninguna.
     }
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(deviceToken ? { token, deviceToken } : { token }),
     });
-  } catch {
+    // 204 es el éxito esperado. Cualquier otro código apunta a algo concreto:
+    // 401 token vencido o firmado con otro secreto (típico si el ackUrl apunta a
+    // un servidor distinto del que envió la alerta), 404 alerta inexistente.
+    if (__DEV__) console.log(`[PanicAck] ${res.status} ← ${url}`);
+  } catch (e) {
+    // La red falló: el ackUrl no es alcanzable desde el equipo. En pruebas
+    // locales casi siempre significa que apunta a localhost en vez de la IP LAN.
+    if (__DEV__) console.log('[PanicAck] no se pudo confirmar:', (e as Error)?.message);
     // Sin reintento: para cuando la red vuelva, la alerta ya se habrá resuelto
     // o el servidor ya habrá escalado. Y nunca puede tumbar la alarma, que es lo
     // único que de verdad importa en este momento.
