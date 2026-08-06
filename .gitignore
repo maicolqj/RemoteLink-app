@@ -31,8 +31,13 @@ local.properties
 *.iml
 *.hprof
 .cxx/
-*.keystore
+# Llaves de firma. El comodín va al final a propósito: `*.keystore` no cubre
+# sufijos como `.keystore.old`, y así fue como `my-upload-key.keystore.old`
+# terminó versionado y llegó a subirse al remoto.
+*.keystore*
 !debug.keystore
+*.jks
+*.p12
 android/keystore.properties
 .kotlin/
 
