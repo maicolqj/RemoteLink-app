@@ -21,6 +21,7 @@ import CodeSegmentInput from '../../components/CodeSegmentInput';
 import { useTheme } from '../../providers/context/ThemeContext';
 // import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
 import {
+  defaultDeviceLabel,
   getLastIdentity,
   isWhatsAppLoginAvailable,
   loginWithAccessCode,
@@ -35,6 +36,9 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
+// Misma fuente que el pie del perfil y que `versionName` en build.gradle:
+// se bumpea con `yarn version` y los tres quedan sincronizados.
+import { version as APP_VERSION } from '../../../../package.json';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -49,6 +53,9 @@ const formatLock = (secs: number) => {
   const s = secs % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 };
+
+/** Mismo criterio que los otros dos flujos de ingreso. */
+const isValidIdentity = (v: string) => v.trim().length >= 6;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,15 +127,24 @@ export default function LoginScreen() {
   }, []);
 
   /**
-   * La clave no necesita el documento: el equipo vinculado ya identifica al
-   * residente. El campo de identidad de arriba es para los otros dos métodos.
+   * Documento + clave. El documento es lo que permite entrar desde un equipo
+   * que todavía no está vinculado: el servidor lo usa para identificar al
+   * residente y vincular este equipo en el mismo ingreso. Desde un equipo ya
+   * vinculado el servidor lo ignora, pero se manda igual — la app no sabe si el
+   * vínculo sigue vivo del otro lado.
    */
   const submitCode = useCallback(async () => {
+    if (!isValidIdentity(identity)) {
+      setIdentityTouched(true);
+      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
+      return;
+    }
     setIsSubmitting(true);
+    setIdentityError('');
     setCodeError('');
     setNotice('');
     try {
-      const result = await loginWithAccessCode(code);
+      const result = await loginWithAccessCode(code, identity, defaultDeviceLabel());
       await persistSession(result);
     } catch (e) {
       const err = e as DeviceAuthError;
@@ -141,10 +157,13 @@ export default function LoginScreen() {
           setCodeError(err.message);
           break;
         case 'ACCESS_CODE_NOT_SET':
+        case 'DEVICE_ENROLLMENT_THROTTLED':
         case 'DEVICE_NOT_LINKED':
         case 'DEVICE_REVOKED':
           // No sirve reintentar acá: hay que probar identidad por otro canal.
           // El aviso queda arriba, junto a los métodos que sí van a funcionar.
+          // DEVICE_ENROLLMENT_THROTTLED no es bloqueo de cuenta —los equipos ya
+          // vinculados siguen entrando—, por eso no usa la cuenta regresiva.
           setNotice(err.message);
           break;
         default:
@@ -153,7 +172,7 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [code, startLock]);
+  }, [code, identity, startLock]);
 
   /**
    * Deja constancia de que la clave ya no sirve antes de mandar al residente al
@@ -166,7 +185,8 @@ export default function LoginScreen() {
   }, [identity, navigation]);
 
   const locked = lockRemaining > 0;
-  const canSubmitCode = code.length === ACCESS_CODE_LENGTH && !isSubmitting && !locked;
+  const canSubmitCode =
+    isValidIdentity(identity) && code.length === ACCESS_CODE_LENGTH && !isSubmitting && !locked;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -208,7 +228,7 @@ export default function LoginScreen() {
               color={colors.textSecondary}
               textAlign="center"
               style={styles.cardSubtitle}>
-              Ingresa tu número de identidad y elige cómo confirmar que eres tú
+              Ingresa tu número de identidad y tu clave de acceso
             </CustomTextComponent>
 
             {/* ── Aviso traído desde el login con clave ── */}
@@ -307,8 +327,9 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* ── Si la clave no alcanza ──
-                 Caminos para el equipo que todavía no está vinculado, o para
-                 quien no recuerda su clave. */}
+                 Con documento + clave ya se puede entrar desde un equipo nuevo,
+                 así que estos caminos quedan para quien no recuerda la clave o
+                 todavía no tiene una. */}
             <View style={styles.altBlock}>
               {waAvailable ? (
                 <TouchableOpacity
@@ -395,10 +416,13 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* TEMP DEBUG — remove after confirming URL */}
-            <CustomTextComponent fontSize={FONT_SIZE.xs} color="red" textAlign="center">
-              {STAGE === 'development' ? <Icon name="brightness1" size={5} color={colors.error} /> : <Icon name="brightness1" size={5} color={colors.successLight} />}
-            </CustomTextComponent>
+            {/* Indicador de entorno: solo fuera de producción, para no dejar un
+                punto de color sin explicación en la pantalla de ingreso. */}
+            {STAGE !== 'production' ? (
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
+                {STAGE}
+              </CustomTextComponent>
+            ) : null}
           </View>
         </View>
 
@@ -407,7 +431,7 @@ export default function LoginScreen() {
           color={colors.textTertiary}
           textAlign="center"
           style={{ marginBottom: insets.bottom + SPACING.md }}>
-          RemoteLink v1.0.0
+          RemoteLink v{APP_VERSION}
         </CustomTextComponent>
       </ScrollView>
     </KeyboardAvoidingView>

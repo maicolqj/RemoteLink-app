@@ -28,7 +28,11 @@ export const SET_ACCESS_CODE = gql`
   }
 `;
 
-/** Pública. El dispositivo no viaja en el input: sale del header x-device-id. */
+/**
+ * Pública. El dispositivo no viaja en el input: sale del header x-device-id.
+ * El `identity` del input solo hace falta cuando ese dispositivo aún no está
+ * vinculado; en ese caso el ingreso lo vincula y avisa a los demás equipos.
+ */
 export const LOGIN_WITH_ACCESS_CODE = gql`
   mutation LoginWithAccessCode($input: LoginAccessCodeInput!) {
     loginWithAccessCode(input: $input) {

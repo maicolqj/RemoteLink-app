@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -22,6 +23,19 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
+      <!-- Canal por defecto de las notificaciones que muestra el propio sistema
+           (app cerrada, mensaje FCM con payload `notification`). El backend ya
+           no lo dicta: sirve a dos apps con canales distintos, así que cada una
+           declara el suyo. Debe existir en CHANNEL de NotifeeService — si no,
+           Android cae a un canal genérico sin prioridad ni sonido.
+
+           `tools:replace` es obligatorio: react-native-firebase/messaging ya
+           declara este mismo meta-data con un valor vacío, y sin el override el
+           merge del manifiesto falla el build. -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="general"
+        tools:replace="android:value" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
