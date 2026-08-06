@@ -4788,15 +4788,11 @@ export type RotationTypeStatus = {
 };
 
 export type SaveMobileTokenInput = {
-  /** Versión de la app instalada (package.json). */
   appVersion?: InputMaybe<Scalars['String']['input']>;
   complexId: Scalars['String']['input'];
-  /** Build.MODEL — modelo comercial del equipo. */
   deviceModel?: InputMaybe<Scalars['String']['input']>;
   deviceToken: Scalars['String']['input'];
-  /** Build.MANUFACTURER — marca del equipo. */
   manufacturer?: InputMaybe<Scalars['String']['input']>;
-  /** Versión del sistema operativo (Platform.Version). */
   osVersion?: InputMaybe<Scalars['String']['input']>;
   platform: PushPlatform;
 };

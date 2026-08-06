@@ -22,39 +22,16 @@
 # declarar un campo con otro tipo. Es decir: aquí no hay error que te avise,
 # hay que acordarse de borrar.
 #
-# Estado actual: un override activo (metadata de equipo en SaveMobileTokenInput).
+# Estado actual: SIN overrides activos.
 # Los bloques de `resend-system-code-whatsapp` y de la autenticación de
 # residentes 0.0.15 se eliminaron el 2026-08-01, cuando el espejo pasó a traerlos
 # ya definidos (el segundo, además, con `DeviceApprovalStatusResponse.status`
 # tipado como enum en vez de String, que es lo que hacía fallar la fusión).
+#
+# El bloque de metadata de equipo en `SaveMobileTokenInput` (rama backend
+# `feat/panic-alert-aggregate`) se eliminó el 2026-08-06 al mergear el PR #138:
+# el espejo ya declara `manufacturer`, `deviceModel`, `osVersion` y `appVersion`.
 # =============================================================================
-
-# ── rama backend `feat/panic-alert-aggregate` ────────────────────────────────
-# Marca, modelo, versión de SO y de app viajan junto al token para poder medir la
-# tasa real de entrega de los pánicos por dispositivo. RootNavigator ya los
-# manda; sin esta extensión el tipo generado no los declara y nada avisaría si se
-# renombra alguno.
-#
-# Los cuatro son opcionales en el backend a propósito: las versiones de la app ya
-# publicadas no los envían y deben seguir registrando su token.
-#
-# OJO al orden de despliegue: mientras esta rama del backend no esté mergeada, el
-# servidor rechaza la mutación COMPLETA por campo desconocido — no la ignora.
-# Publicar esta app antes que el backend deja a todos los equipos sin registrar
-# el token, es decir, sin ningún push. Backend primero.
-extend input SaveMobileTokenInput {
-  """Build.MANUFACTURER — marca del equipo."""
-  manufacturer: String
-
-  """Build.MODEL — modelo comercial del equipo."""
-  deviceModel: String
-
-  """Versión del sistema operativo (Platform.Version)."""
-  osVersion: String
-
-  """Versión de la app instalada (package.json)."""
-  appVersion: String
-}
 
 # ── AVISO sobre el espejo ────────────────────────────────────────────────────
 # El 2026-08-05 el watcher regeneró `schema.gql` desde una rama del backend
