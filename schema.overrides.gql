@@ -16,18 +16,49 @@
 # mergee. Si no se elimina, codegen fallará con un error de campo duplicado —
 # esa es justamente la señal para borrarlo.
 #
-# Estado actual: SIN OVERRIDES. Los bloques de `resend-system-code-whatsapp` y
-# de la autenticación de residentes 0.0.15 se eliminaron el 2026-08-01, cuando
-# el espejo pasó a traerlos ya definidos (el segundo, además, con
-# `DeviceApprovalStatusResponse.status` tipado como enum en vez de String, que
-# es lo que hacía fallar la fusión).
-#
-# El tipo de abajo no lo consume nadie: solo evita que este archivo quede sin
-# ninguna definición, cosa que codegen rechaza al cargarlo como schema. Bórralo
-# en cuanto agregues el primer override real.
+# Estado actual: un override activo (metadata de equipo en SaveMobileTokenInput).
+# Los bloques de `resend-system-code-whatsapp` y de la autenticación de
+# residentes 0.0.15 se eliminaron el 2026-08-01, cuando el espejo pasó a traerlos
+# ya definidos (el segundo, además, con `DeviceApprovalStatusResponse.status`
+# tipado como enum en vez de String, que es lo que hacía fallar la fusión).
 # =============================================================================
 
-"""Marcador de posición. Sin uso: ver el encabezado de este archivo."""
-type SchemaOverridesPlaceholder {
-  _: Boolean
+# ── rama backend `feat/panic-alert-aggregate` ────────────────────────────────
+# Marca, modelo, versión de SO y de app viajan junto al token para poder medir la
+# tasa real de entrega de los pánicos por dispositivo. RootNavigator ya los
+# manda; sin esta extensión el tipo generado no los declara y nada avisaría si se
+# renombra alguno.
+#
+# Los cuatro son opcionales en el backend a propósito: las versiones de la app ya
+# publicadas no los envían y deben seguir registrando su token.
+#
+# OJO al orden de despliegue: mientras esta rama del backend no esté mergeada, el
+# servidor rechaza la mutación COMPLETA por campo desconocido — no la ignora.
+# Publicar esta app antes que el backend deja a todos los equipos sin registrar
+# el token, es decir, sin ningún push. Backend primero.
+extend input SaveMobileTokenInput {
+  """Build.MANUFACTURER — marca del equipo."""
+  manufacturer: String
+
+  """Build.MODEL — modelo comercial del equipo."""
+  deviceModel: String
+
+  """Versión del sistema operativo (Platform.Version)."""
+  osVersion: String
+
+  """Versión de la app instalada (package.json)."""
+  appVersion: String
 }
+
+# ── AVISO sobre el espejo ────────────────────────────────────────────────────
+# El 2026-08-05 el watcher regeneró `schema.gql` desde una rama del backend
+# anterior al ingreso con documento + clave y se llevó por delante
+# `LoginAccessCodeInput.identity`, `.label` y `NotificationType.NEW_DEVICE_LINKED`,
+# que la app sí usa. Se restauró el espejo con `git checkout -- schema.gql`.
+#
+# Si vuelve a pasar, la salida ya no compila igual: el arreglo es restaurar el
+# espejo, no parchear aquí. Un `extend` de algo que el espejo sí trae hace fallar
+# codegen por definición duplicada — que es justamente cómo se detecta.
+#
+# Nota de sintaxis para el próximo bloque real: `extend` NO admite descripciones
+# (`"""…"""`) sobre sí mismo; usar comentarios `#` o codegen no parsea el archivo.

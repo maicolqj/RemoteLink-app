@@ -1084,6 +1084,17 @@ export type DeviceInfo = {
   userAgent: Scalars['String']['output'];
 };
 
+export type DevicePushHealthStatus = {
+  __typename?: 'DevicePushHealthStatus';
+  consecutiveFailures: Scalars['Int']['output'];
+  healthId: Scalars['String']['output'];
+  isHealthy: Scalars['Boolean']['output'];
+  lastCheckAcknowledged: Scalars['Boolean']['output'];
+  lastTestAckAt?: Maybe<Scalars['DateTime']['output']>;
+  lastTestSentAt?: Maybe<Scalars['DateTime']['output']>;
+  onboardingCompletedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
 export type DirectIncome = {
   __typename?: 'DirectIncome';
   amount: Scalars['Float']['output'];
@@ -1736,6 +1747,7 @@ export type Mutation = {
   /** Reordena los números especiales globales. Solo SUPER_ADMIN. */
   reorderGlobalSpecialNumbers: Array<SpecialNumber>;
   reorderSpecialNumbers: Array<SpecialNumber>;
+  reportDevicePermissions: DevicePushHealthStatus;
   /** El supervisor solicita acceso a un complejo al que no está asignado. El administrador del complejo recibe la solicitud y puede aprobarla o rechazarla remotamente. */
   requestComplexAccess: SupervisorAccessRequest;
   /** Pide autorización de ingreso y avisa por push a los dispositivos vinculados del residente. No consume mensajes de WhatsApp. Responde igual exista o no la identidad, y no revela cuántos dispositivos se notificaron. */
@@ -1751,6 +1763,7 @@ export type Mutation = {
   resendResidentSystemCode: OtpRequestResponse;
   /** Establece nueva contraseña usando el token recibido por email. Token de un solo uso, válido 1 hora. */
   resetPassword: SetPasswordResponse;
+  resolvePanicAlert: PanicAlert;
   restoreComplex: ResidentialComplex;
   /** Restore a soft deleted permission by setting status to true */
   restorePermission: RestorePermissionResponse;
@@ -1769,6 +1782,7 @@ export type Mutation = {
   revokeMyOtherDevices: Scalars['Float']['output'];
   /** Desvincula un dispositivo (ej. celular perdido) y cierra su sesión. Las sesiones de los demás dispositivos del residente no se ven afectadas. */
   revokeResidentDevice: Scalars['Boolean']['output'];
+  runPushHealthCheck: PushHealthCheckResult;
   saveMobileToken: PushSubscriptionResult;
   savePushSubscription: PushSubscriptionResult;
   saveSentMessage: SentMessage;
@@ -2364,6 +2378,15 @@ export type MutationReorderSpecialNumbersArgs = {
 };
 
 
+export type MutationReportDevicePermissionsArgs = {
+  deviceToken: Scalars['String']['input'];
+  hasBatteryOptimizationDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  hasFullScreenIntentPermission?: InputMaybe<Scalars['Boolean']['input']>;
+  hasNotificationPermission?: InputMaybe<Scalars['Boolean']['input']>;
+  onboardingCompleted?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type MutationRequestComplexAccessArgs = {
   input: RequestComplexAccessInput;
 };
@@ -2401,6 +2424,13 @@ export type MutationResendResidentSystemCodeArgs = {
 
 export type MutationResetPasswordArgs = {
   input: ResetPasswordInput;
+};
+
+
+export type MutationResolvePanicAlertArgs = {
+  falseAlarm?: InputMaybe<Scalars['Boolean']['input']>;
+  panicAlertId: Scalars['String']['input'];
+  resolutionNotes?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2462,6 +2492,11 @@ export type MutationReviewSignedDpaArgs = {
 
 export type MutationRevokeResidentDeviceArgs = {
   deviceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRunPushHealthCheckArgs = {
+  deviceToken: Scalars['String']['input'];
 };
 
 
@@ -2754,6 +2789,7 @@ export type Notification = {
   isBroadcast: Scalars['Boolean']['output'];
   isRead: Scalars['Boolean']['output'];
   metadata?: Maybe<Scalars['JSON']['output']>;
+  panicAlertId?: Maybe<Scalars['String']['output']>;
   priority: NotificationPriority;
   readAt?: Maybe<Scalars['DateTime']['output']>;
   recipientUserId?: Maybe<Scalars['String']['output']>;
@@ -3078,6 +3114,45 @@ export type PaginationReponse = {
   totalPages: Scalars['Int']['output'];
 };
 
+export type PanicAlert = {
+  __typename?: 'PanicAlert';
+  accuracy?: Maybe<Scalars['Float']['output']>;
+  acknowledgedAt?: Maybe<Scalars['DateTime']['output']>;
+  acknowledgedByUserId?: Maybe<Scalars['String']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deliveredAt?: Maybe<Scalars['DateTime']['output']>;
+  escalationLevel: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  latitude?: Maybe<Scalars['Float']['output']>;
+  longitude?: Maybe<Scalars['Float']['output']>;
+  residentId?: Maybe<Scalars['String']['output']>;
+  resolutionNotes?: Maybe<Scalars['String']['output']>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  resolvedByUserId?: Maybe<Scalars['String']['output']>;
+  status: PanicAlertStatus;
+  triggeredByLabel?: Maybe<Scalars['String']['output']>;
+  triggeredByUserId: Scalars['String']['output'];
+  type: PanicAlertType;
+  unitId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Estado de una alerta de pánico */
+export type PanicAlertStatus =
+  | 'ACKNOWLEDGED'
+  | 'DELIVERED'
+  | 'FALSE_ALARM'
+  | 'PENDING'
+  | 'RESOLVED';
+
+/** Tipo de emergencia de una alerta de pánico */
+export type PanicAlertType =
+  | 'FIRE'
+  | 'INTRUSION'
+  | 'MEDICAL'
+  | 'PANIC';
+
 /** Método de pago del parqueadero visitante */
 export type ParkingPaymentMethod =
   /** Efectivo */
@@ -3338,6 +3413,12 @@ export type PucAccount = {
   parentId?: Maybe<Scalars['String']['output']>;
 };
 
+export type PushHealthCheckResult = {
+  __typename?: 'PushHealthCheckResult';
+  healthId: Scalars['String']['output'];
+  sentAt: Scalars['DateTime']['output'];
+};
+
 /** Plataforma de destino para notificaciones push */
 export type PushPlatform =
   | 'ANDROID'
@@ -3409,6 +3490,7 @@ export type Query = {
   complexes: PaginatedComplexesResponse;
   /** Consulta si el residente ya aprobó. El cliente hace polling hasta APPROVED. Solo responde al mismo dispositivo que pidió la autorización. */
   deviceApprovalStatus: DeviceApprovalStatusResponse;
+  devicePushHealth: DevicePushHealthStatus;
   feeConfigs: Array<FeeConfig>;
   findnotes: PaginatedNotesResponse;
   getRoleHierarchy: RoleHierarchyResponse;
@@ -3632,6 +3714,11 @@ export type QueryComplexesArgs = {
 
 export type QueryDeviceApprovalStatusArgs = {
   challengeId: Scalars['ID']['input'];
+};
+
+
+export type QueryDevicePushHealthArgs = {
+  deviceToken: Scalars['String']['input'];
 };
 
 
@@ -4695,8 +4782,16 @@ export type RotationTypeStatus = {
 };
 
 export type SaveMobileTokenInput = {
+  /** Versión de la app instalada (package.json). */
+  appVersion?: InputMaybe<Scalars['String']['input']>;
   complexId: Scalars['String']['input'];
+  /** Build.MODEL — modelo comercial del equipo. */
+  deviceModel?: InputMaybe<Scalars['String']['input']>;
   deviceToken: Scalars['String']['input'];
+  /** Build.MANUFACTURER — marca del equipo. */
+  manufacturer?: InputMaybe<Scalars['String']['input']>;
+  /** Versión del sistema operativo (Platform.Version). */
+  osVersion?: InputMaybe<Scalars['String']['input']>;
   platform: PushPlatform;
 };
 
@@ -4741,12 +4836,6 @@ export type ScheduleVisitInput = {
   visitorLastName: Scalars['String']['input'];
   visitorName: Scalars['String']['input'];
   visitorPhone?: InputMaybe<Scalars['String']['input']>;
-};
-
-/** Marcador de posición. Sin uso: ver el encabezado de este archivo. */
-export type SchemaOverridesPlaceholder = {
-  __typename?: 'SchemaOverridesPlaceholder';
-  _?: Maybe<Scalars['Boolean']['output']>;
 };
 
 export type SearchPermissionsInput = {

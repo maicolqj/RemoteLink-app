@@ -40,6 +40,9 @@ import { usePanicStore } from '../store/panic.store';
 import { useSettingsStore } from '../store/settings.store';
 import apolloClientInstance from '../../data/lib/apollo/client';
 import { SAVE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations';
+// Tipo generado por codegen: es lo que hace que un campo mal escrito de la
+// metadata del equipo falle en compilación y no en silencio contra el servidor.
+import type { SaveMobileTokenMutationVariables } from '../../gql/graphql';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 // Versión desde package.json: fuente única, la misma que muestra el perfil.
 import { version as APP_VERSION } from '../../../package.json';
@@ -326,7 +329,10 @@ function NotificationBootstrap({
         PanicSound?.getDeviceModel?.() ?? Promise.resolve(''),
       ]);
 
-      return apolloClientInstance.mutate<{ saveMobileToken: { success: boolean } }>({
+      return apolloClientInstance.mutate<
+        { saveMobileToken: { success: boolean } },
+        SaveMobileTokenMutationVariables
+      >({
       mutation: SAVE_MOBILE_TOKEN,
       variables: {
         input: {
