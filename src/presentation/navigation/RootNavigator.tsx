@@ -379,8 +379,8 @@ function NotificationBootstrap({
       useSettingsStore.getState().markAutostartPromptShown();
       if (!relevant) return;
       showQuestion(
-        'Activa el inicio automático',
         'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
+        'Activa el inicio automático',
         {
           buttons: [
             { text: 'Ahora no', style: 'secondary', onPress: () => {} },
