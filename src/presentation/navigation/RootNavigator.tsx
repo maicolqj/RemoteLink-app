@@ -13,6 +13,7 @@ import AuthStack from './stacks/AuthStack';
 import LegalScreen from '../screens/generals/LegalScreen';
 import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
+import { BiometricEnrollmentPrompt } from '../components/BiometricEnrollmentPrompt';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
 import { useAuthStore } from '../store/auth.store';
@@ -413,6 +414,7 @@ function ThemedNavigator() {
         <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
+        <BiometricEnrollmentPrompt />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
             <>

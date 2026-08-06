@@ -46,6 +46,13 @@ interface AuthState {
   sessionId: string | null;
   isAuthenticated: boolean;
   hydrating: boolean;
+  /**
+   * true cuando la sesión viene del Keychain y no de un login recién hecho. Lo
+   * usa el ofrecimiento de biometría para no encimarse a los diálogos del
+   * primer arranque (clave de acceso obligatoria, inicio automático): el
+   * AlertProvider muestra uno a la vez y el segundo pisa al primero.
+   */
+  sessionRestored: boolean;
 
   setSession: (accessToken: string, sessionId: string) => void;
   setResident: (resident: Resident) => void;
@@ -60,6 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   sessionId: null,
   isAuthenticated: false,
   hydrating: true,
+  sessionRestored: false,
 
   setSession: (token, sessionId) =>
     set({ token, sessionId, isAuthenticated: true }),
@@ -70,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await SecureStorageService.clearTokens();
     await SecureStorageService.clearUserProfile();
-    set({ resident: null, token: null, sessionId: null, isAuthenticated: false });
+    set({ resident: null, token: null, sessionId: null, isAuthenticated: false, sessionRestored: false });
   },
 
   hasRole: (role: string) => {
@@ -119,11 +127,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           sessionId: fresh?.sessionId ?? tokens.sessionId,
           isAuthenticated: true,
           hydrating: false,
+          sessionRestored: true,
         });
         return 'authenticated';
       }
 
-      set({ token: tokens.accessToken, sessionId: tokens.sessionId, isAuthenticated: true, hydrating: false });
+      set({ token: tokens.accessToken, sessionId: tokens.sessionId, isAuthenticated: true, hydrating: false, sessionRestored: true });
       return 'authenticated';
     } catch {
       set({ hydrating: false });
