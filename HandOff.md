@@ -1,13 +1,25 @@
 # HandOff — Sistema de alertas de pánico (EntryLink / RemoteLink)
 
-> Traspaso de sesión. Cubre **tres repositorios**; el trabajo no está mergeado ni
-> verificado en ejecución.
+> Traspaso de sesión. Cubre **tres repositorios**. Todo está subido y con PR
+> abierto; **nada mergeado todavía**. Última actualización: 2026-08-05.
 
-| Repo | Ruta | Rama |
+| Repo | Rama | PR |
 |---|---|---|
-| Backend | `C:\Users\maico\Apps\BACKEND\phone-dialer-nestjs` | `feat/panic-alert-aggregate` (desde `main`) |
-| EntryLink (portería) | `C:\Users\maico\Apps\FRONTEND\react-native\PhoneDialerApp` | `feat/panic-native-alert` |
-| RemoteLink (residente) | `C:\Users\maico\Apps\FRONTEND\react-native\remotelink` | `feat/panic-alerts` (desde `chore/release-1.0.0-android`) |
+| Backend `…\BACKEND\phone-dialer-nestjs` | `feat/panic-alert-aggregate` (desde `main`) | [EntryLink-nestjs#138](https://github.com/maicolqj/EntryLink-nestjs/pull/138) → `main` |
+| RemoteLink `…\react-native\remotelink` | `chore/release-1.0.0-android` | [RemoteLink-app#41](https://github.com/maicolqj/RemoteLink-app/pull/41) → `main` |
+| RemoteLink | `feat/panic-alerts` (desde la de release) | [RemoteLink-app#42](https://github.com/maicolqj/RemoteLink-app/pull/42) → **#41**, apilado |
+| EntryLink `…\react-native\PhoneDialerApp` | `feat/panic-native-alert` | [EntryLinkApp#18](https://github.com/maicolqj/EntryLinkApp/pull/18) → `main` |
+
+## ORDEN DE MERGE — no improvisar
+
+1. **#138 (backend) y desplegar.** Todo lo demás depende de él: `ackUrl`,
+   health-check, metadata de equipo en `SaveMobileTokenInput`, `residentByUserId`.
+   Publicar cualquier app antes deja los equipos **sin token registrado y por
+   tanto sin ningún push**: GraphQL rechaza la mutación completa ante un campo
+   desconocido.
+2. Borrar los overrides de schema en las dos apps (ver §5).
+3. #41 → `gh pr edit 42 --base main` → #42.
+4. #18.
 
 ---
 
@@ -170,6 +182,13 @@ src/mail/templates/panic-alert.hbs
 - `mail/{mail.service,mail.processor,constants/mail.constants}.ts` — job de
   correo de pánico.
 - `notifications.module.ts` — cola, canales, controllers, resolvers, cron.
+- `residents/{resolvers/residents.resolver,services/residents.service}.ts` —
+  query `residentByUserId`: el push solo lleva el id de quien disparó, y sin esto
+  la app no puede decir a qué unidad acudir. Acotada al complejo de quien
+  pregunta y devuelve null si ese usuario no es residente (guarda o
+  administración disparando).
+- `core/infrastructure/bull-board/bull-board.module.ts` — registrar la cola de
+  escalamiento en el panel.
 
 ### EntryLink — `PhoneDialerApp`
 
@@ -337,11 +356,28 @@ backend anterior al ingreso con documento + clave, y borró
 `LoginAccessCodeInput.identity`, `.label` y `NotificationType.NEW_DEVICE_LINKED`.
 No rompe compilación —el tipado simplemente se encoge en silencio—, así que hay
 que mirar `git diff -- schema.gql` antes de commitear. Se arregla restaurando el
-espejo (`git checkout -- schema.gql`), **no** parcheando `schema.overrides.gql`:
-un `extend` de algo que el espejo sí trae hace fallar codegen por duplicado.
+espejo (`git checkout -- schema.gql`), **no** parcheando `schema.overrides.gql`.
+
+Y ojo con lo que NO avisa: un `extend input` que repita campos **idénticos** a
+los del espejo no hace fallar a codegen —la fusión los deduplica y la salida
+generada es la misma—, así que un override que ya sobra puede quedarse ahí para
+siempre sin que nada lo delate. Solo choca al redefinir un tipo completo
+(`type X`), que es el caso de EntryLink.
 
 **15. Reusar antes de exponer.** `resolveTargetUserIds` es privado, pero ya
 existía el wrapper público `findUserIdsByRoleInternal` para exactamente ese uso.
+
+**17. `*.keystore` no cubre `.keystore.old`.** Por ese hueco,
+`android/app/my-upload-key.keystore.old` —la llave de subida a Google Play— quedó
+versionada en RemoteLink y llegó al remoto dentro del PR #42.
+→ Purgada el 2026-08-05: `filter-branch` sobre `c90d7ed..HEAD`, force-push,
+borrado de `refs/original`, reflog expirado y `gc --prune=now`. El commit `5f22783`
+ya no existe en el repositorio ni en el remoto; el archivo sigue en disco,
+ignorado. El patrón pasó a `*.keystore*`, más `*.jks` y `*.p12`.
+→ **Pendiente de decisión: rotar la llave.** Estuvo publicada varias horas.
+→ **Lección: `filter-branch` deja un respaldo en `refs/original` que nadie borra
+solo.** Sin limpiarlo, el objeto purgado sigue alcanzable y `git log --all` lo
+sigue encontrando — parece limpio y no lo está.
 
 ---
 
@@ -419,8 +455,26 @@ existía el wrapper público `findUserIdsByRoleInternal` para exactamente ese us
     `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
 16. Capturar los GIFs por fabricante y registrarlos en
     `src/presentation/assets/onboarding/index.ts`.
-17. Abrir PRs. **Orden obligatorio: backend primero** — las apps dependen de
-    `ackUrl`, del health-check y de la restricción de responders.
+17. ~~Abrir PRs.~~ **✅ hecho**, los cuatro. Ver el orden de merge al inicio.
+
+---
+
+## 6. Por dónde seguir mañana
+
+1. **Mergear #138 y desplegar.** Es el cuello de botella de todo lo demás. Al
+   desplegar, revisar que `API_PUBLIC_URL` de producción sea
+   `https://api.alternaqj.com` — hoy quedó apuntando a la IP LAN para las
+   pruebas locales, y si sale así a producción ningún equipo confirma entrega.
+2. **Borrar los overrides de schema.** En EntryLink codegen fallará y te avisará;
+   en RemoteLink **no avisa** (lección 16), hay que acordarse:
+   - RemoteLink: bloque `extend input SaveMobileTokenInput` de `schema.overrides.gql`
+   - EntryLink: `schema.overrides.gql` completo, y quitarlo de `codegen.ts`
+3. **Decidir sobre la llave de firma** (lección 17): rotarla en Play Console o
+   confirmar que la `.old` ya estaba retirada.
+4. Terminar la **Fase 2-bis** de RemoteLink: auto-apagado a los 3 min, barrido de
+   huérfana, toggle de opt-out.
+5. **Fase 4 completa** (escalamiento). La cola ya aparece en Bull Board.
+6. **EntryLink en hardware.** No se ha instalado nunca; sus criterios están en cero.
 
 ### Pendientes menores (no bloquean)
 
@@ -430,4 +484,21 @@ existía el wrapper público `findUserIdsByRoleInternal` para exactamente ese us
   temporales) si el 500 de producción ya se resolvió.
 - Árbol nativo duplicado en EntryLink: `com/alternaqj/entrylink/**` es **código
   muerto** (el paquete vivo es `com.entrylinkapp`).
-- `stash@{0}` en backend y en remotelink con trabajo previo sin relación.
+- **Tres stashes por revisar**: backend `{0}` (split-wip-5features, 06-29) y `{1}`
+  (wip-4-features, 06-28), EntryLink `{0}` (config de build, 06-05). Los otros
+  cuatro se descartaron. Los tres que quedan son de junio y probablemente ya
+  estén superados: hay que comparar contra `main` antes de aplicar nada.
+- **Higiene de ramas en el backend**: ~60 ramas locales ya mergeadas
+  (`git branch --merged origin/main | grep -vE '^\*|main$' | xargs git branch -d`)
+  y una rama fantasma `heads/origin`. Las 15 con PR mergeado por squash ya se
+  borraron.
+- **Dependabot**: 8 PRs abiertos. Los mayores —#132 TypeORM 0.3→1.1 y #134
+  TypeScript 5.9→6.0— **fuera de esta ventana**: se despliegan 3 migraciones
+  nuevas y mezclarlo haría imposible saber qué rompió si algo rompe. #135
+  (bull-board 6→8) después de mergear #138.
+- **Migraciones con timestamp repetido**: `AddNewDeviceLinkedNotificationType` y
+  `CreatePanicAlerts` comparten `1781003300000`. Aquí no importa —son
+  independientes e idempotentes, y ya corrieron en ese orden—, pero renumerar
+  tiene coste (la tabla `migrations` registra por nombre, así que se
+  re-ejecutarían). Anotado por si la próxima colisión cae entre dos que sí
+  dependan una de otra.
