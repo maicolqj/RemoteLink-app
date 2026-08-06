@@ -13,8 +13,14 @@
 # codegen.ts carga ambos archivos y los fusiona.
 #
 # MANTENIMIENTO: cada bloque debe desaparecer en cuanto su rama del backend se
-# mergee. Si no se elimina, codegen fallará con un error de campo duplicado —
-# esa es justamente la señal para borrarlo.
+# mergee.
+#
+# Ojo: un `extend input` que repita campos IDÉNTICOS a los del espejo NO hace
+# fallar a codegen — la fusión los deduplica en silencio (verificado el
+# 2026-08-05: espejo y override declarando los mismos cuatro campos, salida
+# generada idéntica). Solo choca al redefinir un tipo completo (`type X`) o al
+# declarar un campo con otro tipo. Es decir: aquí no hay error que te avise,
+# hay que acordarse de borrar.
 #
 # Estado actual: un override activo (metadata de equipo en SaveMobileTokenInput).
 # Los bloques de `resend-system-code-whatsapp` y de la autenticación de
