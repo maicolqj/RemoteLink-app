@@ -330,35 +330,66 @@ function NotificationBootstrap({
         PanicSound?.getDeviceModel?.() ?? Promise.resolve(''),
       ]);
 
-      return apolloClientInstance.mutate<
-        { saveMobileToken: { success: boolean } },
-        SaveMobileTokenMutationVariables
-      >({
-      mutation: SAVE_MOBILE_TOKEN,
-      variables: {
-        input: {
-          complexId,
-          deviceToken: fcmToken,
-          platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
-          ...(manufacturer ? { manufacturer } : {}),
-          ...(deviceModel ? { deviceModel } : {}),
-          osVersion: String(Platform.Version),
-          appVersion: APP_VERSION,
-        },
-      },
-    })
-      .then(({ data, error }) => {
-        // errorPolicy 'all' (default del cliente) NO rechaza la promesa en errores
-        // GraphQL — quedan en `error` (singular) y el .then() de "éxito" igual corre.
-        // Sin este chequeo el token nunca queda registrado en el backend y el push
-        // por FCM (notificaciones con la app cerrada) falla en silencio para siempre.
-        if (error || data?.saveMobileToken?.success === false) {
-          console.warn('[FCM] saveMobileToken falló:', getApiErrorMessage(error, 'sin detalle'));
-          return;
+      // El registro mínimo: lo que el backend acepta desde siempre. Sin esta fila
+      // en push_subscriptions no llega NINGÚN push, ni de visitas ni de pánico.
+      const baseInput = {
+        complexId,
+        deviceToken: fcmToken,
+        platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+      } satisfies SaveMobileTokenMutationVariables['input'];
+
+      const register = async (
+        input: SaveMobileTokenMutationVariables['input'],
+      ): Promise<string | null> => {
+        try {
+          const { data, error } = await apolloClientInstance.mutate<
+            { saveMobileToken: { success: boolean } },
+            SaveMobileTokenMutationVariables
+          >({ mutation: SAVE_MOBILE_TOKEN, variables: { input } });
+
+          // errorPolicy 'all' (default del cliente) NO rechaza la promesa en errores
+          // GraphQL — quedan en `error` (singular) y el await de "éxito" igual sigue.
+          // Sin este chequeo el token nunca queda registrado en el backend y el push
+          // por FCM (notificaciones con la app cerrada) falla en silencio para siempre.
+          if (error) return getApiErrorMessage(error, 'sin detalle');
+          if (data?.saveMobileToken?.success === false) return 'el servidor respondió success: false';
+          return null;
+        } catch (err) {
+          return getApiErrorMessage(err);
         }
+      };
+
+      const failure = await register({
+        ...baseInput,
+        ...(manufacturer ? { manufacturer } : {}),
+        ...(deviceModel ? { deviceModel } : {}),
+        osVersion: String(Platform.Version),
+        appVersion: APP_VERSION,
+      });
+
+      if (!failure) {
         if (__DEV__) console.log('[FCM] saveMobileToken OK');
-      })
-      .catch(err => console.warn('[FCM] saveMobileToken error:', getApiErrorMessage(err)));
+        return;
+      }
+
+      // Reintento sin la metadata del equipo. Un backend que no conozca esos
+      // campos rechaza la mutación COMPLETA —GraphQL valida el input antes de
+      // mirar si el campo era opcional—, así que una app más nueva que el
+      // servidor se quedaría sin registrar el token y sin un solo push. Ya pasó:
+      // el APK de producción contra el backend previo al agregado de pánico.
+      //
+      // Se reintenta ante cualquier fallo y no solo ante el de campo desconocido:
+      // reconocerlo obliga a leer el texto del error, que cambia entre versiones
+      // del servidor, y equivocarse ahí cuesta todas las notificaciones. Una
+      // llamada de más, solo cuando algo ya falló, es un precio ridículo.
+      console.warn('[FCM] saveMobileToken falló:', failure, '— reintentando sin metadata de equipo');
+
+      const fallbackFailure = await register(baseInput);
+      if (fallbackFailure) {
+        console.warn('[FCM] saveMobileToken sin metadata también falló:', fallbackFailure);
+        return;
+      }
+      console.warn('[FCM] token registrado SIN metadata de equipo: el backend está desactualizado');
     })();
   }, [isAuthenticated, complexId, fcmToken]);
 
