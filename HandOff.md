@@ -1,8 +1,9 @@
 # HandOff — Sistema de alertas de pánico (EntryLink / RemoteLink)
 
 > Traspaso de sesión. Cubre **tres repositorios**. Todo el código está
-> **mergeado a `main`**; no queda ningún PR abierto. Falta **desplegar el
-> backend**, que es lo único que bloquea las pruebas.
+> **mergeado a `main`** y el backend **ya está desplegado**; no queda ningún PR
+> abierto. Lo que bloquea las pruebas hoy es que **los push no se entregan**
+> (ver abajo).
 > Última actualización: 2026-08-06 (cierre de la segunda sesión).
 
 | Repo | `main` | PRs mergeados hoy |
@@ -15,25 +16,68 @@
 sobre él y un squash le habría metido los mismos cambios por segunda vez al
 re-apuntarlo a `main`.
 
-## LO ÚNICO QUE FALTA: DESPLEGAR EL BACKEND
+## DÓNDE SE RETOMA: EL BACKEND YA ESTÁ DESPLEGADO, LOS PUSH NO LLEGAN
 
-El merge no es el despliegue, y ya no es una advertencia teórica — **se comprobó
-en un APK real** (ver §4.18). Mientras producción no tenga `b1639e2`:
+**Desplegado el 2026-08-06 por la tarde.** El registro de equipos funciona; la
+entrega de notificaciones **no**. Ese es el único frente abierto.
 
-- ningún equipo con la app nueva registra su token → **cero notificaciones**, ni
-  de visitas ni de pánico;
-- el pánico no existe: no hay `openPanicAlert`, ni `ackUrl`, ni endpoints de
-  entrega.
+### Lo que está probado
 
-Al desplegar:
+`push_subscriptions` tiene tres filas del equipo de prueba (Xiaomi `2201117TL`,
+`app_version 1.0.0`) de las 19:36, 19:51 y 21:28, **con marca y modelo
+poblados**. Eso demuestra dos cosas de una: producción corre el código del #138
+—acepta los campos nuevos del input— y el registro del token desde la app cierra
+bien. El problema está aguas abajo, en el envío.
 
-1. Que corran las **tres migraciones** (`CreatePanicAlerts`,
-   `CreatePanicEscalation`, `AddDevicePushHealth`).
-2. `API_PUBLIC_URL` = `https://api.alternaqj.com`. Quedó apuntando a la IP LAN
-   para las pruebas locales; si sale así, ningún equipo confirma entrega y el
-   escalamiento trata toda alerta como no entregada.
-3. **No hace falta reconstruir las apps.** El APK ya instalado reintenta el
-   registro del token en cada arranque: basta abrirlo.
+### Hipótesis principal para mañana (sin confirmar)
+
+`dispatchFCM` empieza con `if (!this.fcmEnabled || subs.length === 0) return;`
+(`notifications.service.ts:1798`), y `fcmEnabled` solo se enciende si el entorno
+trae las tres variables (`:170`): `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`
+y `FIREBASE_PRIVATE_KEY`. Si falta una, el servicio **no falla**: escribe un warn
+al arrancar y desde ahí descarta cada notificación en silencio. Encaja con el
+cuadro completo — tokens registrados, cero entregas, cero errores.
+
+**Primer comando de mañana**, que confirma o tumba la hipótesis:
+
+```
+docker logs <contenedor> 2>&1 | grep -iE "Firebase Admin SDK inicializado|Firebase no configurado"
+```
+
+- `Firebase no configurado — FCM deshabilitado` → es esto. Faltan variables.
+- `Firebase Admin SDK inicializado` → FCM vive; entonces mirar el despacho:
+  dispara una notificación y busca `[FCM] Lote enviado`, que reporta exitosos y
+  fallidos por lote.
+
+Para revisar el entorno **sin exponer valores**:
+
+```
+docker exec <contenedor> printenv | grep -o '^FIREBASE_[A-Z_]*'
+```
+
+Dos trampas conocidas si las tres existen:
+
+- `FIREBASE_PRIVATE_KEY` debe ir en **una sola línea con `\n` literales**: el
+  código hace `privateKey.replace(/\\n/g, '\n')`. Pegada con saltos reales,
+  `cert()` falla y quedas igual de mudo.
+- `FIREBASE_PROJECT_ID` debe ser **`entrylink-2dffb`**, el mismo del
+  `google-services.json` del APK (verificado: RemoteLink y EntryLink son dos
+  clientes del mismo proyecto, sender `292050009865`, y el paquete
+  `com.alternaqj.remotelink` sí está registrado). Otro proyecto da
+  `messaging/mismatched-credential`.
+
+### Lo que queda por verificar del despliegue
+
+1. Las **tres migraciones** (`CreatePanicAlerts`, `CreatePanicEscalation`,
+   `AddDevicePushHealth`).
+2. `API_PUBLIC_URL` = `https://api.alternaqj.com`. Sin ella el pánico sale sin
+   `ackUrl` y el escalamiento trata toda alerta como no entregada. El arranque lo
+   avisa con un warn propio (`:157`).
+3. Que el manifiesto haya crecido: `Seeded N trusted queries` / `merged X new`.
+   Sin la entrada del #141 el pánico llega **mudo** (no resuelve quién lo disparó).
+
+**No hace falta reconstruir el APK** para nada de esto: reintenta el registro del
+token en cada arranque.
 
 ---
 
@@ -147,6 +191,21 @@ codegen (verificado en las dos apps) y así el mecanismo espera a la próxima ra
   sonado pero la consulta de quién lo disparó se rechazaba con
   `PERSISTED_QUERY_NOT_ALLOWED`: alerta sin decir de dónde viene ni a qué unidad
   acudir. Ver §4.20 para por qué no se detecta en desarrollo.
+
+### ✅ Verificado en producción (2026-08-06)
+
+- **El despliegue subió y el registro de equipos funciona.** Tres filas en
+  `push_subscriptions` del Xiaomi de prueba **con marca, modelo y versión**. Que
+  esas columnas estén pobladas prueba que producción corre el #138: un servidor
+  viejo habría rechazado la mutación entera.
+- **Los push no se entregan.** Frente abierto; hipótesis y comandos en el
+  encabezado.
+- **Tokens huérfanos:** el mismo equipo acumuló tres suscripciones activas.
+  `saveMobileToken` busca por `(userId, platform, deviceToken)`, así que cada
+  token nuevo crea fila y las viejas quedan `isActive: true` con tokens muertos.
+  **No bloquean nada** —`dispatchFCM` envía token por token y desactiva los
+  inválidos con la respuesta de FCM— pero se limpiarán recién cuando el envío
+  funcione, porque hoy nunca se llega a preguntarle a FCM.
 
 ### ✅ Verificado en ejecución (2026-08-05)
 
@@ -502,6 +561,38 @@ commiteado en `query-manifest.json` del backend.** Falla solo en producción —
 desarrollo el modo persistido no está activo—, así que ninguna prueba local lo
 delata.
 
+**21. "En desarrollo funciona" no dice nada sobre producción, y ya van tres.**
+El mismo día, tres fallos distintos con la misma forma:
+
+| Qué falló | Por qué desarrollo no lo ve |
+|---|---|
+| Metadata en `saveMobileToken` (§4.18) | El backend local ya tenía el código nuevo; producción no |
+| `GetResidentByUserId` sin manifiesto (§4.20) | El modo de documentos persistidos **solo se aplica en producción** |
+| FCM deshabilitado (en curso) | Las credenciales viven en el entorno del servidor, no en git |
+
+El hilo común: **desplegar copia el código, no la configuración**, y desarrollo
+es permisivo donde producción es estricta. Todo lo que difiere entre los dos es
+justo lo que no está versionado, así que ninguna prueba local puede anticiparlo.
+
+Agravante de diseño: el backend **está hecho para no morirse** sin Firebase —warn
+al arrancar y sigue sirviendo GraphQL, login y visitas—, así que la única señal
+de que los push están apagados es una línea en el log del arranque. Igual con
+`API_PUBLIC_URL`.
+
+→ **Lección operativa: la verificación de un despliegue son sus logs de arranque,
+no que el sitio responda.** Tres líneas dicen si el despliegue sirve:
+`Firebase Admin SDK inicializado`, ausencia del warn de `API_PUBLIC_URL`, y
+`Seeded/merged N trusted queries`.
+
+**22. Sondear producción desde fuera no funcionó — no repetirlo.**
+Se intentó determinar la versión desplegada mandando hashes APQ al `/graphql` de
+producción: los cuerpos llegan **vacíos** y el código HTTP cambia entre 500, 400
+y sin respuesta para la misma petición. Es Cloudflare, no la app —el middleware
+devolvería JSON con mensaje—, y con cabeceras de navegador tampoco cambia.
+→ El estado de un despliegue se verifica **desde adentro** (logs, `printenv`,
+tabla `migrations`) o con un efecto observable de punta a punta (la fila en
+`push_subscriptions` con metadata, que es lo que finalmente lo confirmó).
+
 ---
 
 ## 5. Próximos Pasos (Plan de Acción)
@@ -585,12 +676,16 @@ delata.
 
 ## 6. Por dónde seguir
 
-1. **Desplegar el backend** (`main` = `b1639e2`). Es el cuello de botella de todo
-   lo demás; el merge por sí solo no habilita nada — comprobado con un APK real
-   (§4.18). Revisar `API_PUBLIC_URL` y que las tres migraciones corran. **Incluye
-   #141**, sin el cual el pánico llega mudo.
-   Al terminar, la prueba de que cerró: abrir la app ya instalada, ver la fila en
-   `push_subscriptions` **con marca y modelo**, y disparar un pánico.
+1. ~~Desplegar el backend.~~ **✅ 2026-08-06.** Confirmado por efecto observable:
+   `push_subscriptions` guarda marca y modelo, cosa que un servidor previo al
+   #138 habría rechazado.
+   → **Lo que se retoma mañana: por qué no se entrega ningún push.** El primer
+   comando y la hipótesis (`fcmEnabled` en false por falta de credenciales de
+   Firebase en el entorno) están en el encabezado. Antes de tocar nada, esa
+   línea del log: decide si el problema es configuración del servidor o hay que
+   seguir bajando por el despacho.
+   → Quedan por verificar del mismo despliegue: las tres migraciones,
+   `API_PUBLIC_URL` y que el manifiesto creciera con la entrada del #141.
 2. ~~Borrar los overrides de schema.~~ **✅ 2026-08-06**, en las dos apps (ver §2).
 3. **Rotar la llave de firma** (lección 17). Decidido el 2026-08-06: se rota, no
    se asume que la `.old` estaba retirada. Trámite en Play Console con ~2 días
