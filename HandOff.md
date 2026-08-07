@@ -1,33 +1,39 @@
 # HandOff — Sistema de alertas de pánico (EntryLink / RemoteLink)
 
-> Traspaso de sesión. Cubre **tres repositorios**. Los cuatro PRs están
-> **mergeados a `main`**; falta **desplegar el backend**.
-> Última actualización: 2026-08-06.
+> Traspaso de sesión. Cubre **tres repositorios**. Todo el código está
+> **mergeado a `main`**; no queda ningún PR abierto. Falta **desplegar el
+> backend**, que es lo único que bloquea las pruebas.
+> Última actualización: 2026-08-06 (cierre de la segunda sesión).
 
-| Repo | PR | Estado |
+| Repo | `main` | PRs mergeados hoy |
 |---|---|---|
-| Backend `…\BACKEND\phone-dialer-nestjs` | [EntryLink-nestjs#138](https://github.com/maicolqj/EntryLink-nestjs/pull/138) | ✅ merge `bd66195` (squash) |
-| RemoteLink `…\react-native\remotelink` | [RemoteLink-app#41](https://github.com/maicolqj/RemoteLink-app/pull/41) | ✅ merge commit `d78cb42` |
-| RemoteLink | [RemoteLink-app#42](https://github.com/maicolqj/RemoteLink-app/pull/42) | ✅ merge `0714db9` (squash, re-apuntado a `main`) |
-| EntryLink `…\react-native\PhoneDialerApp` | [EntryLinkApp#18](https://github.com/maicolqj/EntryLinkApp/pull/18) | ✅ merge `62786ce` (squash) |
+| Backend `…\BACKEND\phone-dialer-nestjs` | `b1639e2` | #138 `bd66195`, #139 `9dfe26b`, #141 `285e935`, #140 `b1639e2` |
+| RemoteLink `…\react-native\remotelink` | `d9402ad` | #41 `d78cb42`, #42 `0714db9`, #43 `2649755`, #44 `5d039d4`, #45 `d9402ad` |
+| EntryLink `…\react-native\PhoneDialerApp` | `62786ce` | #18 `62786ce` |
 
 #41 se mergeó con **merge commit** a propósito, no con squash: #42 estaba apilado
 sobre él y un squash le habría metido los mismos cambios por segunda vez al
 re-apuntarlo a `main`.
 
-## LO QUE SIGUE MANDANDO SOBRE EL ORDEN
+## LO ÚNICO QUE FALTA: DESPLEGAR EL BACKEND
 
-El merge no es el despliegue. **Ninguna de las dos apps puede publicarse hasta
-que el backend esté desplegado**: los cuatro campos de metadata de equipo en
-`SaveMobileTokenInput` y las tres mutaciones de salud no existen en el servidor
-en producción todavía, y GraphQL rechaza la **mutación completa** ante un campo
-desconocido — no lo ignora. Publicar antes deja los equipos **sin token
-registrado y por tanto sin ningún push**.
+El merge no es el despliegue, y ya no es una advertencia teórica — **se comprobó
+en un APK real** (ver §4.18). Mientras producción no tenga `b1639e2`:
 
-Al desplegar: verificar que `API_PUBLIC_URL` de producción sea
-`https://api.alternaqj.com`. Quedó apuntando a la IP LAN para las pruebas
-locales; si sale así, ningún equipo confirma entrega y el escalamiento trata
-toda alerta como no entregada.
+- ningún equipo con la app nueva registra su token → **cero notificaciones**, ni
+  de visitas ni de pánico;
+- el pánico no existe: no hay `openPanicAlert`, ni `ackUrl`, ni endpoints de
+  entrega.
+
+Al desplegar:
+
+1. Que corran las **tres migraciones** (`CreatePanicAlerts`,
+   `CreatePanicEscalation`, `AddDevicePushHealth`).
+2. `API_PUBLIC_URL` = `https://api.alternaqj.com`. Quedó apuntando a la IP LAN
+   para las pruebas locales; si sale así, ningún equipo confirma entrega y el
+   escalamiento trata toda alerta como no entregada.
+3. **No hace falta reconstruir las apps.** El APK ya instalado reintenta el
+   registro del token en cada arranque: basta abrirlo.
 
 ---
 
@@ -98,6 +104,12 @@ cubre con el escalamiento del backend.
   alerta huérfana** cuando el servidor confirma que ya no hay nada activo.
 - `SaveMobileTokenInput` con la metadata de equipo, ya en el espejo del backend
   → tipos generados y mutación tipada.
+- **Registro de token tolerante a versiones** (#45): si el servidor rechaza la
+  metadata, se reintenta con los tres campos de siempre. Ver §4.18.
+- **Ofrecimiento de biometría** una vez por instalación (#44). Se dispara en una
+  sesión **restaurada**, no tras el login: el `AlertProvider` muestra una alerta
+  a la vez y el primer arranque ya gasta las suyas en la clave de acceso y el
+  aviso de autostart. Se salta si hay pánico activo.
 
 **Overrides de schema — eliminados el 2026-08-06** (paso 2 del plan viejo, hecho)
 
@@ -118,16 +130,23 @@ codegen (verificado en las dos apps) y así el mecanismo espera a la próxima ra
 ### ⚠️ A mitad de camino
 
 - **Los GIFs del wizard.** El registro `presentation/assets/onboarding/index.ts`
-  existe y está **vacío**. Sin assets el wizard muestra solo texto.
-- **`ackUrl` depende de `API_PUBLIC_URL`**, que no está definida. Hoy los push de
-  pánico salen sin ella → **ningún equipo confirma entrega** → el escalamiento
-  trata toda alerta como no entregada.
+  existe y está **vacío**. Sin assets el wizard muestra solo texto. Es el
+  pendiente con más impacto real sobre la tasa de entrega (ver §4.19).
+- **`ackUrl` depende de `API_PUBLIC_URL`**, definida en local pero **pendiente de
+  verificar en el despliegue**. Sin ella ningún equipo confirma entrega y el
+  escalamiento trata toda alerta como no entregada.
 - ~~**Manifest de documentos persistidos de RemoteLink desincronizado.**~~
-  **Falsa alarma, verificado.** Lo que cambió fue el *input type*, no el texto de
-  la operación: `SaveMobileToken` sigue siendo `mutation SaveMobileToken($input:
-  SaveMobileTokenInput!) { saveMobileToken(input: $input) { success } }`. El hash
-  se calcula sobre el documento, así que no se movió — `yarn codegen` deja
-  `persisted-documents.json` byte a byte igual. No hay que resincronizar nada.
+  **Falsa alarma en cuanto a `SaveMobileToken`, verificado.** Lo que cambió fue el
+  *input type*, no el texto de la operación, y el hash se calcula sobre el
+  documento — `yarn codegen` deja `persisted-documents.json` byte a byte igual.
+  **Pero sí faltaba otra entrada**, por otra razón: ver el punto siguiente.
+- ~~**`GetResidentByUserId` sin registrar en el manifiesto del backend.**~~
+  **Arreglado el 2026-08-06 (#141).** El hash llevaba semanas en la copia de
+  trabajo local —escrito por un sync contra el backend de desarrollo— y **nunca
+  se commiteó**, así que ningún despliegue lo llevaba. Sin él el pánico habría
+  sonado pero la consulta de quién lo disparó se rechazaba con
+  `PERSISTED_QUERY_NOT_ALLOWED`: alerta sin decir de dónde viene ni a qué unidad
+  acudir. Ver §4.20 para por qué no se detecta en desarrollo.
 
 ### ✅ Verificado en ejecución (2026-08-05)
 
@@ -405,6 +424,84 @@ restablecimiento, la `.old` sigue siendo la clave de carga válida.
 solo.** Sin limpiarlo, el objeto purgado sigue alcanzable y `git log --all` lo
 sigue encontrando — parece limpio y no lo está.
 
+### Descubierto probando el APK de release (2026-08-06)
+
+**18. Un campo OPCIONAL nuevo tumbó todas las notificaciones.**
+Síntoma: el APK de release no recibía **nada** —ni visitas, ni paquetes, ni
+pánico— mientras en desarrollo todo funcionaba.
+
+Causa: `yarn build:apk` fija `BUILD_ENV=production`, babel carga `.env.production`
+y la app habla con **producción**, que aún no tenía el PR #138. `saveMobileToken`
+manda `osVersion` y `appVersion` **siempre** (`RootNavigator.tsx`, sin
+condicional), el servidor no conocía esos campos y GraphQL **rechazó la mutación
+completa**: valida el input antes de mirar si el campo era opcional. Sin fila en
+`push_subscriptions` no hay a quién enviarle nada.
+
+Y sin rastro: los bundles de producción no llevan `console.*`
+(`transform-remove-console` en `babel.config.js:29`). Se compila a ciegas.
+
+→ **Arreglado en #45**: si el registro con metadata falla, se reintenta con los
+tres campos de siempre. La metadata es diagnóstico; el registro del token es el
+servicio.
+→ **Lección: que un campo sea opcional en el backend no protege de nada.** El
+rechazo ocurre en la validación del input. Cualquier campo nuevo en una mutación
+que la app mande incondicionalmente es un despliegue ordenado obligatorio, o un
+apagón total de push.
+→ **Lección de método:** para depurar un release usa `yarn build:staging` — es
+release-like pero **conserva los logs**. El lado nativo (Kotlin) sí registra
+siempre: `adb logcat -s PanicSound PanicChannels FirebaseMessaging`.
+
+**19. Las tres configuraciones del wizard, por lo que realmente se puede hacer.**
+Consultado a fondo. Resumen para no volver a discutirlo:
+
+| Config | ¿Automatizable? | Realidad |
+|---|---|---|
+| No molestar | **Ya resuelto, el paso sobra** | La sirena es `AudioTrack` con `USAGE_ALARM`; DND permite alarmas por defecto. Suena sin ningún permiso. `bypassDnd` solo afecta al sonido *de la notificación*, redundante |
+| Ahorro de batería | **A un toque** | `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` es un diálogo del sistema, no una pantalla de Ajustes. Ya se usa. Cero toques no existe en una app de Play |
+| Autostart | **Imposible** | Whitelist propietaria de cada OEM. Sin API, sin permiso. Solo se puede *abrir* su pantalla |
+
+Los programas de whitelist de Xiaomi/Huawei/OPPO/vivo existen pero son de mercado
+chino: exigen entidad legal local y **su** SDK de push. Cerrado para una app
+colombiana sobre FCM.
+
+Palancas que sí quedan, por orden de impacto:
+1. **EntryLink es literalmente una app de teléfono.** El rol de marcador
+   predeterminado (`RoleManager.ROLE_DIALER`) exime del ahorro de batería
+   automáticamente y los OEM tratan esas apps como protegidas. Un diálogo, una
+   pulsación. Sin verificar en hardware — cambia el comportamiento de llamadas
+   del equipo, así que no es gratis.
+2. **Equipo corporativo → device owner** por QR: `setUserControlDisabledPackages()`
+   (API 30+) impide el force-stop, el estado hoy declarado fuera de alcance.
+   Aplica a tablets de portería, nunca al teléfono de un residente.
+3. **Los GIFs por fabricante** (pendiente §5.16): es lo único que mueve la tasa
+   de completado en teléfonos de residentes. En MIUI vale la pena enseñar el
+   **candado de la pantalla de recientes**: es un gesto, no una pantalla de
+   ajustes, y hace que la app sobreviva al swipe.
+4. **Medir antes de invertir**: ya se recolecta `manufacturer`/`deviceModel` con
+   cada token y `panic_alert_deliveries` guarda quién confirmó.
+
+→ **Lección: para el teléfono personal de un residente no hay cero configuración.**
+Ese caso lo cubre el escalamiento del servidor. Es la razón por la que existe.
+
+**20. El manifiesto de documentos confiables se despliega por archivo, no por script.**
+`query-manifest.json` del backend **es la semilla del despliegue**:
+`ManifestService.onApplicationBootstrap` fusiona sus entradas en Redis, con
+precedencia del archivo (`manifest.service.ts:24-33`). Lo que no esté versionado
+ahí no existe para un cliente en modo producción.
+
+`push-manifest.ps1` **no genera ese archivo**: hace POST a un backend en
+ejecución (`/api/v1/graphql-manifest/sync`) y escribe en su Redis. Sirve para
+desbloquear un entorno ya levantado; no hace que un despliegue nuevo nazca
+conociendo la query. Ojo además: resuelve la URL desde `PATH_SERVER` del `.env`,
+así que correrlo sin mirar puede empujar el manifiesto a **producción**.
+
+→ De ahí el bug de #141: el hash de `GetResidentByUserId` vivía en la copia de
+trabajo local por un sync viejo y nunca se commiteó.
+→ **Lección: tras agregar una operación en una app, el hash tiene que quedar
+commiteado en `query-manifest.json` del backend.** Falla solo en producción —en
+desarrollo el modo persistido no está activo—, así que ninguna prueba local lo
+delata.
+
 ---
 
 ## 5. Próximos Pasos (Plan de Acción)
@@ -488,9 +585,12 @@ sigue encontrando — parece limpio y no lo está.
 
 ## 6. Por dónde seguir
 
-1. **Desplegar el backend.** Es el cuello de botella de todo lo demás; el merge
-   por sí solo no habilita nada. Revisar `API_PUBLIC_URL` (ver el encabezado) y
-   que las tres migraciones nuevas corran.
+1. **Desplegar el backend** (`main` = `b1639e2`). Es el cuello de botella de todo
+   lo demás; el merge por sí solo no habilita nada — comprobado con un APK real
+   (§4.18). Revisar `API_PUBLIC_URL` y que las tres migraciones corran. **Incluye
+   #141**, sin el cual el pánico llega mudo.
+   Al terminar, la prueba de que cerró: abrir la app ya instalada, ver la fila en
+   `push_subscriptions` **con marca y modelo**, y disparar un pánico.
 2. ~~Borrar los overrides de schema.~~ **✅ 2026-08-06**, en las dos apps (ver §2).
 3. **Rotar la llave de firma** (lección 17). Decidido el 2026-08-06: se rota, no
    se asume que la `.old` estaba retirada. Trámite en Play Console con ~2 días
@@ -519,14 +619,28 @@ sigue encontrando — parece limpio y no lo está.
   (wip-4-features, 06-28), EntryLink `{0}` (config de build, 06-05). Los otros
   cuatro se descartaron. Los tres que quedan son de junio y probablemente ya
   estén superados: hay que comparar contra `main` antes de aplicar nada.
-- **Higiene de ramas en el backend**: ~60 ramas locales ya mergeadas
-  (`git branch --merged origin/main | grep -vE '^\*|main$' | xargs git branch -d`)
-  y una rama fantasma `heads/origin`. Las 15 con PR mergeado por squash ya se
-  borraron.
+- ~~**Higiene de ramas**~~ **✅ 2026-08-06.** RemoteLink pasó de 43 ramas locales
+  a 1; el backend, de 84 a 2. Se borraron con `-d` las mergeadas y con `-D` las
+  superadas por squash, verificando **una por una** que su contenido estuviera en
+  `main` (diff vacío, o solo el retraso frente a un PR posterior).
+  Del rescate salió el PR #140: `feat/finance-payment-method-labels` era la única
+  con trabajo real sin mergear —etiquetas legibles de método de pago en la
+  auditoría—, y se revivió por cherry-pick sobre `main`.
+  → Queda **`feat/supervisor-self-registration`** en el backend: su único commit
+  propio extrae las utilidades Haversine a `shared/utils/gps.utils.ts`, archivo
+  que **no existe en `main`**. Es de marzo y con 465 archivos de divergencia;
+  probablemente el cálculo hoy vive inline en otro lado. Sin decidir.
+  → **Lección: una rama borrada que solo existía en local no se recupera** más
+  allá del reflog (~90 días). Antes de `-D`, comparar contra `main` no es
+  ceremonia: `feat/panic-alert-aggregate` parecía tener 14 commits propios y su
+  diff resultó ser **solo** los 17 archivos del PR #139, o sea nada.
 - **Dependabot**: 8 PRs abiertos. Los mayores —#132 TypeORM 0.3→1.1 y #134
   TypeScript 5.9→6.0— **fuera de esta ventana**: se despliegan 3 migraciones
   nuevas y mezclarlo haría imposible saber qué rompió si algo rompe. #135
-  (bull-board 6→8) después de mergear #138.
+  (bull-board 6→8) ya se puede: #138 está mergeado.
+- **`showQuestion` recibe `(description, title)`**. Dos llamadas los pasaban al
+  revés y se corrigieron en #44; las otras cinco del proyecto ya estaban bien.
+  Si aparece un diálogo con el párrafo largo en negrita, es eso.
 - **Migraciones con timestamp repetido**: `AddNewDeviceLinkedNotificationType` y
   `CreatePanicAlerts` comparten `1781003300000`. Aquí no importa —son
   independientes e idempotentes, y ya corrieron en ese orden—, pero renumerar
