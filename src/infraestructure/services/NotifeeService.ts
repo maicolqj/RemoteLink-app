@@ -145,6 +145,12 @@ export async function displayPanicFCMNotification(
  * when complexId is missing, so the caller can't always reconstruct it.
  */
 export async function cancelPanicNotifications(): Promise<void> {
+  // Dos emisores, dos barridos. Con la app cerrada la alerta la publica
+  // PanicAlertReceiver en Kotlin, y esa notificación no lleva `data.type` —
+  // filtrar por él no la encuentra, y como es `ongoing` el usuario tampoco puede
+  // quitarla a mano. El barrido nativo va por canal, que sí es común a ambas.
+  await PanicSound?.clearPanicNotifications();
+
   try {
     const displayed = await notifee.getDisplayedNotifications();
     await Promise.all(

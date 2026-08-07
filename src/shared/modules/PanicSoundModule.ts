@@ -11,6 +11,9 @@ interface PanicSoundNative {
   startAlarmService: (data: Record<string, string>) => void;
   stop: () => void;
   getInitialPanicData: () => Promise<PanicLaunchData | null>;
+  clearPanicNotifications: () => Promise<boolean>;
+  setPanicAlertsEnabled: (enabled: boolean) => Promise<boolean>;
+  setDeviceToken: (token: string) => Promise<boolean>;
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
   openAutostartSettings: () => Promise<boolean>;
@@ -37,6 +40,25 @@ export interface PanicSoundApi {
   stop: () => void;
   /** Panic payload that launched the app from killed state (cleared on read). */
   getInitialPanicData: () => Promise<PanicLaunchData | null>;
+  /**
+   * Retira la alerta de pánico de la bandeja barriendo por canal.
+   *
+   * Complementa —no reemplaza— el barrido de Notifee: cuando la alerta llega con
+   * la app cerrada la publica el receptor nativo, y esa notificación no lleva el
+   * `data.type` por el que filtra Notifee, así que su barrido no la ve.
+   */
+  clearPanicNotifications: () => Promise<boolean>;
+  /**
+   * Espeja el opt-out de alertas de pánico en SharedPreferences.
+   *
+   * El receptor nativo corre sin contexto de React y no puede leer AsyncStorage.
+   * Sin este espejo respetaría el ajuste solo con la app viva, que es justo
+   * cuando no hace falta.
+   */
+  setPanicAlertsEnabled: (enabled: boolean) => Promise<boolean>;
+  /** Espeja el token FCM para que el ACK de entrega nativo pueda atribuirse a
+   *  este equipo aunque salga sin sesión y sin bundle cargado. */
+  setDeviceToken: (token: string) => Promise<boolean>;
   /** True if the app is already exempt from battery optimization (Android only). */
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   /**
@@ -102,6 +124,23 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return null;
         try { return await native.getInitialPanicData(); }
         catch (e) { console.error('[PanicSound] getInitialPanicData error:', e); return null; }
+      },
+      clearPanicNotifications: async () => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.clearPanicNotifications(); }
+        catch (e) { console.error('[PanicSound] clearPanicNotifications error:', e); return false; }
+      },
+      setPanicAlertsEnabled: async (enabled) => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.setPanicAlertsEnabled(enabled); }
+        // El espejo es best-effort: si falla, el nativo se queda con el valor
+        // anterior y falla abierto (suena). Peor sería tumbar el ajuste en JS.
+        catch (e) { console.error('[PanicSound] setPanicAlertsEnabled error:', e); return false; }
+      },
+      setDeviceToken: async (token) => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.setDeviceToken(token); }
+        catch (e) { console.error('[PanicSound] setDeviceToken error:', e); return false; }
       },
       isIgnoringBatteryOptimizations: async () => {
         if (Platform.OS !== 'android') return true;

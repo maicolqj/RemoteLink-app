@@ -1,4 +1,4 @@
-import { AppRegistry } from 'react-native';
+import { AppRegistry, Platform } from 'react-native';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
 import App from './App';
@@ -17,15 +17,25 @@ import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
 // DATA-ONLY high-priority messages. If the backend includes a `notification`
 // payload, Android shows it itself and this handler never runs while killed, so
 // the alarm wouldn't fire. Panic must be sent data-only (android.priority=high).
-//
-// On a PANIC_ALERT we (1) show a full-screen Notifee notification for the visual +
-// tap-to-open, and (2) start the in-process alarm tone/vibration. We deliberately
-// do NOT use a foreground service: aggressive OEMs (MIUI/HyperOS) block FGS starts
-// and crash the app. USAGE_ALARM audio plays from the background without one; the
-// sound runs while the headless task is alive, and the notification tap launches
-// the app where the modal keeps the alarm looping until acknowledged.
 setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
   if (remoteMessage.data?.type === 'PANIC_ALERT') {
+    // En Android el pánico ya NO pasa por aquí: lo atiende PanicAlertReceiver en
+    // Kotlin. No es una optimización, es que esta ruta no llega — para ejecutar
+    // este handler, react-native-firebase tiene que arrancar un servicio
+    // headless, y con la app cerrada Android lo rechaza:
+    //
+    //   W/ActivityManager: Background start not allowed: service Intent {
+    //     cmp=…/ReactNativeFirebaseMessagingHeadlessService } startFg?=false
+    //
+    // Nada de lo que hubiera debajo llegaba a correr. El receptor nativo no
+    // arranca ningún servicio, así que la restricción no le aplica; y hace lo
+    // mismo que hacía este bloque (sirena, notificación y ACK de entrega).
+    //
+    // Cuando este handler SÍ corre —app en segundo plano pero viva— salir de
+    // inmediato evita que la alerta se pinte y suene dos veces.
+    if (Platform.OS === 'android') return;
+
+    // iOS no tiene ruta nativa: aquí sigue mandando JS.
     // Respect the user's opt-out — don't blare if they disabled panic alerts.
     if (!(await getPanicAlertsEnabled())) return;
     await createNotificationChannels();

@@ -10,9 +10,12 @@
  * mucho más heterogéneo que el de la portería, así que es donde mejor se ve si
  * el problema son ciertas ROMs.
  *
- * Va en JS y no en nativo, a diferencia de EntryLink: RemoteLink no tiene ruta
- * nativa de pánico (decisión C5) y el handler headless ya está corriendo cuando
- * esto se llama.
+ * Quedan DOS implementaciones de esto a propósito, y la de Android ya no es
+ * esta: con la app cerrada el ACK sale de PanicAckClient.kt, porque el handler
+ * headless que ejecutaría este archivo no llega a arrancar (Android rechaza el
+ * arranque del servicio desde segundo plano). Esta versión cubre lo que queda:
+ * iOS entero, y el caso de Android con la app en primer plano, donde el pánico
+ * llega por socket y el receptor nativo se aparta.
  */
 
 import { getMessaging, getToken } from '@react-native-firebase/messaging';
