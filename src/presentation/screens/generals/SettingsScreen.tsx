@@ -129,8 +129,8 @@ export default function SettingsScreen() {
   const handlePanicToggle = async (value: boolean) => {
     if (!value) {
       showQuestion(
-        'Desactivar alertas de pánico',
         'No recibirás la alarma cuando alguien active el botón de pánico en tu conjunto. ¿Continuar?',
+        'Desactivar alertas de pánico',
         {buttons: [
           { text: 'Cancelar', style: 'danger', onPress: () => {} },
           { text: 'Desactivar', style: 'primary', onPress: () => setPanicAlertsEnabled(false) },

@@ -13,6 +13,7 @@ import AuthStack from './stacks/AuthStack';
 import LegalScreen from '../screens/generals/LegalScreen';
 import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
+import { BiometricEnrollmentPrompt } from '../components/BiometricEnrollmentPrompt';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
 import { useAuthStore } from '../store/auth.store';
@@ -378,8 +379,8 @@ function NotificationBootstrap({
       useSettingsStore.getState().markAutostartPromptShown();
       if (!relevant) return;
       showQuestion(
-        'Activa el inicio automático',
         'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
+        'Activa el inicio automático',
         {
           buttons: [
             { text: 'Ahora no', style: 'secondary', onPress: () => {} },
@@ -413,6 +414,7 @@ function ThemedNavigator() {
         <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
+        <BiometricEnrollmentPrompt />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
             <>

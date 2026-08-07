@@ -5,6 +5,7 @@ import * as Keychain from 'react-native-keychain';
 
 const PANIC_ALERTS_KEY = 'settings.panicAlertsEnabled';
 const AUTOSTART_PROMPT_KEY = 'settings.autostartPromptShown';
+const BIOMETRIC_PROMPT_KEY = 'settings.biometricPromptShown';
 
 // Standalone reader for non-React / headless contexts (e.g. the FCM background
 // handler in index.js) where the zustand store isn't hydrated. Defaults to true.
@@ -23,11 +24,19 @@ interface SettingsState {
   biometricType: string | null;
   panicAlertsEnabled: boolean;
   autostartPromptShown: boolean;
+  /**
+   * El ofrecimiento de activar la biometría se hace UNA vez por instalación. Se
+   * guarda aparte de `biometricEnabled` porque "ya se lo ofrecí y dijo que no"
+   * y "nunca se lo ofrecí" son estados distintos, y la preferencia del Keychain
+   * no los distingue: `setBiometricEnabled(false)` borra la entrada.
+   */
+  biometricPromptShown: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   setPanicAlertsEnabled: (enabled: boolean) => Promise<void>;
   markAutostartPromptShown: () => Promise<void>;
+  markBiometricPromptShown: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -36,14 +45,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   biometricType: null,
   panicAlertsEnabled: true,
   autostartPromptShown: false,
+  biometricPromptShown: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [enabled, status, panicAlerts, autostartPromptShown] = await Promise.all([
+    const [enabled, status, panicAlerts, autostartPromptShown, biometricPromptShown] = await Promise.all([
       SecureStorageService.isBiometricEnabled(),
       SecureStorageService.getBiometricStatus(),
       getPanicAlertsEnabled(),
       AsyncStorage.getItem(AUTOSTART_PROMPT_KEY).then(v => v === '1'),
+      AsyncStorage.getItem(BIOMETRIC_PROMPT_KEY).then(v => v === '1'),
     ]);
 
     const typeLabel = status.biometryType === Keychain.BIOMETRY_TYPE.FACE_ID
@@ -62,6 +73,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       biometricType: typeLabel,
       panicAlertsEnabled: panicAlerts,
       autostartPromptShown,
+      biometricPromptShown,
       hydrated: true,
     });
   },
@@ -79,5 +91,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   markAutostartPromptShown: async () => {
     await AsyncStorage.setItem(AUTOSTART_PROMPT_KEY, '1');
     set({ autostartPromptShown: true });
+  },
+
+  markBiometricPromptShown: async () => {
+    await AsyncStorage.setItem(BIOMETRIC_PROMPT_KEY, '1');
+    set({ biometricPromptShown: true });
   },
 }));
