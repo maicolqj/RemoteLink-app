@@ -19,6 +19,7 @@ import {
   displayForegroundNotification,
   initNotifeeForegroundListener,
 } from './NotifeeService';
+import PanicSound from '../../shared/modules/PanicSoundModule';
 
 import { parseLoginApprovalMetadata } from './deviceAuth.service';
 import { reportPanicDelivered } from './panicAck';
@@ -133,7 +134,14 @@ export async function getFCMToken(): Promise<string | null> {
     if (!isDeviceRegisteredForRemoteMessages(messaging)) {
       await registerDeviceForRemoteMessages(messaging);
     }
-    return await getToken(messaging);
+    const token = await getToken(messaging);
+    // Espejo para la ruta nativa del pánico: su ACK de entrega sale desde Kotlin
+    // con la app muerta, donde no hay forma de pedirle el token a Firebase sin
+    // sumar esa dependencia al módulo `app`. Sin el token la entrega se registra
+    // igual, pero anónima — y atribuirla al equipo es justo lo que da la tasa de
+    // entrega por marca.
+    if (token) void PanicSound?.setDeviceToken(token);
+    return token;
   } catch {
     return null;
   }
@@ -188,6 +196,9 @@ export function initNotificationListeners(
   });
 
   const unsubTokenRefresh = onTokenRefresh(messaging, token => {
+    // Antes del callback: si el espejo se queda con el token viejo, el ACK
+    // nativo atribuye la entrega a un equipo que ya no existe.
+    void PanicSound?.setDeviceToken(token);
     onTokenRefreshCb?.(token);
   });
 

@@ -25,6 +25,10 @@ class MainApplication : Application(), ReactApplication {
     // killed, and the channel has to already exist when the notification is
     // posted — waiting for the JS bundle would be too late.
     PanicChannels.ensure(this)
+    // Igual de temprano, y por lo mismo: PanicAlertReceiver consulta si hay una
+    // pantalla visible para decidir si se aparta, y puede correr antes de que
+    // React arranque.
+    AppForeground.register(this)
     loadReactNative(this)
   }
 }

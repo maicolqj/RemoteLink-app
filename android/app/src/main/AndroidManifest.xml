@@ -41,6 +41,21 @@
         android:name="com.google.firebase.messaging.default_notification_channel_id"
         android:value="general"
         tools:replace="android:value" />
+      <!-- Ruta nativa del pánico. Escucha el MISMO broadcast que
+           react-native-firebase, con prioridad más alta para llegar primero.
+           Es lo único que atiende la alerta con la app cerrada: desde ahí el
+           sistema bloquea el arranque del servicio headless que ejecuta el
+           handler de JS ("Background start not allowed"), y un receptor no
+           necesita arrancar ningún servicio. No aborta el broadcast, así que el
+           receptor de RNFB corre igual después. Ver PanicAlertReceiver.kt. -->
+      <receiver
+        android:name=".PanicAlertReceiver"
+        android:exported="true"
+        android:permission="com.google.android.c2dm.permission.SEND">
+        <intent-filter android:priority="999">
+          <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        </intent-filter>
+      </receiver>
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

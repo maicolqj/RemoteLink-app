@@ -3,19 +3,9 @@ package com.alternaqj.remotelink
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioFormat
-import android.media.AudioManager
-import android.media.AudioTrack
 import android.net.Uri
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.PowerManager
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.provider.Settings
 import android.util.Log
 import com.facebook.react.bridge.Arguments
@@ -25,334 +15,104 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.PI
-import kotlin.math.min
-import kotlin.math.sin
 
 private const val TAG = "PanicSound"
 
 /**
- * In-process alarm engine: looping AudioTrack tone (USAGE_ALARM) + vibration.
- * Plays from foreground (modal) and from the FCM headless handler alike — no
- * foreground service, because aggressive OEMs (MIUI/HyperOS) block FGS starts and
- * crash the app with ForegroundServiceDidNotStartInTimeException. USAGE_ALARM audio
- * is allowed to play from the background, so a service isn't required to make noise.
+ * Puente de JS hacia la alarma de pánico y hacia el estado de los permisos que
+ * la entrega necesita.
+ *
+ * El motor de sonido ya NO vive aquí: se movió a [PanicAlarmEngine] para que la
+ * ruta nativa ([PanicAlertReceiver]) pueda arrancarlo sin contexto de React, que
+ * es justo lo que no existe cuando la app está cerrada. Este módulo se quedó con
+ * lo que solo tiene sentido desde JS.
  */
 class PanicSoundModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     override fun getName() = "PanicSound"
 
-    companion object {
-        // Panic payload from the killed-state FCM, read once by JS on app start.
-        @Volatile private var pendingComplexId: String? = null
-        @Volatile private var pendingTriggeredBy: String? = null
-        @Volatile private var pendingTriggeredByLabel: String? = null
-        @Volatile private var hasPending = false
-
-        /**
-         * Cuánto suena la alarma como máximo si nadie la atiende.
-         *
-         * Sin esto la sirena no tiene quien la apague: cuando el pánico llega con
-         * la app cerrada, quien arranca el motor es el handler headless de FCM, y
-         * ese contexto JS se destruye en cuanto termina — cualquier temporizador
-         * de JS se va con él. El único que sobrevive es este, del lado nativo.
-         *
-         * Mismo valor que EntryLink, para que residente y portería dejen de sonar
-         * a la vez y nadie interprete el silencio de un lado como "ya lo atendieron".
-         */
-        private const val AUTO_STOP_MS = 3 * 60 * 1000L
-    }
-
-    private val sampleRate = 44100
-    private val active = AtomicBoolean(false)
-    private var audioTrack: AudioTrack? = null
-    private var playThread: Thread? = null
-    private var focusRequest: AudioFocusRequest? = null
-    private var savedAlarmVolume = -1
-
-    private val autoStopHandler = Handler(Looper.getMainLooper())
-    private val autoStopRunnable = Runnable {
-        Log.w(TAG, "Auto-stop: nadie atendió la alerta en ${AUTO_STOP_MS / 1000}s")
-        // Fuera del hilo principal: apagar espera hasta 600 ms a que el hilo de
-        // audio cierre, y bloquear la UI ese rato es justo lo que el usuario
-        // percibe como que la app se colgó.
-        Thread {
-            stopAlarm()
-            clearPanicNotifications()
-        }.start()
-    }
-
-    private val audioManager by lazy {
-        reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
-
-    private val vibrator: Vibrator? by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (reactApplicationContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            reactApplicationContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
-    }
-
-    private val alarmAttrs = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ALARM)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-        .build()
-
     // ─── Alarm control ──────────────────────────────────────────────────────────
 
     /** Start the alarm (in-app / socket-triggered). */
     @ReactMethod
-    fun start() = startAlarm()
+    fun start() = PanicAlarmEngine.start(reactApplicationContext)
 
     /** Start the alarm carrying FCM panic payload (background / killed delivery). */
     @ReactMethod
     fun startAlarmService(data: ReadableMap?) {
         if (data != null) {
             fun str(key: String) = if (data.hasKey(key) && !data.isNull(key)) data.getString(key) else null
-            pendingComplexId        = str("complexId")
-            pendingTriggeredBy      = str("triggeredBy")
-            pendingTriggeredByLabel = str("triggeredByLabel")
-            hasPending = pendingComplexId != null || pendingTriggeredBy != null
+            PanicAlarmEngine.stashPayload(
+                complexId = str("complexId"),
+                triggeredBy = str("triggeredBy"),
+                triggeredByLabel = str("triggeredByLabel"),
+            )
         }
-        startAlarm()
+        PanicAlarmEngine.start(reactApplicationContext)
     }
 
     @ReactMethod
-    fun stop() = stopAlarm()
+    fun stop() = PanicAlarmEngine.stop(reactApplicationContext)
 
     /** Alias kept for the modal handoff; same in-process engine. */
     @ReactMethod
-    fun stopAlarmService() = stopAlarm()
-
-    private fun startAlarm() {
-        // Antes del early-return: una segunda alerta que llega con la sirena ya
-        // sonando debe reiniciar la cuenta, no heredar lo que le quedaba a la
-        // primera. Es idempotente, así que reprogramar de más no hace daño.
-        scheduleAutoStop()
-        if (!active.compareAndSet(false, true)) return
-        forceAlarmVolume()
-        requestFocus()
-        startVibration()
-
-        val minBuf = AudioTrack.getMinBufferSize(
-            sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
-        ).coerceAtLeast(4096)
-
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(alarmAttrs)
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setSampleRate(sampleRate)
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build(),
-            )
-            .setBufferSizeInBytes(minBuf)
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
-
-        if (track.state != AudioTrack.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioTrack not initialized: state=${track.state}")
-            track.release()
-            active.set(false)
-            stopVibration()
-            restoreAlarmVolume()
-            abandonFocus()
-            // Nunca llegó a sonar: el auto-stop no tiene nada que apagar y borraría
-            // la notificación, que en este equipo es lo único que queda de la alerta.
-            cancelAutoStop()
-            return
-        }
-
-        track.setVolume(AudioTrack.getMaxVolume())
-        audioTrack = track
-        track.play()
-
-        playThread = Thread {
-            try {
-                // WEA / earthquake-alert pattern: three two-tone bursts (853+960 Hz)
-                while (active.get()) {
-                    writeTone(track, 853.0, 960.0, 220)
-                    writeSilence(track, 90)
-                    writeTone(track, 853.0, 960.0, 220)
-                    writeSilence(track, 90)
-                    writeTone(track, 853.0, 960.0, 400)
-                    writeSilence(track, 750)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Audio error", e)
-            } finally {
-                try { track.stop() } catch (_: Exception) {}
-                track.release()
-                audioTrack = null
-            }
-        }.also { it.start() }
-    }
-
-    private fun stopAlarm() {
-        // Fuera del early-return: si la alarma ya está apagada pero quedó un
-        // temporizador vivo (arranque fallido, doble stop), dejarlo correr haría
-        // que borre la notificación de una alerta posterior.
-        cancelAutoStop()
-        if (!active.compareAndSet(true, false)) return
-        try { audioTrack?.pause() } catch (_: Exception) {}
-        try { audioTrack?.flush() } catch (_: Exception) {}
-        playThread?.join(600)
-        try { audioTrack?.release() } catch (_: Exception) {}
-        audioTrack = null
-        playThread = null
-        stopVibration()
-        restoreAlarmVolume()
-        abandonFocus()
-    }
-
-    // ─── Auto-apagado ───────────────────────────────────────────────────────────
-
-    private fun scheduleAutoStop() {
-        autoStopHandler.removeCallbacks(autoStopRunnable)
-        autoStopHandler.postDelayed(autoStopRunnable, AUTO_STOP_MS)
-    }
-
-    private fun cancelAutoStop() {
-        autoStopHandler.removeCallbacks(autoStopRunnable)
-    }
+    fun stopAlarmService() = PanicAlarmEngine.stop(reactApplicationContext)
 
     /**
-     * Retira la notificación de pánico de la bandeja.
+     * Retira la alerta de pánico de la bandeja.
      *
-     * Contraparte obligatoria de su `ongoing: true`: esa bandera hace que el
-     * usuario no pueda descartarla ni con "Borrar todo", así que si la app no la
-     * quita queda clavada para siempre. Al vencer el auto-apagado ya no queda
-     * emergencia que anunciar, y el registro del incidente no se pierde: vive en
-     * el backend y se ve en el buzón de notificaciones de la app.
-     *
-     * Barre por canal en vez de por id porque el id lo arma Notifee desde el
-     * payload FCM, que este lado no conoce. El canal es exclusivo del pánico, así
-     * que no hay riesgo de llevarse por delante otra notificación.
+     * Hace falta como método propio porque la notificación puede haberla pintado
+     * el lado nativo, y el barrido de Notifee no la ve: filtra por `data.type`,
+     * un campo que solo existe en las notificaciones que crea el propio Notifee.
+     * Este barre por canal, que es lo único común a los dos emisores.
      */
-    private fun clearPanicNotifications() {
-        // API 26 por `channelId`, no 23 por `activeNotifications`: en Android 7 el
-        // getter no existe y la llamada revienta con NoSuchMethodError. Tampoco hay
-        // nada que barrer — los canales nacen en Oreo, así que PanicChannels no
-        // crea ninguno por debajo.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = notificationManager ?: return
-        try {
-            manager.activeNotifications
-                .filter { it.notification?.channelId == PanicChannels.PANIC_CHANNEL_ID }
-                .forEach { manager.cancel(it.tag, it.id) }
-        } catch (e: Exception) {
-            Log.w(TAG, "clearPanicNotifications error: ${e.message}")
+    @ReactMethod
+    fun clearPanicNotifications(promise: Promise) {
+        PanicAlarmEngine.clearPanicNotifications(reactApplicationContext)
+        promise.resolve(true)
+    }
+
+    // ─── Espejos nativos de estado que vive en JS ───────────────────────────────
+
+    /**
+     * Replica el opt-out de alertas de pánico en SharedPreferences.
+     *
+     * [PanicAlertReceiver] corre sin contexto de React y no puede leer
+     * AsyncStorage, así que sin este espejo respetaría el ajuste solo cuando la
+     * app está viva — es decir, casi nunca en el caso que importa.
+     */
+    @ReactMethod
+    fun setPanicAlertsEnabled(enabled: Boolean, promise: Promise) {
+        PanicPrefs.setAlertsEnabled(reactApplicationContext, enabled)
+        promise.resolve(true)
+    }
+
+    /** Replica el token FCM para que el ACK de entrega pueda atribuirse a este
+     *  equipo aunque salga desde Kotlin y sin sesión. */
+    @ReactMethod
+    fun setDeviceToken(token: String?, promise: Promise) {
+        if (!token.isNullOrBlank()) {
+            PanicPrefs.setDeviceToken(reactApplicationContext, token)
         }
+        promise.resolve(true)
     }
 
     // ─── Launch payload (killed-state cold start) ───────────────────────────────
 
     @ReactMethod
     fun getInitialPanicData(promise: Promise) {
-        if (!hasPending) {
+        if (!PanicAlarmEngine.hasPendingPayload()) {
             promise.resolve(null)
             return
         }
+        val (complexId, triggeredBy, triggeredByLabel) = PanicAlarmEngine.takePendingPayload()
         val map: WritableMap = Arguments.createMap().apply {
-            putString("complexId",        pendingComplexId)
-            putString("triggeredBy",      pendingTriggeredBy)
-            putString("triggeredByLabel", pendingTriggeredByLabel)
+            putString("complexId", complexId)
+            putString("triggeredBy", triggeredBy)
+            putString("triggeredByLabel", triggeredByLabel)
         }
-        pendingComplexId = null
-        pendingTriggeredBy = null
-        pendingTriggeredByLabel = null
-        hasPending = false
         promise.resolve(map)
-    }
-
-    // ─── Vibration ──────────────────────────────────────────────────────────────
-
-    private fun startVibration() {
-        val pattern = longArrayOf(0, 500, 200, 500) // synced with tone bursts
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(pattern, 0)
-            }
-        } catch (e: Exception) { Log.w(TAG, "vibrate error: ${e.message}") }
-    }
-
-    private fun stopVibration() {
-        try { vibrator?.cancel() } catch (_: Exception) {}
-    }
-
-    // ─── Audio focus / volume ──────────────────────────────────────────────────
-
-    private fun forceAlarmVolume() {
-        try {
-            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            savedAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-            if (savedAlarmVolume < max) audioManager.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
-        } catch (e: Exception) { Log.w(TAG, "Volume error: ${e.message}") }
-    }
-
-    private fun restoreAlarmVolume() {
-        if (savedAlarmVolume >= 0) {
-            try { audioManager.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0) } catch (_: Exception) {}
-            savedAlarmVolume = -1
-        }
-    }
-
-    private fun requestFocus() {
-        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-            .setAudioAttributes(alarmAttrs)
-            .setAcceptsDelayedFocusGain(false)
-            .build()
-        focusRequest = req
-        audioManager.requestAudioFocus(req)
-    }
-
-    private fun abandonFocus() {
-        focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
-        focusRequest = null
-    }
-
-    // ─── PCM tone generation ───────────────────────────────────────────────────
-
-    private fun writeTone(track: AudioTrack, freq1: Double, freq2: Double, durationMs: Int) {
-        val totalSamples = sampleRate * durationMs / 1000
-        val chunk = ShortArray(512)
-        val fadeSamples = min(200, totalSamples / 4)
-        var written = 0
-        while (written < totalSamples && active.get()) {
-            val toWrite = min(chunk.size, totalSamples - written)
-            for (i in 0 until toWrite) {
-                val idx = written + i
-                val t = idx.toDouble() / sampleRate
-                val env = when {
-                    idx < fadeSamples -> idx.toDouble() / fadeSamples
-                    idx > totalSamples - fadeSamples -> (totalSamples - idx).toDouble() / fadeSamples
-                    else -> 1.0
-                }
-                val sample = (sin(2.0 * PI * freq1 * t) + sin(2.0 * PI * freq2 * t)) * 0.5
-                chunk[i] = (sample * 32767.0 * env).toInt().coerceIn(-32768, 32767).toShort()
-            }
-            track.write(chunk, 0, toWrite)
-            written += toWrite
-        }
-    }
-
-    private fun writeSilence(track: AudioTrack, durationMs: Int) {
-        val totalSamples = sampleRate * durationMs / 1000
-        val chunk = ShortArray(512)
-        var written = 0
-        while (written < totalSamples && active.get()) {
-            val toWrite = min(chunk.size, totalSamples - written)
-            track.write(chunk, 0, toWrite)
-            written += toWrite
-        }
     }
 
     // ─── Battery optimization exemption ──────────────────────────────────────

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecureStorageService from '../../infraestructure/services/SecureStorageService';
 import * as Keychain from 'react-native-keychain';
+import PanicSound from '../../shared/modules/PanicSoundModule';
 
 const PANIC_ALERTS_KEY = 'settings.panicAlertsEnabled';
 const AUTOSTART_PROMPT_KEY = 'settings.autostartPromptShown';
@@ -67,6 +68,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       ? 'Biometría'
       : null;
 
+    // Re-espeja en cada arranque, no solo al cambiar el ajuste: las
+    // instalaciones que ya existían cuando esto se añadió tienen el valor en
+    // AsyncStorage y el espejo vacío, y ahí el nativo asumiría "activo" para
+    // alguien que lo había desactivado.
+    void PanicSound?.setPanicAlertsEnabled(panicAlerts);
+
     set({
       biometricEnabled: enabled,
       biometricSupported: status.isAvailable,
@@ -85,6 +92,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setPanicAlertsEnabled: async (enabled: boolean) => {
     await AsyncStorage.setItem(PANIC_ALERTS_KEY, enabled ? '1' : '0');
+    // El espejo nativo es lo que hace que el ajuste valga con la app cerrada:
+    // quien atiende el pánico ahí es PanicAlertReceiver, que no puede leer
+    // AsyncStorage. Sin esto, desactivar las alertas solo surtiría efecto
+    // mientras la app está viva.
+    void PanicSound?.setPanicAlertsEnabled(enabled);
     set({ panicAlertsEnabled: enabled });
   },
 
