@@ -92,3 +92,6 @@ package-lock.json
 # Firebase
 android/app/google-services.json
 ios/GoogleService-Info.plist
+
+# Traspaso de sesión: notas de trabajo, no documentación del proyecto
+HandOff.md
