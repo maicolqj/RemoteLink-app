@@ -41,6 +41,7 @@ type Documents = {
     "\n  query GetPaymentsByCharge($chargeId: String!) {\n    paymentsByCharge(chargeId: $chargeId) {\n      id\n      amount\n      method\n      reference\n      receiptUrl\n      paidAt\n      notes\n      isReversed\n      reversalReason\n      reversedAt\n      createdAt\n    }\n  }\n": typeof types.GetPaymentsByChargeDocument,
     "\n  query GetUnitWallet($unitId: String!, $complexId: String!) {\n    unitWallet(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      building\n      currentBalance\n      totalCredits\n      totalDebits\n      entries {\n        id\n        type\n        amount\n        description\n        chargeId\n        createdAt\n      }\n    }\n  }\n": typeof types.GetUnitWalletDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": typeof types.SaveMobileTokenDocument,
+    "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": typeof types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": typeof types.MarkNotificationAsReadDocument,
     "\n  mutation MarkAllNotificationsAsRead($complexId: String!) {\n    markAllNotificationsAsRead(complexId: $complexId)\n  }\n": typeof types.MarkAllNotificationsAsReadDocument,
     "\n  mutation DeleteNotification($notificationId: String!) {\n    deleteNotification(notificationId: $notificationId)\n  }\n": typeof types.DeleteNotificationDocument,
@@ -93,6 +94,7 @@ const documents: Documents = {
     "\n  query GetPaymentsByCharge($chargeId: String!) {\n    paymentsByCharge(chargeId: $chargeId) {\n      id\n      amount\n      method\n      reference\n      receiptUrl\n      paidAt\n      notes\n      isReversed\n      reversalReason\n      reversedAt\n      createdAt\n    }\n  }\n": types.GetPaymentsByChargeDocument,
     "\n  query GetUnitWallet($unitId: String!, $complexId: String!) {\n    unitWallet(unitId: $unitId, complexId: $complexId) {\n      unitId\n      unitNumber\n      building\n      currentBalance\n      totalCredits\n      totalDebits\n      entries {\n        id\n        type\n        amount\n        description\n        chargeId\n        createdAt\n      }\n    }\n  }\n": types.GetUnitWalletDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": types.SaveMobileTokenDocument,
+    "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": types.MarkNotificationAsReadDocument,
     "\n  mutation MarkAllNotificationsAsRead($complexId: String!) {\n    markAllNotificationsAsRead(complexId: $complexId)\n  }\n": types.MarkAllNotificationsAsReadDocument,
     "\n  mutation DeleteNotification($notificationId: String!) {\n    deleteNotification(notificationId: $notificationId)\n  }\n": types.DeleteNotificationDocument,
@@ -240,6 +242,10 @@ export function graphql(source: "\n  query GetUnitWallet($unitId: String!, $comp
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n"): (typeof documents)["\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n"): (typeof documents)["\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -1665,6 +1665,7 @@ export type Mutation = {
   createStaffMember: CreateStaffMemberResponse;
   createUnit: Unit;
   createWalletCredit: WalletEntryObject;
+  deactivateMobileToken: PushSubscriptionResult;
   deleteChargeCategory: Scalars['Boolean']['output'];
   deleteFeeConfig: Scalars['Boolean']['output'];
   /** Elimina un documento legal. Solo SUPER_ADMIN. */
@@ -1761,6 +1762,8 @@ export type Mutation = {
   requestWhatsAppLoginChallenge: WhatsAppLoginChallengeResponse;
   /** Reenvía el código de sistema del residente (RES-xxxxx) por WhatsApp al teléfono registrado. Respuesta genérica: no revela si la identidad existe. Rate limit por identidad e IP. */
   resendResidentSystemCode: OtpRequestResponse;
+  /** Reenvía el enlace de verificación al correo ya registrado. Sujeto a un enfriamiento del servidor; responde igual para un registro inexistente o ya verificado, para no revelar cuál es cuál. */
+  resendSupervisorVerification: RegisterSupervisorResponse;
   /** Establece nueva contraseña usando el token recibido por email. Token de un solo uso, válido 1 hora. */
   resetPassword: SetPasswordResponse;
   resolvePanicAlert: PanicAlert;
@@ -2064,6 +2067,11 @@ export type MutationCreateUnitArgs = {
 
 export type MutationCreateWalletCreditArgs = {
   input: CreateWalletCreditInput;
+};
+
+
+export type MutationDeactivateMobileTokenArgs = {
+  deviceToken: Scalars['String']['input'];
 };
 
 
@@ -2419,6 +2427,11 @@ export type MutationRequestWhatsAppLoginChallengeArgs = {
 
 export type MutationResendResidentSystemCodeArgs = {
   identity: Scalars['String']['input'];
+};
+
+
+export type MutationResendSupervisorVerificationArgs = {
+  supervisorId: Scalars['String']['input'];
 };
 
 
@@ -3547,6 +3560,8 @@ export type Query = {
   sentMessages: PaginatedSentMessagesResponse;
   sentNotifications: SentNotificationPaginatedResult;
   specialNumbers: Array<SpecialNumber>;
+  /** Estado del registro mientras la app espera en "Revisa tu correo". El enlace se abre en el navegador, así que la app solo puede enterarse consultando. No devuelve datos del usuario. */
+  supervisorVerificationStatus: SupervisorVerificationStatusResponse;
   unit: Unit;
   unitAccountStatement: UnitAccountStatementResponse;
   unitAccountStatus?: Maybe<PropertyAccountStatus>;
@@ -3919,6 +3934,11 @@ export type QuerySentNotificationsArgs = {
 
 export type QuerySpecialNumbersArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type QuerySupervisorVerificationStatusArgs = {
+  supervisorId: Scalars['String']['input'];
 };
 
 
@@ -5080,6 +5100,15 @@ export type SupervisorCheckInInput = {
 export type SupervisorCheckOutInput = {
   /** ID del complejo del que el supervisor hace check-out */
   complexId: Scalars['String']['input'];
+};
+
+/** Estado de verificación del correo de un supervisor recién registrado */
+export type SupervisorVerificationStatusResponse = {
+  __typename?: 'SupervisorVerificationStatusResponse';
+  /** Segundos que faltan para poder reenviar. 0 = el botón de reenvío ya está habilitado. Lo decide el servidor: el cliente puede reiniciarse y perder su cuenta atrás. */
+  resendAvailableInSeconds: Scalars['Int']['output'];
+  /** True cuando el supervisor ya abrió el enlace y su cuenta quedó activa */
+  verified: Scalars['Boolean']['output'];
 };
 
 /** Registro de visita de supervisor a un complejo residencial */
@@ -6454,6 +6483,13 @@ export type SaveMobileTokenMutationVariables = Exact<{
 
 export type SaveMobileTokenMutation = { __typename?: 'Mutation', saveMobileToken: { __typename?: 'PushSubscriptionResult', success: boolean } };
 
+export type DeactivateMobileTokenMutationVariables = Exact<{
+  deviceToken: Scalars['String']['input'];
+}>;
+
+
+export type DeactivateMobileTokenMutation = { __typename?: 'Mutation', deactivateMobileToken: { __typename?: 'PushSubscriptionResult', success: boolean } };
+
 export type MarkNotificationAsReadMutationVariables = Exact<{
   notificationId: Scalars['String']['input'];
 }>;
@@ -6650,6 +6686,7 @@ export const GetUnitAccountStatementDocument = {"__meta__":{"hash":"c40f8bdbe4a7
 export const GetPaymentsByChargeDocument = {"__meta__":{"hash":"62c06367bdd4e33a9ee9e09ab28d408e4707c2c4a558929280fc240ea2436d39"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPaymentsByCharge"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"paymentsByCharge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"chargeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"method"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}},{"kind":"Field","name":{"kind":"Name","value":"receiptUrl"}},{"kind":"Field","name":{"kind":"Name","value":"paidAt"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"isReversed"}},{"kind":"Field","name":{"kind":"Name","value":"reversalReason"}},{"kind":"Field","name":{"kind":"Name","value":"reversedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<GetPaymentsByChargeQuery, GetPaymentsByChargeQueryVariables>;
 export const GetUnitWalletDocument = {"__meta__":{"hash":"525599788b133c3c25df716da20f0adeb08224a307502519f430791b6d024203"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitWallet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitWallet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"chargeId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitWalletQuery, GetUnitWalletQueryVariables>;
 export const SaveMobileTokenDocument = {"__meta__":{"hash":"7498a591e1665a241b9d7c569cbfcbf9e5bab7018e38e3e447966c151cefb8d8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SaveMobileToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SaveMobileTokenInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"saveMobileToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}}]}}]}}]} as unknown as DocumentNode<SaveMobileTokenMutation, SaveMobileTokenMutationVariables>;
+export const DeactivateMobileTokenDocument = {"__meta__":{"hash":"139284ea6b3a9dbfbf8bbcd24c3ba33bf74f640e8de47510c4abb8609cbcceb1"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeactivateMobileToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deactivateMobileToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}}]}}]}}]} as unknown as DocumentNode<DeactivateMobileTokenMutation, DeactivateMobileTokenMutationVariables>;
 export const MarkNotificationAsReadDocument = {"__meta__":{"hash":"cd666286e0536c5eaffd96c3b7881cdbda935029cf45b46328a0a3d5ab0f4dbc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkNotificationAsRead"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markNotificationAsRead"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"notificationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"isRead"}},{"kind":"Field","name":{"kind":"Name","value":"readAt"}}]}}]}}]} as unknown as DocumentNode<MarkNotificationAsReadMutation, MarkNotificationAsReadMutationVariables>;
 export const MarkAllNotificationsAsReadDocument = {"__meta__":{"hash":"bec86f95710accdb11948927c8b13e5c3342f6a29f08449dfd3894c09a4787ad"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkAllNotificationsAsRead"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markAllNotificationsAsRead"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}]}]}}]} as unknown as DocumentNode<MarkAllNotificationsAsReadMutation, MarkAllNotificationsAsReadMutationVariables>;
 export const DeleteNotificationDocument = {"__meta__":{"hash":"dc530bd13990bba82b0dbeb62fc431a1010bd43afda57cb323fd4aecc76adee9"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteNotification"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteNotification"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"notificationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}}}]}]}}]} as unknown as DocumentNode<DeleteNotificationMutation, DeleteNotificationMutationVariables>;
