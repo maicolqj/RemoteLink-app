@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import SecureStorageService from '../../infraestructure/services/SecureStorageService';
+import { clearPanicSelfUserId } from '../../infraestructure/services/panicSelfIdentity';
 
 export interface ResidentUser {
   id: string;
@@ -76,8 +77,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ resident }),
 
   logout: async () => {
+    // Antes de limpiar nada: la mutación exige sesión válida, y sin el
+    // desregistro el servidor sigue mandando push —pánico, visitas, finanzas—
+    // a un equipo donde ya no hay nadie. Best-effort: sin red no puede impedir
+    // que la sesión se cierre, y para ese caso queda la compuerta local.
+    const { deactivateFCMToken } = await import('../../infraestructure/services/NotificationService');
+    await deactivateFCMToken();
+
     await SecureStorageService.clearTokens();
     await SecureStorageService.clearUserProfile();
+    // Cierra la compuerta nativa del pánico y borra el espejo del usuario. Un id
+    // viejo silenciaría un pánico legítimo de ese mismo usuario dirigido a la
+    // cuenta que entre después en este equipo.
+    await clearPanicSelfUserId();
     set({ resident: null, token: null, sessionId: null, isAuthenticated: false, sessionRestored: false });
   },
 

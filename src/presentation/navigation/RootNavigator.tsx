@@ -45,6 +45,7 @@ import { SAVE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations'
 // metadata del equipo falle en compilación y no en silencio contra el servidor.
 import type { SaveMobileTokenMutationVariables } from '../../gql/graphql';
 import PanicSound from '../../shared/modules/PanicSoundModule';
+import { mirrorPanicSelfUserId } from '../../infraestructure/services/panicSelfIdentity';
 // Versión desde package.json: fuente única, la misma que muestra el perfil.
 import { version as APP_VERSION } from '../../../package.json';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
@@ -231,6 +232,7 @@ function NotificationBootstrap({
   const addNotification = useNotificationsStore(s => s.addNotification);
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const complexId       = useAuthStore(s => s.resident?.complex?.id);
+  const userId          = useAuthStore(s => s.resident?.user?.id);
   const setPanicData    = usePanicStore(s => s.setPanicData);
   const settingsHydrated      = useSettingsStore(s => s.hydrated);
   const autostartPromptShown  = useSettingsStore(s => s.autostartPromptShown);
@@ -238,9 +240,23 @@ function NotificationBootstrap({
 
   const [fcmToken, setFcmToken] = useState<string | null>(null);
 
+  // El espejo del usuario tiene que existir ANTES de que pueda llegar un pánico,
+  // así que se escribe en cuanto hay perfil y no al disparar la alarma: quien la
+  // dispara no siempre es quien abrió la app de último. Lo lee el receptor
+  // nativo con la app cerrada para no sonar en el equipo que la generó.
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    void mirrorPanicSelfUserId(userId);
+  }, [isAuthenticated, userId]);
+
   const handlePanic = useCallback((data: FCMData) => {
     // Respect the user's opt-out across cold-start / FCM-opened paths.
     if (!useSettingsStore.getState().panicAlertsEnabled) return;
+    // Ni el modal ni la sirena en el equipo que disparó la alerta. El receptor
+    // nativo ya descarta el push, pero esta ruta también entra por la pulsación
+    // de una notificación y por el arranque en frío, donde el payload puede
+    // venir de una alerta anterior a que el espejo existiera.
+    if (data.triggeredBy && data.triggeredBy === useAuthStore.getState().resident?.user?.id) return;
     setPanicData({
       complexId:        data.complexId ?? '',
       triggeredBy:      data.triggeredBy ?? '',

@@ -8,6 +8,22 @@ export const SAVE_MOBILE_TOKEN = gql`
   }
 `;
 
+/**
+ * Desactiva el token de este equipo al cerrar sesión.
+ *
+ * La suscripción push no muere con la sesión: sin esta llamada el servidor
+ * sigue mandando visitas, finanzas y pánico a un teléfono donde ya no hay
+ * nadie. Tiene que salir ANTES de descartar el token de acceso, porque después
+ * no queda con qué autenticarse.
+ */
+export const DEACTIVATE_MOBILE_TOKEN = gql`
+  mutation DeactivateMobileToken($deviceToken: String!) {
+    deactivateMobileToken(deviceToken: $deviceToken) {
+      success
+    }
+  }
+`;
+
 // Persist the read state of a single notification on the backend so it stays read
 // across app restarts (the in-memory store alone would reset it).
 export const MARK_NOTIFICATION_AS_READ = gql`
