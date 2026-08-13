@@ -26,6 +26,7 @@
   "62c06367bdd4e33a9ee9e09ab28d408e4707c2c4a558929280fc240ea2436d39": "query GetPaymentsByCharge($chargeId: String!) { paymentsByCharge(chargeId: $chargeId) { amount createdAt id isReversed method notes paidAt receiptUrl reference reversalReason reversedAt } }",
   "525599788b133c3c25df716da20f0adeb08224a307502519f430791b6d024203": "query GetUnitWallet($complexId: String!, $unitId: String!) { unitWallet(unitId: $unitId, complexId: $complexId) { building currentBalance entries { amount chargeId createdAt description id type } totalCredits totalDebits unitId unitNumber } }",
   "7498a591e1665a241b9d7c569cbfcbf9e5bab7018e38e3e447966c151cefb8d8": "mutation SaveMobileToken($input: SaveMobileTokenInput!) { saveMobileToken(input: $input) { success } }",
+  "139284ea6b3a9dbfbf8bbcd24c3ba33bf74f640e8de47510c4abb8609cbcceb1": "mutation DeactivateMobileToken($deviceToken: String!) { deactivateMobileToken(deviceToken: $deviceToken) { success } }",
   "cd666286e0536c5eaffd96c3b7881cdbda935029cf45b46328a0a3d5ab0f4dbc": "mutation MarkNotificationAsRead($notificationId: String!) { markNotificationAsRead(notificationId: $notificationId) { id isRead readAt } }",
   "bec86f95710accdb11948927c8b13e5c3342f6a29f08449dfd3894c09a4787ad": "mutation MarkAllNotificationsAsRead($complexId: String!) { markAllNotificationsAsRead(complexId: $complexId) }",
   "dc530bd13990bba82b0dbeb62fc431a1010bd43afda57cb323fd4aecc76adee9": "mutation DeleteNotification($notificationId: String!) { deleteNotification(notificationId: $notificationId) }",

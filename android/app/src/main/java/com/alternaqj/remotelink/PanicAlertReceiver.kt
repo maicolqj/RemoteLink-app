@@ -49,6 +49,17 @@ class PanicAlertReceiver : BroadcastReceiver() {
             val extras = intent.extras ?: return
             if (extras.getString("type") != PANIC_TYPE) return
 
+            // Sin sesión no hay a quién alertar. La suscripción push sobrevive al
+            // cierre de sesión —el logout invalida tokens y sesión pero deja la
+            // fila de push_subscriptions activa—, así que el servidor sigue
+            // mandando a un equipo donde ya no hay nadie. Primero de todo: sin
+            // sesión no se hace ruido ni se publica notificación, así que no
+            // queda nada que el usuario pueda abrir.
+            if (!PanicPrefs.isSessionOpen(context)) {
+                Log.i(TAG, "PANIC_ALERT ignorado — no hay sesión abierta en este equipo")
+                return
+            }
+
             if (AppForeground.isForeground) {
                 Log.i(TAG, "PANIC_ALERT con la app abierta — lo atiende el socket")
                 return
@@ -65,6 +76,20 @@ class PanicAlertReceiver : BroadcastReceiver() {
             val data = extras.keySet()
                 .mapNotNull { key -> extras.getString(key)?.let { key to it } }
                 .toMap()
+
+            // Nunca sonar en el equipo que disparó la alerta. El backend ya
+            // excluye al activador de los destinatarios, pero lo hace por
+            // `user_id` y un token FCM identifica una INSTALACIÓN: si este
+            // teléfono conserva la suscripción activa de otra cuenta —una sesión
+            // anterior que nunca se desregistró—, el push dirigido a esa cuenta
+            // llega igual aquí. Aparece con retraso porque quien lo trae es el
+            // escalamiento (nivel 1 a los 15s, a vigilancia y administración),
+            // no el envío inmediato.
+            val selfUserId = PanicPrefs.getSelfUserId(context)
+            if (!selfUserId.isNullOrBlank() && data["triggeredBy"] == selfUserId) {
+                Log.i(TAG, "PANIC_ALERT ignorado — lo disparó este mismo equipo")
+                return
+            }
 
             Log.w(TAG, "PANIC_ALERT recibido — arrancando la sirena nativa")
 

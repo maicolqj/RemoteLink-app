@@ -23,6 +23,9 @@ import PanicSound from '../../shared/modules/PanicSoundModule';
 
 import { parseLoginApprovalMetadata } from './deviceAuth.service';
 import { reportPanicDelivered } from './panicAck';
+import apolloClientInstance from '../../data/lib/apollo/client';
+import { DEACTIVATE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations';
+import { getApiErrorMessage } from '../utils/apiError';
 
 /** Push que pide aprobar el ingreso de otro equipo (contrato §03). */
 export const LOGIN_APPROVAL_TYPE = 'LOGIN_APPROVAL_REQUEST';
@@ -144,6 +147,44 @@ export async function getFCMToken(): Promise<string | null> {
     return token;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Desregistra el token de este equipo al cerrar sesión.
+ *
+ * Sin esto la suscripción sobrevive a la sesión: el `logout` invalida tokens y
+ * termina la sesión, pero deja la fila de `push_subscriptions` activa, así que
+ * el servidor sigue mandando a un teléfono donde ya no hay nadie — pánico,
+ * visitas y todo lo demás de la cuenta anterior.
+ *
+ * Hay que llamarla ANTES de borrar los tokens de acceso: la mutación exige
+ * sesión válida. Y no puede bloquear el cierre de sesión — si falla, la
+ * compuerta local (`setSessionOpen(false)`) sigue impidiendo que este equipo
+ * atienda una alerta.
+ */
+export async function deactivateFCMToken(): Promise<void> {
+  try {
+    const token = await getToken(getMessaging());
+    if (!token) return;
+
+    const { error } = await apolloClientInstance.mutate<{
+      deactivateMobileToken: { success: boolean };
+    }>({
+      mutation: DEACTIVATE_MOBILE_TOKEN,
+      variables: { deviceToken: token },
+      fetchPolicy: 'no-cache',
+    });
+
+    // errorPolicy 'all' (Apollo v4): el error viaja en `error` (singular) y la
+    // promesa NO se rechaza. Sin mirarlo, un rechazo pasaría por éxito.
+    if (error) {
+      console.warn('[FCM] desregistro del token rechazado:', getApiErrorMessage(error, 'sin detalle'));
+      return;
+    }
+    if (__DEV__) console.log('[FCM] token del equipo desactivado en el servidor');
+  } catch (err) {
+    console.warn('[FCM] desregistro del token falló:', getApiErrorMessage(err));
   }
 }
 

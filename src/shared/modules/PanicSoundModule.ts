@@ -14,6 +14,8 @@ interface PanicSoundNative {
   clearPanicNotifications: () => Promise<boolean>;
   setPanicAlertsEnabled: (enabled: boolean) => Promise<boolean>;
   setDeviceToken: (token: string) => Promise<boolean>;
+  setSelfUserId: (userId: string) => Promise<boolean>;
+  setSessionOpen: (open: boolean) => Promise<boolean>;
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   requestIgnoreBatteryOptimizations: () => Promise<boolean>;
   openAutostartSettings: () => Promise<boolean>;
@@ -59,6 +61,21 @@ export interface PanicSoundApi {
   /** Espeja el token FCM para que el ACK de entrega nativo pueda atribuirse a
    *  este equipo aunque salga sin sesión y sin bundle cargado. */
   setDeviceToken: (token: string) => Promise<boolean>;
+  /**
+   * Espeja el id del usuario con sesión abierta para que el receptor nativo
+   * descarte el pánico que disparó este mismo equipo. Cadena vacía = limpiar
+   * (cierre de sesión).
+   */
+  setSelfUserId: (userId: string) => Promise<boolean>;
+  /**
+   * Espeja si hay sesión abierta en el equipo.
+   *
+   * La suscripción push sobrevive al cierre de sesión: el servidor sigue
+   * mandando hasta que alguien desactive el token, así que sin esto el pánico
+   * suena en un teléfono donde ya nadie inició sesión. Falla cerrado — sin
+   * bandera, el receptor nativo no atiende nada.
+   */
+  setSessionOpen: (open: boolean) => Promise<boolean>;
   /** True if the app is already exempt from battery optimization (Android only). */
   isIgnoringBatteryOptimizations: () => Promise<boolean>;
   /**
@@ -141,6 +158,16 @@ const PanicSound: PanicSoundApi | null = native
         if (Platform.OS !== 'android') return false;
         try { return await native.setDeviceToken(token); }
         catch (e) { console.error('[PanicSound] setDeviceToken error:', e); return false; }
+      },
+      setSelfUserId: async (userId) => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.setSelfUserId(userId); }
+        catch (e) { console.error('[PanicSound] setSelfUserId error:', e); return false; }
+      },
+      setSessionOpen: async (open) => {
+        if (Platform.OS !== 'android') return false;
+        try { return await native.setSessionOpen(open); }
+        catch (e) { console.error('[PanicSound] setSessionOpen error:', e); return false; }
       },
       isIgnoringBatteryOptimizations: async () => {
         if (Platform.OS !== 'android') return true;

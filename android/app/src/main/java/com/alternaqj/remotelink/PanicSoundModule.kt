@@ -98,6 +98,33 @@ class PanicSoundModule(reactContext: ReactApplicationContext) :
         promise.resolve(true)
     }
 
+    /**
+     * Replica el id del usuario con sesión abierta para que el receptor nativo
+     * pueda descartar el pánico que disparó este mismo equipo.
+     *
+     * Un id vacío borra el espejo: es lo que hace el cierre de sesión, y omitirlo
+     * dejaría a la cuenta siguiente sin recibir un pánico legítimo del usuario
+     * anterior.
+     */
+    @ReactMethod
+    fun setSelfUserId(userId: String?, promise: Promise) {
+        PanicPrefs.setSelfUserId(reactApplicationContext, userId)
+        promise.resolve(true)
+    }
+
+    /**
+     * Espeja si hay sesión abierta, para que el receptor nativo no atienda un
+     * pánico en un equipo donde ya nadie inició sesión.
+     *
+     * Lo escribe el arranque de sesión y lo borra el cierre. Falla cerrado: sin
+     * bandera no se atiende nada.
+     */
+    @ReactMethod
+    fun setSessionOpen(open: Boolean, promise: Promise) {
+        PanicPrefs.setSessionOpen(reactApplicationContext, open)
+        promise.resolve(true)
+    }
+
     // ─── Launch payload (killed-state cold start) ───────────────────────────────
 
     @ReactMethod

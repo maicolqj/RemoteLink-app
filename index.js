@@ -12,6 +12,10 @@ import {
 import PanicSound from './src/shared/modules/PanicSoundModule';
 import { reportPanicDelivered } from './src/infraestructure/services/panicAck';
 import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
+import {
+  getPanicSelfUserId,
+  isSelfTriggeredPanic,
+} from './src/infraestructure/services/panicSelfIdentity';
 
 // FCM background handler — fires in background AND when killed, but ONLY for
 // DATA-ONLY high-priority messages. If the backend includes a `notification`
@@ -38,8 +42,14 @@ setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
     // iOS no tiene ruta nativa: aquí sigue mandando JS.
     // Respect the user's opt-out — don't blare if they disabled panic alerts.
     if (!(await getPanicAlertsEnabled())) return;
-    await createNotificationChannels();
+
+    // Nunca sonar en el equipo que disparó la alerta. Es el mismo criterio que
+    // aplica PanicAlertReceiver en Android; aquí hace falta repetirlo porque el
+    // receptor nativo no existe en iOS.
     const d = remoteMessage.data;
+    if (isSelfTriggeredPanic(d.triggeredBy, await getPanicSelfUserId())) return;
+
+    await createNotificationChannels();
     PanicSound?.startAlarmService({
       complexId:        d.complexId,
       triggeredBy:      d.triggeredBy,
