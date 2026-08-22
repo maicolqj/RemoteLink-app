@@ -99,8 +99,9 @@ def appVersionName = new groovy.json.JsonSlurper()
         .version
 
 // Release signing credentials live OUTSIDE the repo in android/keystore.properties
-// (gitignored). If the file is absent (e.g. CI without secrets, fresh clone),
-// release/aab fall back to the debug keystore so local builds still work.
+// (gitignored). Si el archivo falta (CI sin secretos, clon recien hecho), los
+// builds de release/aab FALLAN a proposito — ver el bloque gradle.taskGraph al
+// final. Para compilar sin la llave real, usa la variante `staging`.
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 def hasReleaseSigning = false
@@ -118,8 +119,8 @@ if (keystorePropertiesFile.exists()) {
     if (missing) {
         throw new GradleException(
             "android/keystore.properties existe pero le faltan: ${missing.join(', ')}.\n" +
-            "Complétalo con los valores reales (ver keystore.properties.example) o " +
-            "bórralo para compilar con la llave de debug.")
+            "Complétalo con los valores reales (ver keystore.properties.example). " +
+            "Si solo quieres un build de QA, usa la variante staging.")
     }
 
     def storeFile = file(keystoreProperties['RELEASE_STORE_FILE'])
@@ -169,9 +170,13 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // Uses the real release keystore when keystore.properties is present
-            // (required for Play Store); otherwise falls back to debug signing.
-            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            // Aqui hubo un fallback a la llave de debug cuando faltaba
+            // keystore.properties. Se quito: un release firmado con debug se ve
+            // igual que uno bueno hasta que Play lo rechaza — o hasta que lo
+            // distribuyes creyendo que era el real. Sin credenciales, el build
+            // de release falla con el mensaje del bloque gradle.taskGraph del
+            // final del archivo. `staging` sigue firmando con debug a proposito.
+            signingConfig hasReleaseSigning ? signingConfigs.release : null
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             manifestPlaceholders = [usesCleartextTraffic: "false"]
@@ -195,5 +200,26 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+// Sin credenciales de firma, un build de release se detiene aqui en vez de
+// producir un artefacto firmado con la llave de debug.
+//
+// El filtro va por RUTA de tarea del modulo :app, no por `name.contains('Release')`.
+// Ese atajo tenia un falso positivo que bloqueaba `staging`: con
+// matchingFallbacks los modulos de libreria compilan su variante release, asi
+// que el grafo de assembleStaging incluye tareas como
+// :react-native-screens:compileReleaseJavaWithJavac.
+gradle.taskGraph.whenReady { taskGraph ->
+    def releaseEntryPoints = ~/^:app:(assemble|bundle|install|package)Release$/
+    def isRelease = taskGraph.allTasks.any { it.path ==~ releaseEntryPoints }
+    if (isRelease && !hasReleaseSigning) {
+        throw new RuntimeException(
+            "\n\n[ERROR] BUILD DE RELEASE BLOQUEADO: falta android/keystore.properties.\n" +
+            "   Copia android/keystore.properties.example a android/keystore.properties\n" +
+            "   y rellenalo con los valores reales. El archivo esta en .gitignore.\n" +
+            "   Para un build de QA sin la llave real, usa assembleStaging.\n"
+        )
     }
 }
