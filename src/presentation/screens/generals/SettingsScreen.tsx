@@ -1,69 +1,39 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Switch, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, Switch, TouchableOpacity, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import notifee from '@notifee/react-native';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import Card from '../../components/Card';
 import { useTheme } from '../../providers/context/ThemeContext';
-import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
+import { useCoachmark } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useSettingsStore } from '../../store/settings.store';
 import { SPACING } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
-import PanicSound from '../../../shared/modules/PanicSoundModule';
 import { hasAccessCode } from '../../../infraestructure/services/deviceAuth.service';
 import { useAlert } from '../../providers/context/AlertContext';
 
-// First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
-// Battery/autostart targets only render on Android — on iOS their refs never
-// attach to a node, so the tour skips them automatically (see goToStep/next
-// in CoachmarkContext, which measure-and-skip unmeasurable targets). Lo mismo
-// aplica a 'settings.fullScreen', que solo se pinta en Android 14+.
-const SETTINGS_TOUR_STEPS: CoachStep[] = [
-  {
-    targetId: 'settings.biometric',
-    title: 'Biometría',
-    text: 'Actívala para pedir tu huella o Face ID cada vez que abras RemoteLink.',
-  },
-  {
-    targetId: 'settings.panicAlerts',
-    title: 'Alertas de pánico',
-    text: 'Con esto activo, tu teléfono sonará una alarma si alguien activa el botón de pánico en el conjunto.',
-  },
-  {
-    targetId: 'settings.battery',
-    title: 'Optimización de batería',
-    text: 'Evita que el sistema mate la app en segundo plano, para que la alarma de pánico te llegue con la app cerrada.',
-  },
-  {
-    targetId: 'settings.fullScreen',
-    title: 'Alertas de pantalla completa',
-    text: 'Sin este permiso la alarma no enciende la pantalla si el celular está bloqueado. Android no avisa cuando falta.',
-  },
-  {
-    targetId: 'settings.dnd',
-    title: 'Sonar en No molestar',
-    text: 'Permite que la alarma de pánico suene aunque tengas el modo No molestar activo, por ejemplo de noche.',
-    placement: 'top',
-  },
-  {
-    targetId: 'settings.autostart',
-    title: 'Inicio automático',
-    text: 'Requerido por tu fabricante (Xiaomi, Huawei, Oppo…) para que las notificaciones lleguen con la app cerrada.',
-    placement: 'top',
-  },
-];
+// Texto exigido por la política de eliminación de cuentas de Google Play: hay
+// que decir qué se pierde y que no hay vuelta atrás ANTES de mandar al
+// formulario. No lo recortes sin revisar la política.
+const DELETE_ACCOUNT_WARNING =
+  'Al eliminar su cuenta perderá el acceso a la aplicación. No podrá recibir llamadas ' +
+  'de citofonía virtual, autorizar visitantes, recibir avisos de correspondencia ni ' +
+  'emitir alertas de pánico desde la aplicación.\n\n' +
+  'La eliminación es irreversible. Si más adelante desea volver a usar el servicio, ' +
+  'deberá solicitar un nuevo registro ante la administración de su conjunto.\n\n' +
+  'Si solo desea dejar de recibir notificaciones, no necesita eliminar su cuenta: ' +
+  'puede desactivarlas desde la configuración de su dispositivo.';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { resetTour, startTour } = useCoachmark();
-  const { showError, showSuccess, showInfo, showQuestion, showWarning } = useAlert()
+  const { resetTour } = useCoachmark();
+  const { showError, showQuestion, showWarning } = useAlert()
   const gs = useGlobalStyles();
   const {
     biometricEnabled, biometricSupported, biometricType, hydrated, hydrate,
@@ -71,52 +41,20 @@ export default function SettingsScreen() {
   } = useSettingsStore();
 
   const isAndroid = Platform.OS === 'android';
-  // El permiso de pantalla completa solo existe desde Android 14 (API 34); por
-  // debajo se concede al instalar y no hay pantalla de ajustes que abrir.
-  const supportsFsiSetting = isAndroid && Number(Platform.Version) >= 34;
-  const [batteryExempt, setBatteryExempt] = useState(true);
-  // Preconditions de entrega del pánico. Optimistas por defecto: se corrigen en
-  // el primer refresh y así no se pinta una advertencia en rojo por un instante.
-  const [notifsEnabled, setNotifsEnabled] = useState(true);
-  const [fullScreenAllowed, setFullScreenAllowed] = useState(true);
-  const [dndAccess, setDndAccess] = useState(true);
   // Se pregunta al servidor: la clave es de la cuenta y pudo crearse en otro
   // equipo, así que la vinculación local no responde si ya existe.
   const [accountHasCode, setAccountHasCode] = useState<boolean | null>(null);
 
-  // First-run walkthrough targets + trigger.
-  const biometricRef = useCoachmarkTarget('settings.biometric');
-  const panicAlertsRef = useCoachmarkTarget('settings.panicAlerts');
-  const batteryRef = useCoachmarkTarget('settings.battery');
-  const fullScreenRef = useCoachmarkTarget('settings.fullScreen');
-  const dndRef = useCoachmarkTarget('settings.dnd');
-  const autostartRef = useCoachmarkTarget('settings.autostart');
-
-  const refreshPermissions = useCallback(() => {
+  const refreshAccessCode = useCallback(() => {
     hasAccessCode().then(setAccountHasCode).catch(() => setAccountHasCode(null));
-    if (!isAndroid) return;
-    // Sin .catch: el wrapper de PanicSound ya atrapa y resuelve un valor seguro.
-    PanicSound?.isIgnoringBatteryOptimizations().then(setBatteryExempt);
-    PanicSound?.areNotificationsEnabled().then(setNotifsEnabled);
-    PanicSound?.canUseFullScreenIntent().then(setFullScreenAllowed);
-    PanicSound?.isNotificationPolicyAccessGranted().then(setDndAccess);
-  }, [isAndroid]);
+  }, []);
 
   useEffect(() => {
     if (!hydrated) hydrate();
   }, [hydrated, hydrate]);
 
-  // Re-check on focus — the user may return from the battery settings screen.
-  useFocusEffect(refreshPermissions);
-
-  useFocusEffect(
-    useCallback(() => {
-      // v2: se agregaron los pasos de pantalla completa y No molestar, así que
-      // el tour vuelve a mostrarse una vez a quien ya había visto el anterior.
-      const t = setTimeout(() => startTour(SETTINGS_TOUR_STEPS, { persistKey: 'settings_v2' }), 700);
-      return () => clearTimeout(t);
-    }, [startTour]),
-  );
+  // Se revisa en cada foco: la clave pudo crearse en la pantalla anterior.
+  useFocusEffect(refreshAccessCode);
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value && !biometricSupported) {
@@ -141,53 +79,35 @@ export default function SettingsScreen() {
     await setPanicAlertsEnabled(true);
   };
 
-  const requestBattery = async () => {
-    await PanicSound?.requestIgnoreBatteryOptimizations();
-    refreshPermissions();
-  };
-
-  const openSystemNotifications = async () => {
-    // Ajustes de notificación de la app. Notifee ya expone la pantalla, así que
-    // no hace falta un intent propio en Kotlin.
-    await notifee.openNotificationSettings();
-    refreshPermissions();
-  };
-
-  const requestFullScreen = async () => {
-    const opened = await PanicSound?.openFullScreenIntentSettings();
-    if (!opened) {
-      showInfo(
-        'Tu versión de Android no expone esta pantalla. La alerta se mostrará igual sobre la pantalla bloqueada.',
-        'No disponible',
-      );
-    }
-    refreshPermissions();
-  };
-
-  const requestDndAccess = async () => {
-    // Es una lista de todo el dispositivo, no una pantalla por app: hay que
-    // decirle al usuario qué buscar o se queda mirando decenas de apps.
-    showInfo(
-      'Se abrirá la lista de "Acceso a No molestar". Busca RemoteLink y actívalo para que la alarma suene aunque tengas el modo No molestar encendido.',
-      'Buscar RemoteLink en la lista',
-      { buttons: [{ text: 'Entendido', style: 'primary', onPress: () => {
-        PanicSound?.openNotificationPolicySettings();
-      } }] },
-    );
-  };
-
-  // Clear all "seen" flags and jump to Home — its useFocusEffect replays the
-  // Home tour immediately; Profile and this screen's own tour replay next time
-  // each is opened.
-  // Legal vive en el root stack, no en ProfileStack — de ahí el navigate sin tipar.
+  // Todos los documentos —legales y el formulario de eliminación— se ven en el
+  // WebView de la app (pantalla `Legal`, en el root stack: de ahí el navigate
+  // sin tipar). Si la carga falla, esa pantalla muestra la URL y el correo de
+  // soporte como salida.
   const openLegal = useCallback(
     (doc: LegalDocument) =>
       (navigation as any).navigate('Legal', { url: doc.url, title: doc.title }),
     [navigation],
   );
 
+  const confirmAccountDeletion = useCallback(() => {
+    showWarning(DELETE_ACCOUNT_WARNING, 'Solicitar eliminación de cuenta', {
+      position: 'top',
+      buttons: [
+        { text: 'Cancelar', style: 'secondary', onPress: () => {} },
+        {
+          text: 'Continuar',
+          style: 'primary',
+          onPress: () => openLegal(LEGAL_LINKS.deleteAccount),
+        },
+      ],
+    });
+  }, [showWarning, openLegal]);
+
+  // Borra la marca de "visto" y salta a Inicio, cuyo useFocusEffect relanza el
+  // recorrido de inmediato. Es el único que queda: los de Perfil y Ajustes se
+  // retiraron.
   const handleReplayTutorial = useCallback(async () => {
-    await Promise.all([resetTour('home_v2'), resetTour('profile_v1'), resetTour('settings_v2')]);
+    await resetTour('home_v2');
     (navigation as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Home' } });
   }, [resetTour, navigation]);
 
@@ -211,7 +131,7 @@ export default function SettingsScreen() {
           </CustomTextComponent>
 
           <Card style={styles.card}>
-            <View ref={biometricRef} collapsable={false} style={styles.row}>
+            <View style={styles.row}>
               <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
                 <Icon name="fingerprint" size={20} color={colors.primary} />
               </View>
@@ -286,6 +206,10 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
+        {/* Cuenta — la eliminación va aquí arriba a propósito: Google Play
+            exige que la ruta se encuentre fácil, no enterrada al final de la
+            lista de permisos de Android. Un toque abre el diálogo y el segundo
+            ("Continuar") abre el formulario. */}
         {/* Alertas de pánico */}
         <View style={{ marginTop: SPACING.md }}>
           <CustomTextComponent
@@ -299,7 +223,7 @@ export default function SettingsScreen() {
 
           <Card style={styles.card}>
             {/* Recibir alertas */}
-            <View ref={panicAlertsRef} collapsable={false} style={styles.row}>
+            <View style={styles.row}>
               <View style={[styles.iconBox, { backgroundColor: '#fdecec' }]}>
                 <Icon name="notifications-active" size={20} color="#c00" />
               </View>
@@ -319,137 +243,30 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* Permisos de entrega (no solo pánico) con la app cerrada. Ninguno
-                depende de panicAlertsEnabled: apagar el toggle silencia la
-                alarma, pero estos siguen afectando al resto de notificaciones. */}
+            {/* Los permisos de entrega —notificaciones, batería, pantalla
+                completa, No molestar, inicio automático— viven en su propia
+                pantalla: no son preferencias de la app sino concesiones de
+                Android, y apilados aquí convertían Ajustes en una lista
+                interminable. Ninguno depende de panicAlertsEnabled: apagar el
+                interruptor silencia la alarma, pero esos permisos siguen
+                afectando al resto de notificaciones. */}
             {isAndroid && (
               <>
-                {/* Primero el más básico: sin esto, nada de lo de abajo importa. */}
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <TouchableOpacity
                   style={styles.row}
-                  onPress={openSystemNotifications}
+                  onPress={() => (navigation as any).navigate('SystemPermissions')}
                   activeOpacity={0.7}
                 >
                   <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                    <Icon
-                      name={notifsEnabled ? 'notifications' : 'notifications-off'}
-                      size={20}
-                      color={notifsEnabled ? colors.primary : '#c00'}
-                    />
+                    <Icon name="tune" size={20} color={colors.primary} />
                   </View>
                   <View style={gs.flex1}>
                     <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                      Notificaciones del sistema
-                    </CustomTextComponent>
-                    <CustomTextComponent fontSize={FONT_SIZE.sm} color={notifsEnabled ? colors.textSecondary : '#c00'} style={{ marginTop: 1 }}>
-                      {notifsEnabled
-                        ? 'RemoteLink puede mostrarte notificaciones'
-                        : 'Están bloqueadas: no recibirás ninguna alerta'}
-                    </CustomTextComponent>
-                  </View>
-                  <PermissionStatus granted={notifsEnabled} colors={colors} />
-                </TouchableOpacity>
-
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <TouchableOpacity
-                  ref={batteryRef}
-                  style={styles.row}
-                  onPress={requestBattery}
-                  disabled={batteryExempt}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                    <Icon name="battery-alert" size={20} color={colors.primary} />
-                  </View>
-                  <View style={gs.flex1}>
-                    <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                      Ignorar optimización de batería
+                      Permisos del sistema
                     </CustomTextComponent>
                     <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
-                      Asegura que la alarma llegue con la app cerrada
-                    </CustomTextComponent>
-                  </View>
-                  <PermissionStatus granted={batteryExempt} colors={colors} />
-                </TouchableOpacity>
-
-                {/* Pantalla completa: Android 14+ solo lo concede solo a apps de
-                    llamadas o alarmas. Sin él, la alerta NO enciende la pantalla
-                    bloqueada — el sistema la degrada a un aviso normal, en
-                    silencio y sin error en ningún log. */}
-                {supportsFsiSetting && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <TouchableOpacity
-                      ref={fullScreenRef}
-                      style={styles.row}
-                      onPress={requestFullScreen}
-                      disabled={fullScreenAllowed}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                        <Icon name="fullscreen" size={20} color={fullScreenAllowed ? colors.primary : '#c00'} />
-                      </View>
-                      <View style={gs.flex1}>
-                        <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                          Alertas de pantalla completa
-                        </CustomTextComponent>
-                        <CustomTextComponent fontSize={FONT_SIZE.sm} color={fullScreenAllowed ? colors.textSecondary : '#c00'} style={{ marginTop: 1 }}>
-                          {fullScreenAllowed
-                            ? 'La alarma puede encender la pantalla bloqueada'
-                            : 'Sin esto la alarma no enciende la pantalla bloqueada'}
-                        </CustomTextComponent>
-                      </View>
-                      <PermissionStatus granted={fullScreenAllowed} colors={colors} />
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {/* No Molestar: sin este acceso Android ignora el bypassDnd del
-                    canal de pánico y la alarma queda muda justo de noche. */}
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <TouchableOpacity
-                  ref={dndRef}
-                  style={styles.row}
-                  onPress={requestDndAccess}
-                  disabled={dndAccess}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                    <Icon name="do-not-disturb-on" size={20} color={colors.primary} />
-                  </View>
-                  <View style={gs.flex1}>
-                    <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                      Sonar en modo No molestar
-                    </CustomTextComponent>
-                    <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
-                      {dndAccess
-                        ? 'La alarma suena aunque tengas No molestar activo'
-                        : 'Ahora mismo el modo No molestar silencia la alarma'}
-                    </CustomTextComponent>
-                  </View>
-                  <PermissionStatus granted={dndAccess} colors={colors} />
-                </TouchableOpacity>
-
-                {/* Autoinicio: el fabricante (MIUI/ColorOS/EMUI/…) bloquea que la
-                    app despierte para procesar el push si no está activado —
-                    sin API pública para verificar el estado, así que no hay check. */}
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <TouchableOpacity
-                  ref={autostartRef}
-                  style={styles.row}
-                  onPress={() => PanicSound?.openAutostartSettings()}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-                    <Icon name="power-settings-new" size={20} color={colors.primary} />
-                  </View>
-                  <View style={gs.flex1}>
-                    <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                      Permitir inicio automático
-                    </CustomTextComponent>
-                    <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
-                      Requerido por tu fabricante para recibir notificaciones con la app cerrada
+                      Notificaciones, No molestar e inicio automático
                     </CustomTextComponent>
                   </View>
                   <Icon name="chevron-right" size={24} color={colors.textTertiary} />
@@ -510,7 +327,7 @@ export default function SettingsScreen() {
               </View>
               <View style={gs.flex1}>
                 <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                  Términos y condiciones
+                  Términos y Condiciones de Uso
                 </CustomTextComponent>
                 <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
                   Condiciones de uso del servicio
@@ -531,7 +348,7 @@ export default function SettingsScreen() {
               </View>
               <View style={gs.flex1}>
                 <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                  Política de privacidad
+                  Política de Privacidad
                 </CustomTextComponent>
                 <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
                   Cómo tratamos tus datos personales
@@ -541,17 +358,47 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </Card>
         </View>
+
+        {/* Cuenta — va de última, separada del resto: es la acción irreversible
+            de la pantalla. Sigue cumpliendo la política de Google Play, que
+            exige como máximo dos toques desde aquí (ítem → "Continuar");
+            desplazarse hasta el final no cuenta como toque. */}
+        <View style={{ marginTop: SPACING.md }}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.xs}
+            fontWeight={FONT_WEIGHT.semibold as any}
+            color={colors.textTertiary}
+            style={styles.sectionLabel}
+          >
+            CUENTA
+          </CustomTextComponent>
+
+          <Card style={styles.card}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={confirmAccountDeletion}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Solicitar eliminación de cuenta"
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.errorLight }]}>
+                <Icon name="person-remove" size={20} color={colors.error} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.error}>
+                  Solicitar eliminación de cuenta
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Perderás el acceso a la aplicación de forma permanente
+                </CustomTextComponent>
+              </View>
+              <Icon name="open-in-new" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </Card>
+        </View>
       </ScrollView>
     </View>
   );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PermissionStatus({ granted, colors }: { granted: boolean; colors: any }) {
-  if (granted) {
-    return <Icon name="check-circle" size={22} color="#22a06b" />;
-  }
-  return <Icon name="chevron-right" size={24} color={colors.textTertiary} />;
 }
 
 const styles = StyleSheet.create({

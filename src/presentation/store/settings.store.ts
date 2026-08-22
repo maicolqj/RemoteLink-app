@@ -5,7 +5,8 @@ import * as Keychain from 'react-native-keychain';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 
 const PANIC_ALERTS_KEY = 'settings.panicAlertsEnabled';
-const AUTOSTART_PROMPT_KEY = 'settings.autostartPromptShown';
+const AUTOSTART_LAST_PROMPT_KEY = 'settings.autostartPromptLastShownAt';
+const AUTOSTART_CONFIRMED_KEY = 'settings.autostartConfirmed';
 const BIOMETRIC_PROMPT_KEY = 'settings.biometricPromptShown';
 
 // Standalone reader for non-React / headless contexts (e.g. the FCM background
@@ -24,7 +25,19 @@ interface SettingsState {
   biometricSupported: boolean;
   biometricType: string | null;
   panicAlertsEnabled: boolean;
-  autostartPromptShown: boolean;
+  /**
+   * Cuándo se ofreció por última vez activar el inicio automático (epoch ms;
+   * 0 = nunca). No es un "ya se mostró" de una sola vez: sin este permiso las
+   * alertas de pánico no llegan con la app cerrada, así que se vuelve a
+   * ofrecer cada cierto tiempo.
+   */
+  autostartPromptLastShownAt: number;
+  /**
+   * El residente declaró que ya lo activó, o el fabricante no tiene esa
+   * pantalla. Es la ÚNICA señal de que está configurado: Android no expone
+   * ninguna API para consultarlo. Mientras sea falso, se sigue insistiendo.
+   */
+  autostartConfirmed: boolean;
   /**
    * El ofrecimiento de activar la biometría se hace UNA vez por instalación. Se
    * guarda aparte de `biometricEnabled` porque "ya se lo ofrecí y dijo que no"
@@ -37,6 +50,7 @@ interface SettingsState {
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   setPanicAlertsEnabled: (enabled: boolean) => Promise<void>;
   markAutostartPromptShown: () => Promise<void>;
+  confirmAutostartConfigured: () => Promise<void>;
   markBiometricPromptShown: () => Promise<void>;
 }
 
@@ -45,16 +59,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   biometricSupported: false,
   biometricType: null,
   panicAlertsEnabled: true,
-  autostartPromptShown: false,
+  autostartPromptLastShownAt: 0,
+  autostartConfirmed: false,
   biometricPromptShown: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [enabled, status, panicAlerts, autostartPromptShown, biometricPromptShown] = await Promise.all([
+    const [enabled, status, panicAlerts, autostartLastPrompt, autostartConfirmed, biometricPromptShown] = await Promise.all([
       SecureStorageService.isBiometricEnabled(),
       SecureStorageService.getBiometricStatus(),
       getPanicAlertsEnabled(),
-      AsyncStorage.getItem(AUTOSTART_PROMPT_KEY).then(v => v === '1'),
+      AsyncStorage.getItem(AUTOSTART_LAST_PROMPT_KEY).then(v => Number(v) || 0),
+      AsyncStorage.getItem(AUTOSTART_CONFIRMED_KEY).then(v => v === '1'),
       AsyncStorage.getItem(BIOMETRIC_PROMPT_KEY).then(v => v === '1'),
     ]);
 
@@ -79,7 +95,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       biometricSupported: status.isAvailable,
       biometricType: typeLabel,
       panicAlertsEnabled: panicAlerts,
-      autostartPromptShown,
+      autostartPromptLastShownAt: autostartLastPrompt,
+      autostartConfirmed,
       biometricPromptShown,
       hydrated: true,
     });
@@ -101,8 +118,19 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   markAutostartPromptShown: async () => {
-    await AsyncStorage.setItem(AUTOSTART_PROMPT_KEY, '1');
-    set({ autostartPromptShown: true });
+    const now = Date.now();
+    await AsyncStorage.setItem(AUTOSTART_LAST_PROMPT_KEY, String(now));
+    set({ autostartPromptLastShownAt: now });
+  },
+
+  /**
+   * Corta el recordatorio para siempre en este dispositivo. Se llama cuando el
+   * residente responde que ya lo activó, o cuando el fabricante no tiene esa
+   * pantalla y el recordatorio no aplica.
+   */
+  confirmAutostartConfigured: async () => {
+    await AsyncStorage.setItem(AUTOSTART_CONFIRMED_KEY, '1');
+    set({ autostartConfirmed: true });
   },
 
   markBiometricPromptShown: async () => {

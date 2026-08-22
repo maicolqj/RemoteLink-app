@@ -5,8 +5,14 @@ apply plugin: "com.google.gms.google-services"
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 
+// Los nombres tienen que coincidir EXACTO con los archivos de
+// node_modules/react-native-vector-icons/Fonts. Aquí decía 'IonicIcons.ttf',
+// que no existe —el archivo real es 'Ionicons.ttf'—, así que la fuente nunca se
+// empaquetó y todo glifo de Ionicons salía en blanco: los iconos de los diálogos
+// de AlertContext incluidos. fonts.gradle no falla ni avisa cuando el nombre no
+// corresponde a ningún archivo.
 project.ext.vectoricons = [
-    iconFontNames: [ 'MaterialIcons.ttf', 'IonicIcons.ttf' ] // Name of the font files you want to copy
+    iconFontNames: [ 'MaterialIcons.ttf', 'Ionicons.ttf' ]
 ]
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -137,7 +143,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Súbelo en 1 en CADA subida a Play, aunque el versionName no cambie.
-        versionCode 3
+        versionCode 4
         versionName appVersionName
     }
     signingConfigs {

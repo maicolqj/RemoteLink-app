@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
-import AppHeader from '../../components/AppHeader';
+import AuthScreen from '../../components/auth/AuthScreen';
+import AuthBanner from '../../components/auth/AuthBanner';
+import AuthButton from '../../components/auth/AuthButton';
 import { useTheme } from '../../providers/context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import {
@@ -20,7 +19,7 @@ import {
   type DeviceApprovalChallenge,
   type DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
-import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
+import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
 type Route = RouteProp<AuthStackParamList, 'LoginApproval'>;
@@ -38,7 +37,6 @@ const secondsUntil = (iso?: string): number => {
 const formatMMSS = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 
 export default function DeviceApprovalLoginScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const { colors } = useTheme();
@@ -166,7 +164,7 @@ export default function DeviceApprovalLoginScreen() {
 
   const handleRequest = useCallback(async () => {
     if (!isValidIdentity(identity)) {
-      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
+      setIdentityError('Escribe tu número de documento (mínimo 6 dígitos)');
       return;
     }
     setIsRequesting(true);
@@ -198,180 +196,145 @@ export default function DeviceApprovalLoginScreen() {
     setFinished(null);
   }, []);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const heading = needsAccessCode
+    ? { title: 'Confirma tu clave', subtitle: 'Ya aprobaste desde tu otro equipo. Solo falta confirmar que la cuenta es tuya.' }
+    : challenge
+      ? { title: 'Revisa tu otro teléfono', subtitle: 'Te llegó una notificación de RemoteLink. Ábrela y compara el código antes de aprobar.' }
+      : { title: 'Aprobar desde otro equipo', subtitle: 'Si tienes RemoteLink con la sesión abierta en otro teléfono, puedes autorizar este ingreso desde allí. No tiene costo.' };
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Aprobar desde otro equipo" showBack onBack={() => navigation.goBack()} />
+    <AuthScreen
+      title={heading.title}
+      subtitle={heading.subtitle}
+      showBack
+      onBack={() => navigation.goBack()}>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+      {!challenge ? (
+        <>
+          <CustomInputComponent
+            nameInput="Número de documento"
+            placeholder="Ej. 1234567890"
+            value={identity}
+            onChangeText={v => { setIdentity(v); setIdentityError(''); setError(''); }}
+            keyboardType="numeric"
+            leftIcon={{ name: 'badge', color: colors.primary }}
+            error={identityError}
+            touched={!!identityError}
+            maxLength={20}
+            editable={!isRequesting}
+          />
 
-        <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={styles.lede}>
-          Si sigues teniendo RemoteLink instalado en otro dispositivo con sesión abierta, puedes
-          aprobar este ingreso desde allí. No tiene costo.
-        </CustomTextComponent>
+          {error ? <AuthBanner tone="error">{error}</AuthBanner> : null}
 
-        {!challenge ? (
-          <>
-            <CustomInputComponent
-              nameInput="Número de identidad"
-              placeholder="Ej. 1234567890"
-              value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setError(''); }}
-              keyboardType="numeric"
-              leftIcon={{ name: 'badge', color: colors.primary }}
-              error={identityError}
-              touched={!!identityError}
-              maxLength={20}
-              editable={!isRequesting}
+          <AuthButton
+            text="Enviar solicitud"
+            onPress={handleRequest}
+            loading={isRequesting}
+            disabled={!isValidIdentity(identity)}
+            icon="send"
+          />
+        </>
+      ) : needsAccessCode ? (
+        <>
+          {/* Ya aprobaron desde el otro equipo: falta el segundo factor. */}
+          <AuthBanner tone="success" title="Ingreso aprobado">
+            Tu cuenta ya tiene una clave asignada. Ingrésala para autorizar este dispositivo.
+          </AuthBanner>
+
+          <CodeSegmentInput
+            value={accessCode}
+            onChange={v => { setAccessCode(v); if (error) setError(''); }}
+            length={6}
+            prefix={null}
+            hint="Toca para ingresar tu clave"
+            secure
+            error={error}
+            editable={!isRedeeming}
+          />
+
+          <AuthButton
+            text="Autorizar dispositivo"
+            onPress={() => redeem(accessCode)}
+            loading={isRedeeming}
+            disabled={accessCode.length !== 6}
+            icon="verified-user"
+          />
+        </>
+      ) : (
+        <>
+          {/* El código debe verse grande: el residente lo compara contra el que
+              le llega al otro dispositivo antes de aprobar. Es la pieza
+              principal de la pantalla, así que se trata como tal. */}
+          <View style={[styles.codeCard, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '55' }]}>
+            <CustomTextComponent
+              fontSize={FONT_SIZE.xs}
+              fontWeight={FONT_WEIGHT.semibold}
+              color={colors.primary}
+              textAlign="center"
+              style={styles.codeLabel}>
+              CÓDIGO DE ESTA SOLICITUD
+            </CustomTextComponent>
+            <CustomTextComponent
+              fontSize={42}
+              fontWeight={FONT_WEIGHT.bold}
+              color={colors.primary}
+              textAlign="center"
+              style={styles.code}>
+              {challenge.approvalCode}
+            </CustomTextComponent>
+          </View>
+
+          <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={styles.instructions}>
+            {challenge.instructions ??
+              'Abre RemoteLink en tu otro dispositivo, revisa la notificación y verifica que muestre este mismo código antes de aprobar.'}
+          </CustomTextComponent>
+
+          {!finished && !error ? (
+            <AuthBanner tone="progress" loading>
+              {isRedeeming
+                ? 'Aprobado. Iniciando sesión…'
+                : `Esperando tu aprobación… (${formatMMSS(remaining)})`}
+            </AuthBanner>
+          ) : null}
+
+          {error ? (
+            <AuthBanner tone="error" icon={finished === 'denied' ? 'block' : undefined}>
+              {error}
+            </AuthBanner>
+          ) : null}
+
+          {finished ? (
+            <AuthButton
+              text={finished === 'denied' ? 'Volver al inicio' : 'Solicitar de nuevo'}
+              onPress={finished === 'denied' ? () => navigation.goBack() : reset}
+              icon={finished === 'denied' ? 'arrow-back' : 'refresh'}
             />
-
-            {error ? (
-              <View style={[styles.banner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}>
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-                  {error}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            <CustomButtonComponent
-              text="Enviar solicitud"
-              onPress={handleRequest}
-              isLoading={isRequesting}
-              disabled={!isValidIdentity(identity) || isRequesting}
-              loaderColor="#FFFFFF"
-              style={[styles.primaryBtn, { backgroundColor: isValidIdentity(identity) ? colors.primary : colors.border }]}
-              textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-            />
-          </>
-        ) : needsAccessCode ? (
-          <>
-            {/* Ya aprobaron desde el otro equipo: falta el segundo factor. */}
-            <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '55' }]}>
-              <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                Aprobado. Tu cuenta ya tiene una clave asignada: ingrésala para autorizar este dispositivo.
-              </CustomTextComponent>
-            </View>
-
-            <CodeSegmentInput
-              value={accessCode}
-              onChange={v => { setAccessCode(v); if (error) setError(''); }}
-              length={6}
-              prefix={null}
-              hint="Toca para ingresar tu clave"
-              secure
-              error={error}
-              editable={!isRedeeming}
-            />
-
-            <CustomButtonComponent
-              text="Autorizar dispositivo"
-              onPress={() => redeem(accessCode)}
-              isLoading={isRedeeming}
-              disabled={accessCode.length !== 6 || isRedeeming}
-              loaderColor="#FFFFFF"
-              style={[styles.primaryBtn, { backgroundColor: accessCode.length === 6 ? colors.primary : colors.border }]}
-              textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-            />
-          </>
-        ) : (
-          <>
-            {/* El código debe verse grande: el residente lo compara contra el
-                que le llega al otro dispositivo antes de aprobar. */}
-            <View style={[styles.codeCard, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
-                CÓDIGO DE ESTA SOLICITUD
-              </CustomTextComponent>
-              <CustomTextComponent
-                fontSize={44}
-                fontWeight={FONT_WEIGHT.bold}
-                color={colors.primary}
-                textAlign="center"
-                style={styles.code}>
-                {challenge.approvalCode}
-              </CustomTextComponent>
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} textAlign="center" style={styles.flexText}>
-                {challenge.instructions ??
-                  'Abre RemoteLink en tu otro dispositivo, revisa la notificación y verifica que muestre este mismo código antes de aprobar.'}
-              </CustomTextComponent>
-            </View>
-
-            {!finished && !error ? (
-              <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '40' }]}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.primary} style={styles.flexText}>
-                  {isRedeeming
-                    ? 'Aprobado. Iniciando sesión…'
-                    : `Esperando tu aprobación… (${formatMMSS(remaining)})`}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {error ? (
-              <View
-                style={[
-                  styles.banner,
-                  { backgroundColor: colors.error + '14', borderColor: colors.error + '40' },
-                ]}
-                accessibilityRole="alert">
-                <Icon name={finished === 'denied' ? 'block' : 'error-outline'} size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-                  {error}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {finished ? (
-              <CustomButtonComponent
-                text={finished === 'denied' ? 'Volver al inicio' : 'Solicitar de nuevo'}
-                onPress={finished === 'denied' ? () => navigation.goBack() : reset}
-                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-                textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-              />
-            ) : null}
-          </>
-        )}
-      </ScrollView>
-    </View>
+          ) : null}
+        </>
+      )}
+    </AuthScreen>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: {
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  lede: {
-    lineHeight: FONT_SIZE.sm * 1.5,
-  },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
+  codeCard: {
+    gap: SPACING.xs,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
   },
-  flexText: {
-    flex: 1,
-    lineHeight: FONT_SIZE.sm * 1.45,
-  },
-  codeCard: {
-    gap: SPACING.sm,
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-    alignItems: 'stretch',
+  codeLabel: {
+    letterSpacing: 0.6,
   },
   code: {
-    letterSpacing: 10,
+    letterSpacing: 8,
   },
-  primaryBtn: {
-    borderRadius: RADIUS.md,
-    minHeight: 52,
+  instructions: {
+    lineHeight: FONT_SIZE.sm * 1.55,
   },
 });
