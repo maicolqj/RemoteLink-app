@@ -208,7 +208,20 @@ export function CoachmarkProvider({ children }: { children: React.ReactNode }) {
       let i = 0;
       let ok = false;
       while (i < stepList.length && !(ok = await goToStep(stepList, i))) i++;
-      if (!ok) return; // nothing to show
+      if (!ok) {
+        // Sin nada que medir no hubo tour: soltar la clave para que un `finish`
+        // posterior de otro recorrido no la marque como vista.
+        persistKeyRef.current = undefined;
+        onFinishRef.current = undefined;
+        return;
+      }
+
+      // Se marca como visto AL MOSTRARSE, no al terminar. Si el usuario se va a
+      // otra pantalla a mitad del recorrido, o el sistema mata la app, el tour
+      // ya cumplió su función y volver a lanzarlo se siente como un error.
+      if (opts?.persistKey) {
+        AsyncStorage.setItem(STORAGE_PREFIX + opts.persistKey, '1').catch(() => {});
+      }
 
       setSteps(stepList);
       setVisible(true);

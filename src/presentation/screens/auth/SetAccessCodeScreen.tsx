@@ -1,13 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, BackHandler } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { StyleSheet, BackHandler } from 'react-native';
+import { StackActions, useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
-import AppHeader from '../../components/AppHeader';
+import AuthScreen from '../../components/auth/AuthScreen';
+import AuthBanner from '../../components/auth/AuthBanner';
+import AuthButton from '../../components/auth/AuthButton';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useAuthStore } from '../../store/auth.store';
@@ -20,8 +19,8 @@ import {
   ACCESS_CODE_LENGTH,
   type DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
-import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
-import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+import { SPACING } from '../../constants/spacing';
+import { FONT_SIZE } from '../../constants/typography';
 
 type Route = RouteProp<ProfileStackParamList, 'SetAccessCode'>;
 
@@ -31,7 +30,6 @@ type Route = RouteProp<ProfileStackParamList, 'SetAccessCode'>;
 type Step = 'current' | 'create' | 'confirm';
 
 export default function SetAccessCodeScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const { colors } = useTheme();
@@ -105,10 +103,25 @@ export default function SetAccessCodeScreen() {
         'A partir de ahora entras con tu clave en este y en tus demás dispositivos.',
         'Clave configurada',
       );
-      // Al llegar desde el arranque obligatorio, esta pantalla puede ser la
-      // primera del stack de perfil: ahí `goBack` no hace nada y la pantalla se
-      // quedaría montada. Se navega explícitamente en ese caso.
-      if (navigation.canGoBack()) {
+      if (mandatory) {
+        // Primer ingreso: crear la clave era el último trámite de la
+        // autenticación, así que la app tiene que arrancar en Inicio.
+        //
+        // No basta con navegar a la pestaña Inicio. Esta pantalla vive DENTRO
+        // del stack de Perfil (el arranque la apila sobre `Profile`), y un
+        // `goBack` o un simple cambio de pestaña la dejan en el historial de
+        // esa pestaña: al volver a Perfil, la pestaña restaura su último
+        // estado y la clave vuelve a pedirse aunque ya esté creada.
+        //
+        // Por eso van los dos pasos: primero se vacía el stack de Perfil, y
+        // recién después se cambia de pestaña.
+        navigation.dispatch(StackActions.popToTop());
+        (navigation as any).navigate('Main', {
+          screen: 'HomeTab',
+          params: { screen: 'Home' },
+        });
+      } else if (navigation.canGoBack()) {
+        // Cambio voluntario desde Ajustes: se vuelve a donde estaba.
         navigation.goBack();
       } else {
         (navigation as any).navigate('Profile');
@@ -135,7 +148,7 @@ export default function SetAccessCodeScreen() {
       // con el teclado deshabilitado para siempre.
       setIsSaving(false);
     }
-  }, [label, currentCode, navigation, showSuccess]);
+  }, [label, currentCode, mandatory, navigation, showSuccess]);
 
   const handleConfirmComplete = useCallback((value: string) => {
     if (value !== code) {
@@ -195,111 +208,100 @@ export default function SetAccessCodeScreen() {
     else handleCreateComplete(code);
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Cambiar una clave existente añade un paso al principio (confirmar la
+  // actual), así que la numeración no es fija.
+  const total = isCurrent || currentCode ? 3 : 2;
+  const current = isCurrent ? 1 : isConfirm ? total : total - 1;
+
+  const heading = isCurrent
+    ? {
+        title: 'Confirma que eres tú',
+        subtitle: 'Ingresa la clave que usas hoy antes de reemplazarla.',
+      }
+    : isConfirm
+      ? {
+          title: 'Repite tu clave',
+          subtitle: 'Escríbela otra vez para descartar un error de tecleo.',
+        }
+      : {
+          title: route.params?.firstTime ? 'Crea tu clave' : 'Tu clave nueva',
+          subtitle: `Elige ${ACCESS_CODE_LENGTH} caracteres con letras y números. Es la que usarás para entrar a partir de ahora.`,
+        };
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title={route.params?.firstTime ? 'Crea tu clave' : 'Cambiar mi clave'}
-        showBack={!mandatory}
-        onBack={() => navigation.goBack()}
-      />
+    <AuthScreen
+      title={heading.title}
+      subtitle={heading.subtitle}
+      step={{ current, total }}
+      showBack={!mandatory}
+      onBack={() => navigation.goBack()}>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+      {/* El porqué de la clave, no sus reglas: las reglas ya están en el
+          subtítulo, junto al campo donde importan. */}
+      <AuthBanner tone="info" icon="lock">
+        {mandatory
+          ? 'Con tu clave entras al instante, sin esperar mensajes, y sirve en todos tus dispositivos. Tras 5 intentos fallidos la cuenta se bloquea 15 minutos.'
+          : 'Tu clave sirve en todos los dispositivos que hayas vinculado: cambiarla aquí la cambia en todos.'}
+      </AuthBanner>
 
-        <View style={[styles.note, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '40' }]}>
-          <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
-          <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.primary} style={styles.flexText}>
-            {mandatory
-              ? 'Necesitas una clave para usar la app: con ella entras al instante, sin esperar mensajes. Es la misma en todos tus dispositivos. Tras 5 intentos fallidos la cuenta se bloquea 15 minutos.'
-              : 'Tu clave sirve en todos los dispositivos que hayas vinculado. Cambiarla aquí la cambia en todos. Tras 5 intentos fallidos la cuenta se bloquea 15 minutos.'}
-          </CustomTextComponent>
-        </View>
-
-        {!isConfirm && !isCurrent ? (
-          <CustomInputComponent
-            nameInput="Nombre del dispositivo (opcional)"
-            placeholder="Ej. iPhone de Juan"
-            value={label}
-            onChangeText={setLabel}
-            leftIcon={{ name: 'smartphone', color: colors.primary }}
-            maxLength={120}
-            editable={!isSaving}
-          />
-        ) : null}
-
-        <CustomTextComponent
-          fontSize={FONT_SIZE.md}
-          fontWeight={FONT_WEIGHT.medium}
-          color={colors.textPrimary}
-          textAlign="center">
-          {isCurrent
-            ? 'Ingresa tu clave actual para confirmar que eres tú'
-            : isConfirm
-              ? 'Repite tu clave nueva'
-              : `Elige una clave de ${ACCESS_CODE_LENGTH} caracteres, con letras y números`}
-        </CustomTextComponent>
-
-        <CodeSegmentInput
-          value={fieldValue}
-          onChange={v => {
-            setFieldValue(v);
-            if (error) setError('');
-          }}
-          length={ACCESS_CODE_LENGTH}
-          prefix={null}
-          hint={isCurrent ? 'Toca para ingresar tu clave actual' : 'Toca para ingresar la clave'}
-          secure
-          error={error}
+      {!isConfirm && !isCurrent ? (
+        <CustomInputComponent
+          nameInput="Nombre de este dispositivo (opcional)"
+          placeholder="Ej. iPhone de Juan"
+          value={label}
+          onChangeText={setLabel}
+          leftIcon={{ name: 'smartphone', color: colors.primary }}
+          maxLength={120}
           editable={!isSaving}
         />
+      ) : null}
 
-        <CustomButtonComponent
-          text={isConfirm ? 'Guardar clave' : 'Continuar'}
-          onPress={submitStep}
-          isLoading={isSaving}
-          disabled={fieldValue.length !== ACCESS_CODE_LENGTH}
-          loaderColor="#FFFFFF"
-          style={{
-            backgroundColor:
-              fieldValue.length === ACCESS_CODE_LENGTH ? colors.primary : colors.border,
-          }}
-          textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-        />
+      <CodeSegmentInput
+        value={fieldValue}
+        onChange={v => {
+          setFieldValue(v);
+          if (error) setError('');
+        }}
+        length={ACCESS_CODE_LENGTH}
+        prefix={null}
+        hint={isCurrent ? 'Toca para ingresar tu clave actual' : 'Toca para ingresar la clave'}
+        secure
+        error={error}
+        editable={!isSaving}
+      />
 
-        {mandatory ? (
-          <TouchableOpacity
+      <AuthButton
+        text={isConfirm ? 'Guardar clave' : 'Continuar'}
+        onPress={submitStep}
+        loading={isSaving}
+        disabled={fieldValue.length !== ACCESS_CODE_LENGTH}
+        icon={isConfirm ? 'check' : 'arrow-forward'}
+      />
+
+      {mandatory ? (
+        <>
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} style={styles.borrowedHint}>
+            ¿Estás usando el teléfono de otra persona?
+          </CustomTextComponent>
+          <AuthButton
+            text="Este no es mi dispositivo · Cerrar sesión"
             onPress={leaveWithoutLinking}
+            variant="text"
             disabled={isSaving}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button">
-            <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} textAlign="center">
-              Este no es mi dispositivo · Cerrar sesión
-            </CustomTextComponent>
-          </TouchableOpacity>
-        ) : null}
-      </ScrollView>
-    </View>
+          />
+        </>
+      ) : null}
+    </AuthScreen>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: {
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-  },
-  flexText: {
-    flex: 1,
-    lineHeight: FONT_SIZE.sm * 1.45,
+  borrowedHint: {
+    textAlign: 'center',
+    marginBottom: -SPACING.sm,
   },
 });
