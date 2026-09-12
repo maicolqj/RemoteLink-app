@@ -100,3 +100,55 @@ export enum NotificationActionType {
   VEHICLE_APPROVAL  = 'VEHICLE_APPROVAL',
   ACKNOWLEDGE       = 'ACKNOWLEDGE',
 }
+
+// ─── Zonas comunes ───────────────────────────────────────────────────────────
+
+export enum AmenityType {
+  SALON_COMUNAL   = 'SALON_COMUNAL',
+  ZONA_BBQ        = 'ZONA_BBQ',
+  PISCINA         = 'PISCINA',
+  GIMNASIO        = 'GIMNASIO',
+  CANCHA          = 'CANCHA',
+  COWORKING       = 'COWORKING',
+  SAUNA           = 'SAUNA',
+  TERRAZA         = 'TERRAZA',
+  PARQUE_INFANTIL = 'PARQUE_INFANTIL',
+  TEATRINO        = 'TEATRINO',
+  OTRO            = 'OTRO',
+}
+
+export enum AmenityStatus {
+  ACTIVE      = 'ACTIVE',
+  MAINTENANCE = 'MAINTENANCE',
+  INACTIVE    = 'INACTIVE',
+}
+
+/** SLOT: franjas fijas. RANGE: el residente elige inicio y fin. */
+export enum AmenityBookingMode {
+  SLOT  = 'SLOT',
+  RANGE = 'RANGE',
+}
+
+/** HOURS: se resuelve dentro de un día. DAYS: jornadas completas. */
+export enum AmenityDurationUnit {
+  HOURS = 'HOURS',
+  DAYS  = 'DAYS',
+}
+
+export enum AmenityFeeType {
+  FREE        = 'FREE',
+  PER_BOOKING = 'PER_BOOKING',
+  PER_HOUR    = 'PER_HOUR',
+}
+
+export enum AmenityBookingStatus {
+  PENDING    = 'PENDING',
+  APPROVED   = 'APPROVED',
+  REJECTED   = 'REJECTED',
+  CANCELLED  = 'CANCELLED',
+  CHECKED_IN = 'CHECKED_IN',
+  COMPLETED  = 'COMPLETED',
+  NO_SHOW    = 'NO_SHOW',
+  EXPIRED    = 'EXPIRED',
+}
+

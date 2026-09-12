@@ -9,6 +9,15 @@ import VisitDetailScreen from '../../screens/generals/VisitDetailScreen';
 import VisitQRScreen from '../../screens/generals/VisitQRScreen';
 import PackagesScreen from '../../screens/generals/PackagesScreen';
 import PackageDetailScreen from '../../screens/generals/PackageDetailScreen';
+import AmenitiesScreen from '../../screens/generals/AmenitiesScreen';
+import AmenityDetailScreen from '../../screens/generals/AmenityDetailScreen';
+import MyAmenityBookingsScreen from '../../screens/generals/MyAmenityBookingsScreen';
+import AmenityBookingDetailScreen from '../../screens/generals/AmenityBookingDetailScreen';
+import PqrfScreen from '../../screens/generals/PqrfScreen';
+import PqrfCreateScreen from '../../screens/generals/PqrfCreateScreen';
+import PqrfDetailScreen from '../../screens/generals/PqrfDetailScreen';
+import VotingScreen from '../../screens/generals/VotingScreen';
+import VotingQuestionScreen from '../../screens/generals/VotingQuestionScreen';
 import VehicleDetailScreen from '../../screens/generals/VehicleDetailScreen';
 import AccessRequestDetailScreen from '../../screens/generals/AccessRequestDetailScreen';
 import FinancesScreen from '../../screens/generals/FinancesScreen';
@@ -29,6 +38,15 @@ export default function HomeStack() {
       <Stack.Screen name="VisitQR" component={VisitQRScreen} />
       <Stack.Screen name="Packages" component={PackagesScreen} />
       <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
+      <Stack.Screen name="Amenities" component={AmenitiesScreen} />
+      <Stack.Screen name="AmenityDetail" component={AmenityDetailScreen} />
+      <Stack.Screen name="MyAmenityBookings" component={MyAmenityBookingsScreen} />
+      <Stack.Screen name="AmenityBookingDetail" component={AmenityBookingDetailScreen} />
+      <Stack.Screen name="Pqrf" component={PqrfScreen} />
+      <Stack.Screen name="PqrfCreate" component={PqrfCreateScreen} />
+      <Stack.Screen name="PqrfDetail" component={PqrfDetailScreen} />
+      <Stack.Screen name="Voting" component={VotingScreen} />
+      <Stack.Screen name="VotingQuestion" component={VotingQuestionScreen} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
       <Stack.Screen name="AccessRequestDetail" component={AccessRequestDetailScreen} />
       <Stack.Screen name="Finances" component={FinancesScreen} />
