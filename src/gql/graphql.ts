@@ -4015,14 +4015,13 @@ export type Pqrf = {
   consecutive: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
-  /** Hasta cuándo tiene el complejo para resolverlo */
   dueAt: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   requestedByName?: Maybe<Scalars['String']['output']>;
   requestedByUserId?: Maybe<Scalars['String']['output']>;
   residentId?: Maybe<Scalars['String']['output']>;
   resolvedAt?: Maybe<Scalars['DateTime']['output']>;
-  /** Se resolvió solo al vencerse el plazo, a favor de quien radicó */
+  /** Resuelto por silencio administrativo positivo */
   resolvedBySilence: Scalars['Boolean']['output'];
   status: PqrfStatus;
   subject: Scalars['String']['output'];
@@ -4066,13 +4065,13 @@ export type PqrfCouncilMember = {
   userId: Scalars['String']['output'];
 };
 
-/** Estado del radicado */
+/** Estado del radicado PQRF */
 export type PqrfStatus =
   | 'EN_TRAMITE'
   | 'RADICADO'
   | 'RESUELTO';
 
-/** Tipo de radicado */
+/** Tipo de radicado: petición, queja, reclamo, sugerencia o felicitación */
 export type PqrfType =
   | 'FELICITACION'
   | 'PETICION'
