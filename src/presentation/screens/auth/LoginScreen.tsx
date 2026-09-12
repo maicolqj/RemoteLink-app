@@ -36,9 +36,14 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LOGO_SF } from '../../constants/ImagesApp';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
+import { API_URL } from '../../../data/lib/constants';
+import { BuildBadge } from '../../components/BuildBadge';
 // Misma fuente que el pie del perfil y que `versionName` en build.gradle:
 // se bumpea con `yarn version` y los tres quedan sincronizados.
 import { version as APP_VERSION } from '../../../../package.json';
+
+/** Solo el host del backend: la URL completa no cabe y el esquema no aporta. */
+const apiHost = API_URL.replace(/^https?:\/\//, '').replace(/\/graphql\/?$/, '');
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -417,22 +422,26 @@ export default function LoginScreen() {
             </View>
 
             {/* Indicador de entorno: solo fuera de producción, para no dejar un
-                punto de color sin explicación en la pantalla de ingreso. */}
+                punto de color sin explicación en la pantalla de ingreso.
+                Muestra el SERVIDOR y no solo el nombre del stage: saber que dice
+                "development" no sirve si lo que se necesita es confirmar contra
+                qué backend se está hablando. */}
             {STAGE !== 'production' ? (
               <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
-                {STAGE}
+                {STAGE} · {apiHost}
               </CustomTextComponent>
             ) : null}
           </View>
         </View>
 
-        <CustomTextComponent
-          fontSize={FONT_SIZE.xs}
-          color={colors.textTertiary}
-          textAlign="center"
-          style={{ marginBottom: insets.bottom + SPACING.md }}>
-          RemoteLink v{APP_VERSION}
-        </CustomTextComponent>
+        <View style={[styles.buildRow, { marginBottom: insets.bottom + SPACING.md }]}>
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
+            RemoteLink v{APP_VERSION}
+          </CustomTextComponent>
+          {/* D = build de desarrollo, A = APK, B = AAB. Es la única pista en un
+              APK instalado, donde el indicador de entorno no se pinta. */}
+          <BuildBadge />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -582,6 +591,13 @@ const styles = StyleSheet.create({
   },
   legalLinkText: {
     textDecorationLine: 'underline',
+  },
+
+  buildRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
   },
 
   // Security
