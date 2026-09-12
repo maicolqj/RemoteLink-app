@@ -35,6 +35,8 @@ export interface Resident {
   type: string;
   status: string;
   isMainResident: boolean;
+  /** Miembro del consejo: le habilita la bandeja de radicados dirigidos al consejo. */
+  isCouncilMember?: boolean;
   startDate: string;
   user: ResidentUser;
   unit: ResidentUnit;
