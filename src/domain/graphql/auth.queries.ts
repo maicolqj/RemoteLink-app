@@ -38,6 +38,7 @@ export const GET_MY_RESIDENT_PROFILE = gql`
       type
       status
       isMainResident
+      isCouncilMember
       startDate
       user {
         id
