@@ -156,6 +156,25 @@ export default function NotificationsScreen() {
       navigation.navigate('VisitDetail', { visitId: entityId });
       return;
     }
+    // El backend etiqueta las notificaciones de zonas comunes con este
+    // entityType; sin esta rama, tocar el aviso de una reserva no lleva a nada.
+    if (entityType === 'amenityBooking' && entityId) {
+      navigation.navigate('AmenityBookingDetail', { bookingId: entityId });
+      return;
+    }
+    // El aviso de votación abierta lleva directo a la pregunta.
+    if (entityType === 'voting') {
+      if (entityId) navigation.navigate('VotingQuestion', { questionId: entityId });
+      else navigation.navigate('Voting');
+      return;
+    }
+    // Los radicados no tienen ficha propia todavía —la respuesta llega en la
+    // siguiente entrega—, así que el aviso abre la bandeja.
+    if (entityType === 'pqrf') {
+      if (entityId) navigation.navigate('PqrfDetail', { pqrfId: entityId });
+      else navigation.navigate('Pqrf');
+      return;
+    }
     if (entityType === 'package' && entityId) {
       navigation.navigate('PackageDetail', { packageId: entityId });
       return;

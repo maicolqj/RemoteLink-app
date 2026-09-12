@@ -20,6 +20,8 @@ import { useNotificationsStore } from '../../store/notifications.store';
 import { useVisitsStore } from '../../store/visits.store';
 import { usePackagesStore } from '../../store/packages.store';
 import { useFinancesStore } from '../../store/finances.store';
+import { fetchVotingEnabled } from '../../../infraestructure/services/voting.service';
+import { useVotingStore } from '../../store/voting.store';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
@@ -74,6 +76,11 @@ export default function HomeScreen() {
   const fetchBalance = useFinancesStore(s => s.fetchBalance);
 
   const [requestSecurityCall, { loading: requestingCall }] = useMutation(REQUEST_SECURITY_CALL);
+
+  // El menú de votaciones solo aparece si la administración lo habilitó. Vive
+  // en un store porque también cambia por socket, sin que el Home recargue.
+  const votingEnabled = useVotingStore(s => s.enabled) === true;
+  const setVotingEnabled = useVotingStore(s => s.setEnabled);
 
   // First-run walkthrough targets + trigger.
   const { startTour } = useCoachmark();
@@ -141,6 +148,20 @@ export default function HomeScreen() {
     }, [resident, startTour]),
   );
 
+  // Se consulta cada vez que Home gana foco y no solo al montar: la
+  // administración enciende las votaciones el día de la asamblea, con la app ya
+  // abierta en el bolsillo de todos.
+  useFocusEffect(
+    useCallback(() => {
+      if (!complexId) return;
+      let alive = true;
+      fetchVotingEnabled(complexId)
+        .then(enabled => { if (alive) setVotingEnabled(enabled); })
+        .catch(() => { /* sin respuesta, el menú sigue como estaba */ });
+      return () => { alive = false; };
+    }, [complexId, setVotingEnabled]),
+  );
+
   const recentNotifications = notifications.slice(0, 3);
   const pendingVisits = visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
   // The store already holds only pending packages (resident endpoint), but keep
@@ -153,10 +174,15 @@ export default function HomeScreen() {
     // Visits tab is disabled; the flow lives in HomeStack, so navigate to the
     // local 'Visits' screen instead of a tab.
     { id: 'visits',  icon: 'people',    label: 'Visitas', screen: 'Visits',      color: colors.success },
+    { id: 'amenities', icon: 'deck',    label: 'Zonas',   screen: 'Amenities',   color: colors.accent },
+    { id: 'pqrf',    icon: 'forum',     label: 'PQRF',    screen: 'Pqrf',        color: colors.info },
+    ...(votingEnabled
+      ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary }]
+      : []),
     // Comentado temporalmente — pendiente para actualizaciones futuras.
     // { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
     // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
-  ], [colors]);
+  ], [colors, votingEnabled]);
 
   const handleQuickAction = useCallback((action: { tab?: string; screen?: string }) => {
     if (action.screen) {

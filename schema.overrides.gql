@@ -22,7 +22,7 @@
 # declarar un campo con otro tipo. Es decir: aquí no hay error que te avise,
 # hay que acordarse de borrar.
 #
-# Estado actual: SIN overrides activos.
+# Estado actual: 1 override activo (zonas comunes).
 # Los bloques de `resend-system-code-whatsapp` y de la autenticación de
 # residentes 0.0.15 se eliminaron el 2026-08-01, cuando el espejo pasó a traerlos
 # ya definidos (el segundo, además, con `DeviceApprovalStatusResponse.status`
@@ -45,3 +45,719 @@
 #
 # Nota de sintaxis para el próximo bloque real: `extend` NO admite descripciones
 # (`"""…"""`) sobre sí mismo; usar comentarios `#` o codegen no parsea el archivo.
+# =============================================================================
+
+# ── Backend: rama feat/reserva-zonas-comunes ─────────────────────────────────
+# App: src/domain/graphql/amenities.queries.ts. Reserva de zonas comunes desde
+# la app del residente: catálogo, disponibilidad, crear y cancelar reserva.
+# El residente NO ve el cobro por daños ni la administración de zonas; esos
+# campos viajan igual en el tipo porque el schema es uno solo.
+# Borrar este bloque completo cuando el backend mergee la rama.
+
+extend type Query {
+  amenities(complexId: String!, pagination: PaginationInput, filters: FilterAmenitiesInput): PaginatedAmenitiesResponse!
+  amenity(amenityId: String!): Amenity!
+  amenityAvailability(input: AmenityAvailabilityInput!): AmenityAvailabilityResponse!
+  amenityBlackouts(amenityId: String!): [AmenityBlackout!]!
+  amenityBookings(complexId: String!, pagination: PaginationInput, filters: FilterAmenityBookingsInput): PaginatedAmenityBookingsResponse!
+  myUnitAmenityBookings(complexId: String!, pagination: PaginationInput, filters: FilterAmenityBookingsInput): PaginatedAmenityBookingsResponse!
+  amenityBooking(bookingId: String!): AmenityBooking!
+  myAmenityCouncilQuota(amenityId: String!): AmenityCouncilQuotaResponse!
+}
+
+extend type Mutation {
+  createAmenity(input: CreateAmenityInput!): Amenity!
+  updateAmenity(input: UpdateAmenityInput!): Amenity!
+  deleteAmenity(amenityId: String!): Boolean!
+  setAmenitySchedules(input: SetAmenitySchedulesInput!): Amenity!
+  createAmenityBlackout(input: CreateAmenityBlackoutInput!): AmenityBlackout!
+  deleteAmenityBlackout(blackoutId: String!): Boolean!
+  createAmenityBooking(input: CreateAmenityBookingInput!): AmenityBooking!
+  approveAmenityBooking(bookingId: String!): AmenityBooking!
+  rejectAmenityBooking(input: RejectAmenityBookingInput!): AmenityBooking!
+  cancelAmenityBooking(input: CancelAmenityBookingInput!): AmenityBooking!
+  checkInAmenityBooking(complexId: String!, accessCode: String!): AmenityBooking!
+  checkOutAmenityBooking(bookingId: String!): AmenityBooking!
+  chargeAmenityDamage(input: ChargeAmenityDamageInput!): AmenityBooking!
+}
+"""Horario semanal de apertura de una zona común"""
+type AmenitySchedule {
+  id: ID!
+  amenityId: String!
+  amenity: Amenity
+  complexId: String!
+
+  """0=domingo, 1=lunes … 6=sábado"""
+  dayOfWeek: Int!
+
+  """Hora de apertura en formato HH:mm"""
+  openTime: String!
+
+  """Hora de cierre en formato HH:mm"""
+  closeTime: String!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Zona común reservable del complejo residencial"""
+type Amenity {
+  id: ID!
+
+  """Nombre visible (ej. Salón Comunal Piso 1)"""
+  name: String!
+  description: String
+  type: AmenityType!
+  status: AmenityStatus!
+  location: String
+  rules: String
+
+  """URLs de fotos de la zona (R2)"""
+  imageUrls: [String!]
+  bookingMode: AmenityBookingMode!
+  durationUnit: AmenityDurationUnit!
+  slotDurationMinutes: Int!
+  minDurationMinutes: Int!
+  maxDurationMinutes: Int!
+  capacity: Int!
+  maxSimultaneousBookings: Int!
+  advanceBookingDays: Int!
+  minAdvanceDays: Int!
+  cancellationDeadlineDays: Int!
+  cancellationDeadlineHours: Int!
+  lateCancellationFeePercent: Int!
+  councilFreeBookingsPerYear: Int!
+  maxActiveBookingsPerUnit: Int!
+  maxBookingsPerUnitPerMonth: Int!
+
+  """
+  Si es true la reserva nace en PENDING y la administración debe aprobarla
+  """
+  requiresApproval: Boolean!
+
+  """Si es true, una unidad con saldo vencido no puede reservar"""
+  blockBookingsOnDebt: Boolean!
+  feeType: AmenityFeeType!
+  feeAmount: Float!
+  complexId: String!
+  complex: ResidentialComplex
+  schedules: [AmenitySchedule!]
+  createdByUserId: String
+  updatedByUserId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+}
+
+"""Tipo de zona común del complejo residencial"""
+enum AmenityType {
+  SALON_COMUNAL
+  ZONA_BBQ
+  PISCINA
+  GIMNASIO
+  CANCHA
+  COWORKING
+  SAUNA
+  TERRAZA
+  PARQUE_INFANTIL
+  TEATRINO
+  OTRO
+}
+
+"""Estado operativo de la zona común"""
+enum AmenityStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+"""Modo en que se reservan las franjas horarias de la zona común"""
+enum AmenityBookingMode {
+  SLOT
+  RANGE
+}
+
+"""Unidad en que se expresan las duraciones de la zona común"""
+enum AmenityDurationUnit {
+  HOURS
+  DAYS
+}
+
+"""Forma de cobro de la reserva de zona común"""
+enum AmenityFeeType {
+  FREE
+  PER_BOOKING
+  PER_HOUR
+}
+
+"""Bloqueo puntual de una zona común (mantenimiento, evento)"""
+type AmenityBlackout {
+  id: ID!
+  amenityId: String!
+  amenity: Amenity
+  complexId: String!
+  startAt: DateTime!
+  endAt: DateTime!
+
+  """Motivo visible para el residente"""
+  reason: String!
+  createdByUserId: String
+  createdAt: DateTime!
+}
+
+"""Reserva de zona común hecha por una unidad"""
+type AmenityBooking {
+  id: ID!
+  amenityId: String!
+  amenity: Amenity
+  startAt: DateTime!
+  endAt: DateTime!
+  attendees: Int!
+  purpose: String
+  notes: String
+  unitId: String!
+  unit: Unit
+  residentId: String
+  requestedByUserId: String
+  requestedByName: String
+  status: AmenityBookingStatus!
+  approvedByUserId: String
+  approvedAt: DateTime
+  rejectionReason: String
+  cancelledByUserId: String
+  cancelledAt: DateTime
+  cancellationReason: String
+  accessCode: String
+  checkInAt: DateTime
+  checkOutAt: DateTime
+  checkedInByUserId: String
+  feeAmount: Float!
+  feeChargeId: String
+  isCouncilFreeBooking: Boolean!
+  lateCancellationAmount: Float!
+  lateCancellationChargeId: String
+  damageAmount: Float!
+  damageDescription: String
+  damageChargeId: String
+  damageChargedAt: DateTime
+  damageChargedByUserId: String
+  complexId: String!
+  complex: ResidentialComplex
+  reminderSentAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+}
+
+"""Estado de la reserva de zona común"""
+enum AmenityBookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  CHECKED_IN
+  COMPLETED
+  NO_SHOW
+  EXPIRED
+}
+
+type PaginatedAmenitiesResponse {
+  items: [Amenity!]!
+  pagination: PaginationReponse!
+}
+
+"""Ventana de apertura de la zona común en un día"""
+type AmenityTimeWindow {
+  startAt: DateTime!
+  endAt: DateTime!
+}
+
+"""Franja reservable de una zona común"""
+type AmenitySlot {
+  startAt: DateTime!
+  endAt: DateTime!
+  capacityTotal: Int!
+  capacityUsed: Int!
+  isAvailable: Boolean!
+}
+
+"""Intervalo ocupado por una reserva activa"""
+type AmenityBusyRange {
+  startAt: DateTime!
+  endAt: DateTime!
+  bookingsCount: Int!
+}
+
+"""Disponibilidad de una zona común en un día calendario"""
+type AmenityAvailabilityDay {
+  """Fecha en formato YYYY-MM-DD"""
+  date: String!
+  isOpen: Boolean!
+  closedReason: String
+  openWindows: [AmenityTimeWindow!]!
+  slots: [AmenitySlot!]!
+  busy: [AmenityBusyRange!]!
+}
+
+"""Disponibilidad de una zona común en un rango de días"""
+type AmenityAvailabilityResponse {
+  amenityId: String!
+  days: [AmenityAvailabilityDay!]!
+}
+
+type PaginatedAmenityBookingsResponse {
+  items: [AmenityBooking!]!
+  pagination: PaginationReponse!
+}
+
+input FilterAmenitiesInput {
+  status: AmenityStatus
+  type: AmenityType
+
+  """Búsqueda por nombre"""
+  search: String
+}
+
+input AmenityAvailabilityInput {
+  amenityId: String!
+
+  """Primer día a consultar (YYYY-MM-DD)"""
+  from: String!
+
+  """Último día a consultar, inclusive (YYYY-MM-DD)"""
+  to: String!
+}
+
+input FilterAmenityBookingsInput {
+  status: AmenityBookingStatus
+  amenityId: String
+  unitId: String
+
+  """Reservas que inician desde esta fecha (ISO 8601)"""
+  startFrom: String
+
+  """Reservas que inician hasta esta fecha (ISO 8601)"""
+  startUntil: String
+}
+
+input CreateAmenityInput {
+  complexId: String!
+  name: String!
+  description: String
+  type: AmenityType! = OTRO
+  status: AmenityStatus! = ACTIVE
+  location: String
+
+  """Reglamento de uso que ve el residente al reservar"""
+  rules: String
+  imageUrls: [String!]
+  bookingMode: AmenityBookingMode! = SLOT
+  durationUnit: AmenityDurationUnit! = HOURS
+
+  """
+  Solo SLOT: minutos de cada bloque. El rango válido depende de durationUnit
+  """
+  slotDurationMinutes: Int! = 120
+
+  """
+  Solo RANGE: duración mínima en minutos. El rango válido depende de durationUnit
+  """
+  minDurationMinutes: Int! = 60
+
+  """
+  Solo RANGE: duración máxima en minutos. El rango válido depende de durationUnit
+  """
+  maxDurationMinutes: Int! = 480
+
+  """Aforo por reserva. 0 = sin control"""
+  capacity: Int! = 0
+
+  """Reservas que caben a la misma hora (ej. 4 asadores)"""
+  maxSimultaneousBookings: Int! = 1
+  advanceBookingDays: Int! = 30
+
+  """Anticipación mínima en días. 0 = se puede reservar para hoy"""
+  minAdvanceDays: Int! = 1
+
+  """
+  Días antes del inicio en que aún se puede cancelar sin quedar con el cobro
+  """
+  cancellationDeadlineDays: Int! = 1
+  cancellationDeadlineHours: Int! = 0
+  lateCancellationFeePercent: Int! = 100
+  councilFreeBookingsPerYear: Int! = 0
+
+  """0 = sin límite"""
+  maxActiveBookingsPerUnit: Int! = 2
+
+  """0 = sin límite"""
+  maxBookingsPerUnitPerMonth: Int! = 0
+  requiresApproval: Boolean! = true
+  blockBookingsOnDebt: Boolean! = true
+  feeType: AmenityFeeType! = FREE
+  feeAmount: Float! = 0
+  schedules: [AmenityScheduleInput!]
+}
+
+input AmenityScheduleInput {
+  """0=domingo, 1=lunes … 6=sábado"""
+  dayOfWeek: Int!
+
+  """Hora de apertura HH:mm"""
+  openTime: String!
+
+  """Hora de cierre HH:mm"""
+  closeTime: String!
+}
+
+input UpdateAmenityInput {
+  name: String
+  description: String
+  type: AmenityType = OTRO
+  status: AmenityStatus = ACTIVE
+  location: String
+
+  """Reglamento de uso que ve el residente al reservar"""
+  rules: String
+  imageUrls: [String!]
+  bookingMode: AmenityBookingMode = SLOT
+  durationUnit: AmenityDurationUnit = HOURS
+
+  """
+  Solo SLOT: minutos de cada bloque. El rango válido depende de durationUnit
+  """
+  slotDurationMinutes: Int = 120
+
+  """
+  Solo RANGE: duración mínima en minutos. El rango válido depende de durationUnit
+  """
+  minDurationMinutes: Int = 60
+
+  """
+  Solo RANGE: duración máxima en minutos. El rango válido depende de durationUnit
+  """
+  maxDurationMinutes: Int = 480
+
+  """Aforo por reserva. 0 = sin control"""
+  capacity: Int = 0
+
+  """Reservas que caben a la misma hora (ej. 4 asadores)"""
+  maxSimultaneousBookings: Int = 1
+  advanceBookingDays: Int = 30
+
+  """Anticipación mínima en días. 0 = se puede reservar para hoy"""
+  minAdvanceDays: Int = 1
+
+  """
+  Días antes del inicio en que aún se puede cancelar sin quedar con el cobro
+  """
+  cancellationDeadlineDays: Int = 1
+  cancellationDeadlineHours: Int = 0
+  lateCancellationFeePercent: Int = 100
+  councilFreeBookingsPerYear: Int = 0
+
+  """0 = sin límite"""
+  maxActiveBookingsPerUnit: Int = 2
+
+  """0 = sin límite"""
+  maxBookingsPerUnitPerMonth: Int = 0
+  requiresApproval: Boolean = true
+  blockBookingsOnDebt: Boolean = true
+  feeType: AmenityFeeType = FREE
+  feeAmount: Float = 0
+
+  """ID de la zona común a actualizar"""
+  id: String!
+}
+
+input SetAmenitySchedulesInput {
+  amenityId: String!
+  schedules: [AmenityScheduleInput!]!
+}
+
+input CreateAmenityBlackoutInput {
+  amenityId: String!
+
+  """Inicio del bloqueo (ISO 8601)"""
+  startAt: String!
+
+  """Fin del bloqueo (ISO 8601)"""
+  endAt: String!
+
+  """Motivo visible para el residente"""
+  reason: String!
+}
+
+
+"""Cupo anual del consejo de administración en una zona común"""
+type AmenityCouncilQuotaResponse {
+  isCouncilMember: Boolean!
+  bookingsPerYear: Int!
+  used: Int!
+  remaining: Int!
+  year: Int!
+}
+
+input CreateAmenityBookingInput {
+  amenityId: String!
+
+  """Inicio de la reserva (ISO 8601)"""
+  startAt: String!
+
+  """
+  Fin de la reserva (ISO 8601). Exclusivo: 12:00 no choca con una reserva que empieza a las 12:00
+  """
+  endAt: String!
+  attendees: Int! = 1
+
+  """Usar el cupo anual del consejo si aplica"""
+  useCouncilFreeQuota: Boolean! = true
+
+  """Motivo del evento (ej. cumpleaños)"""
+  purpose: String
+  notes: String
+
+  """Unidad a nombre de la cual se reserva (solo staff)"""
+  unitId: String
+}
+
+input RejectAmenityBookingInput {
+  bookingId: String!
+
+  """Motivo del rechazo. Obligatorio: el residente debe saber por qué"""
+  reason: String!
+}
+
+input CancelAmenityBookingInput {
+  bookingId: String!
+  reason: String
+}
+
+input ChargeAmenityDamageInput {
+  bookingId: String!
+
+  """Valor a cargar a la unidad"""
+  amount: Float!
+
+  """
+  Qué se dañó y por qué se cobra. Lo ve el residente en su estado de cuenta
+  """
+  description: String!
+}
+
+
+# ── Backend: rama feat/pqrf ──────────────────────────────────────────────────
+# Radicación de peticiones, quejas, reclamos y felicitaciones.
+# Borrar este bloque completo cuando el backend mergee la rama.
+
+"""Tipo de radicado"""
+enum PqrfType {
+  PETICION
+  QUEJA
+  RECLAMO
+  SUGERENCIA
+  FELICITACION
+}
+
+"""Instancia a la que se dirige el radicado"""
+enum PqrfAddressee {
+  ADMINISTRACION
+  CONSEJO
+  AMBOS
+}
+
+"""Estado del radicado"""
+enum PqrfStatus {
+  RADICADO
+  EN_TRAMITE
+  RESUELTO
+}
+
+"""Paso de un destinatario sobre el radicado"""
+type PqrfAcknowledgement {
+  id: String!
+  userId: String!
+  userName: String
+  instance: PqrfAddressee!
+  openedAt: DateTime!
+  resolvedAt: DateTime
+}
+
+type Pqrf {
+  id: String!
+  code: String!
+  consecutive: Int!
+  type: PqrfType!
+  addressee: PqrfAddressee!
+  status: PqrfStatus!
+  subject: String!
+  description: String!
+  residentId: String
+  unitId: String
+  unit: Unit
+  requestedByUserId: String
+  requestedByName: String
+  complexId: String!
+  acknowledgements: [PqrfAcknowledgement!]
+  resolvedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PaginatedPqrfResponse {
+  items: [Pqrf!]!
+  pagination: PaginationReponse!
+}
+
+input CreatePqrfInput {
+  complexId: String!
+  type: PqrfType!
+  addressee: PqrfAddressee! = ADMINISTRACION
+  subject: String!
+  description: String!
+}
+
+input FilterPqrfInput {
+  type: PqrfType
+  status: PqrfStatus
+  addressee: PqrfAddressee
+  search: String
+}
+
+extend type Query {
+  pqrfRequests(complexId: String!, pagination: PaginationInput, filters: FilterPqrfInput): PaginatedPqrfResponse!
+  myPqrfRequests(complexId: String!, pagination: PaginationInput, filters: FilterPqrfInput): PaginatedPqrfResponse!
+  pqrfRequest(pqrfId: String!): Pqrf!
+}
+
+extend type Mutation {
+  createPqrf(input: CreatePqrfInput!): Pqrf!
+  openPqrf(pqrfId: String!): Pqrf!
+  resolvePqrf(pqrfId: String!): Pqrf!
+}
+
+# ── Backend: rama feat/pqrf (consejo de administración) ──────────────────────
+# La marca vive en el rol COUNCIL_ROL; el backend la resuelve como campo del
+# residente. Borrar cuando el backend mergee.
+extend type Resident {
+  """Miembro del consejo de administración"""
+  isCouncilMember: Boolean!
+}
+
+# ── Backend: rama feat/pqrf (plazo y silencio administrativo) ────────────────
+extend type Pqrf {
+  """Hasta cuándo tiene el complejo para resolverlo"""
+  dueAt: DateTime!
+  """Se resolvió solo al vencerse el plazo, a favor de quien radicó"""
+  resolvedBySilence: Boolean!
+}
+
+# ── Backend: quién del consejo responde los PQRF ─────────────────────────────
+# La administración designa qué consejeros responden; los demás leen el
+# radicado sin poder marcarlo. Borrar cuando el backend lo despliegue.
+extend type Pqrf {
+  """Quien consulta puede marcarlo como resuelto"""
+  viewerCanResolve: Boolean!
+  """Quien consulta ya marcó su parte"""
+  viewerHasResolved: Boolean!
+  """Quien consulta es del consejo pero no le toca responderlo"""
+  viewerIsCouncilObserver: Boolean!
+}
+
+# ── Backend: módulo de votaciones ────────────────────────────────────────────
+# El residente vota una vez por unidad (asamblea) o por persona (consejo) y ve
+# los resultados al cerrarse. Borrar cuando el backend lo despliegue.
+
+enum VotingMeetingKind {
+  ASAMBLEA
+  CONSEJO
+}
+
+enum VoteWeighting {
+  COEFFICIENT
+  UNIT
+  MEMBER
+}
+
+enum VoteSecrecy {
+  NOMINAL
+  SECRET
+}
+
+enum VotingQuestionStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+type VotingOption {
+  id: String!
+  questionId: String!
+  position: Int!
+  text: String!
+}
+
+type VotingOptionResult {
+  optionId: String!
+  text: String!
+  votes: Int!
+  weight: Float!
+  share: Float!
+  shareOfEligible: Float!
+}
+
+type VotingResults {
+  weighting: VoteWeighting!
+  eligibleCount: Int!
+  eligibleWeight: Float!
+  votedCount: Int!
+  votedWeight: Float!
+  participation: Float!
+  options: [VotingOptionResult!]!
+  participants: [String!]
+}
+
+type VotingQuestion {
+  id: String!
+  meetingId: String!
+  meeting: VotingMeeting
+  position: Int!
+  text: String!
+  description: String
+  weighting: VoteWeighting!
+  secrecy: VoteSecrecy!
+  status: VotingQuestionStatus!
+  openedAt: DateTime
+  closedAt: DateTime
+  options: [VotingOption!]
+  complexId: String!
+  results: VotingResults
+  myVoteOptionId: String
+  viewerCanVote: Boolean!
+}
+
+type VotingMeeting {
+  id: String!
+  kind: VotingMeetingKind!
+  title: String!
+  description: String
+  scheduledAt: DateTime!
+  questions: [VotingQuestion!]
+  complexId: String!
+}
+
+extend type Query {
+  votingEnabled(complexId: String!): Boolean!
+  myVotingMeetings(complexId: String!): [VotingMeeting!]!
+  votingQuestion(questionId: String!): VotingQuestion!
+}
+
+extend type Mutation {
+  castVote(questionId: String!, optionId: String!): VotingQuestion!
+}
+
+# ── Backend: votaciones — voz y voto del consejo ─────────────────────────────
+extend type VotingQuestion {
+  """Quien consulta es del consejo pero solo tiene voz"""
+  viewerHasVoiceOnly: Boolean!
+}

@@ -12,6 +12,9 @@ import { useAuthStore } from '../store/auth.store';
 import { usePanicStore } from '../store/panic.store';
 import { useSettingsStore } from '../store/settings.store';
 import { useNotificationsStore } from '../store/notifications.store';
+import { usePqrfStore } from '../store/pqrf.store';
+import { useVotingStore } from '../store/voting.store';
+import { fetchVotingEnabled } from '../../infraestructure/services/voting.service';
 import {
   mapSocketNotification,
   type SocketNotificationPayload,
@@ -25,6 +28,15 @@ interface Props {
 // Only resurface unacknowledged alerts younger than this on (re)connect —
 // older ones are stale (e.g. nobody acked overnight) and shouldn't blare.
 const ACTIVE_ALERT_MAX_AGE_MS = 10 * 60 * 1000;
+
+/** Lo que emite el backend cuando cambia el estado de un radicado. */
+interface PqrfUpdatedPayload {
+  pqrfId: string;
+  code: string;
+  status: string;
+  complexId: string;
+  resolvedAt?: string | null;
+}
 
 interface ActivePanicAlert {
   id: string;
@@ -118,6 +130,60 @@ export function SocketProvider({ children }: Props) {
 
     socket.on('connect_error', (err) => {
       if (__DEV__) console.warn('[Socket] connect_error:', err.message);
+    });
+
+    /**
+     * Estado de un radicado PQRF.
+     *
+     * Llega por dos caminos: a la sala del complejo —donde escuchan la
+     * administración y el consejo— y al residente por su canal propio, que no
+     * está en esa sala. El store se encarga de que la lista y la ficha se
+     * repinten sin que nadie recargue.
+     */
+    socket.on('pqrf:updated', (payload: PqrfUpdatedPayload) => {
+      if (__DEV__) console.log('[Socket] pqrf:updated', payload);
+      if (payload.complexId !== cid) return;
+      usePqrfStore.getState().applyUpdate(payload);
+    });
+
+    /**
+     * La administración encendió o apagó las asambleas o las reuniones del
+     * consejo (o el SUPER_ADMIN el módulo): el menú del Home aparece o se va
+     * sin reiniciar la app, y la pantalla de votaciones que esté abierta
+     * recarga.
+     *
+     * Qué ve cada quien depende de si es del consejo, así que no se decide con
+     * los interruptores del aviso: se le vuelve a preguntar al servidor. El
+     * mismo aviso puede llegar dos veces (sala del complejo y canal propio), y
+     * el repetido no dispara otra consulta.
+     */
+    let lastAvailability = '';
+    socket.on('voting:availability', (payload: {
+      complexId: string; moduleEnabled?: boolean; residentsEnabled?: boolean; councilEnabled?: boolean;
+    }) => {
+      if (__DEV__) console.log('[Socket] voting:availability', payload);
+      if (payload.complexId !== cid) return;
+
+      const key = `${payload.moduleEnabled}:${payload.residentsEnabled}:${payload.councilEnabled}`;
+      if (key === lastAvailability) return;
+      lastAvailability = key;
+
+      fetchVotingEnabled(cid)
+        .then(enabled => {
+          const votingStore = useVotingStore.getState();
+          votingStore.setEnabled(enabled);
+          votingStore.bump(`availability:${key}`);
+        })
+        .catch(err => { if (__DEV__) console.warn('[Socket] votingEnabled error:', err?.message); });
+    });
+
+    /**
+     * Se abrió o se cerró una pregunta. Los votos sueltos (`change: 'vote'`)
+     * se ignoran: en plena asamblea serían cientos de recargas por teléfono.
+     */
+    socket.on('voting:updated', (payload: { complexId: string; questionId: string; status: string; change?: string }) => {
+      if (payload.complexId !== cid || payload.change !== 'status') return;
+      useVotingStore.getState().bump(`${payload.questionId}:${payload.status}`);
     });
 
     socket.on('panic:alert:new', (payload: PanicAlertNewPayload) => {
