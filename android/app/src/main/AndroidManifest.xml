@@ -19,6 +19,18 @@
          both, a panic alert is silenced by Do Not Disturb. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
+    <!-- Mascotas: la ficha exige foto y el reporte de convivencia exige
+         evidencia. El backend rechaza ambos sin imagen, así que sin cámara el
+         residente no puede ni registrar ni reportar. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Galería en Android 13+ (API 33+). En versiones anteriores el permiso
+         equivalente es READ_EXTERNAL_STORAGE, que Android 13 ya ignora: por eso
+         va acotado con maxSdkVersion y no se le pide de más a los equipos nuevos. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
