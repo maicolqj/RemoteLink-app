@@ -26,6 +26,8 @@ import { reportPanicDelivered } from './panicAck';
 import apolloClientInstance from '../../data/lib/apollo/client';
 import { DEACTIVATE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useAuthStore } from '../../presentation/store/auth.store';
+import { SCREEN_MODULE } from '../../presentation/constants/modules';
 
 /** Push que pide aprobar el ingreso de otro equipo (contrato §03). */
 export const LOGIN_APPROVAL_TYPE = 'LOGIN_APPROVAL_REQUEST';
@@ -99,6 +101,13 @@ function navigateFromPayload(
   const params = rawParams ? JSON.parse(rawParams) : undefined;
 
   if (!stack) return;
+
+  // Un push viejo sobrevive al apagado del módulo: queda en la bandeja del
+  // sistema y se puede tocar días después. Llevarlo a la pantalla terminaría en
+  // `COMPLEX_MODULE_DISABLED`, así que se deja al residente donde estaba —el
+  // aviso sigue en la bandeja de la app, que sí explica por qué no abre—.
+  const requiredModule = screen ? SCREEN_MODULE[screen] : undefined;
+  if (requiredModule && !useAuthStore.getState().isModuleEnabled(requiredModule)) return;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nav = navigationRef as any;
