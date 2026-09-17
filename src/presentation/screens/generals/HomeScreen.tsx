@@ -472,10 +472,17 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    // Se envuelve en filas de cuatro. Antes era una sola fila con los botones
+    // en `flex: 1`: con cuatro módulos se veía bien, pero al encender el quinto
+    // —votaciones, clasificados— los seis se repartían el mismo ancho y las
+    // etiquetas quedaban cortadas. El ancho fijo hace que el quinto BAJE en vez
+    // de aplastar a los otros cuatro.
+    flexWrap: 'wrap',
     gap: SPACING.sm,
   },
   quickAction: {
-    flex: 1,
+    flexBasis: '22%',
+    flexGrow: 0,
     alignItems: 'center',
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
