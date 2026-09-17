@@ -300,16 +300,40 @@ export default function ListingDetailScreen() {
               <View style={styles.contactRow}>
                 <CustomButtonComponent
                   text="Llamar"
-                  iconLeft={{ name: 'call', type: 'material' }}
+                  iconLeft={{
+                    name: 'call',
+                    type: 'material',
+                    color: colors.textInverse,
+                  }}
                   onPress={() => openPhone(contact.phone!, false)}
-                  style={gs.flex1}
+                  style={[
+                    styles.actionBtn,
+                    gs.flex1,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  textStyle={{
+                    color: colors.textInverse,
+                    fontWeight: FONT_WEIGHT.semibold,
+                  }}
                 />
                 {contact.preference === 'WHATSAPP' && (
                   <CustomButtonComponent
                     text="WhatsApp"
-                    iconLeft={{ name: 'chat', type: 'material' }}
+                    iconLeft={{
+                      name: 'chat',
+                      type: 'material',
+                      color: colors.textInverse,
+                    }}
                     onPress={() => openPhone(contact.phone!, true)}
-                    style={gs.flex1}
+                    style={[
+                      styles.actionBtn,
+                      gs.flex1,
+                      { backgroundColor: colors.success },
+                    ]}
+                    textStyle={{
+                      color: colors.textInverse,
+                      fontWeight: FONT_WEIGHT.semibold,
+                    }}
                   />
                 )}
               </View>
@@ -347,10 +371,21 @@ export default function ListingDetailScreen() {
                     ? 'Volver a avisarle que te interesa'
                     : 'Me interesa'
                 }
-                iconLeft={{ name: 'waving-hand', type: 'material' }}
-                onPress={() => onInterested()}
+                iconLeft={{
+                  name: 'waving-hand',
+                  type: 'material',
+                  color: colors.textInverse,
+                }}
+                onPress={onInterested}
                 isLoading={busy}
                 disabled={listing.status !== 'PUBLISHED'}
+                loaderColor={colors.textInverse}
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+                textStyle={{
+                  color: colors.textInverse,
+                  fontSize: FONT_SIZE.md,
+                  fontWeight: FONT_WEIGHT.semibold,
+                }}
               />
 
               <TouchableOpacity onPress={onReport} style={styles.reportBtn}>
@@ -367,8 +402,18 @@ export default function ListingDetailScreen() {
           {listing.viewerIsOwner && (
             <CustomButtonComponent
               text="Administrar mis avisos"
-              iconLeft={{ name: 'sell', type: 'material' }}
+              iconLeft={{
+                name: 'sell',
+                type: 'material',
+                color: colors.textInverse,
+              }}
               onPress={() => navigation.navigate('MyListings')}
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              textStyle={{
+                color: colors.textInverse,
+                fontSize: FONT_SIZE.md,
+                fontWeight: FONT_WEIGHT.semibold,
+              }}
             />
           )}
         </View>
@@ -400,6 +445,12 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     marginTop: SPACING.xs,
   },
+  primaryBtn: {
+    marginTop: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.sm,
+  },
+  actionBtn: { borderRadius: RADIUS.lg, paddingVertical: SPACING.xs },
   reportBtn: {
     flexDirection: 'row',
     alignItems: 'center',

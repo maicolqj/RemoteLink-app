@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -45,6 +45,13 @@ import {
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'ListingForm'>;
 
+/** Miles con punto mientras se escribe: $800.000 se lee, 800000 se descifra. */
+const formatThousands = (raw: string): string => {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('es-CO');
+};
+
 /**
  * Publicar un aviso.
  *
@@ -68,6 +75,7 @@ export default function ListingFormScreen() {
 
   const categories = useMarketplaceStore(state => state.categories);
   const settings = useMarketplaceStore(state => state.settings);
+  const init = useMarketplaceStore(state => state.init);
 
   const [type, setType] = useState<ListingType>('PRODUCT');
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -80,6 +88,16 @@ export default function ListingFormScreen() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
   const [busy, setBusy] = useState(false);
+
+  /**
+   * Las categorías se cargan aquí también y no solo en la vitrina: a esta
+   * pantalla se puede llegar directo desde "Mis publicaciones", y sin
+   * categorías no hay nada que elegir — el aviso no se podría publicar y no
+   * quedaría claro por qué.
+   */
+  useEffect(() => {
+    if (complexId && categories.length === 0) init(complexId);
+  }, [complexId, categories.length, init]);
 
   const maxPhotos = settings?.maxImagesPerListing ?? 5;
   const needsPhotos = type !== 'WANTED';
@@ -116,7 +134,9 @@ export default function ListingFormScreen() {
       return showError('Describe un poco mejor lo que publicas.');
     }
     if (needsPhotos && photos.length === 0) {
-      return showError('Agrega al menos una foto: sin foto casi nadie abre un aviso.');
+      return showError(
+        'Agrega al menos una foto: sin foto casi nadie abre un aviso.',
+      );
     }
     if (needsAmount && !priceAmount.trim()) {
       return showError('Escribe el precio o cámbialo a “a convenir”.');
@@ -136,7 +156,7 @@ export default function ListingFormScreen() {
           description: description.trim(),
           priceType,
           priceAmount: needsAmount
-            ? Number(priceAmount.replace(/[^\d]/g, ''))
+            ? Number(priceAmount.replace(/\D/g, ''))
             : undefined,
           condition: type === 'PRODUCT' && condition ? condition : undefined,
           contactPreference: showPhone ? 'WHATSAPP' : 'IN_APP',
@@ -164,6 +184,16 @@ export default function ListingFormScreen() {
     navigation, showError, showSuccess,
   ]);
 
+  const sectionTitle = (text: string, first = false) => (
+    <CustomTextComponent
+      fontSize={FONT_SIZE.md}
+      fontWeight={FONT_WEIGHT.semibold as any}
+      color={colors.textPrimary}
+      style={first ? undefined : styles.sectionTitle}>
+      {text}
+    </CustomTextComponent>
+  );
+
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
@@ -178,118 +208,188 @@ export default function ListingFormScreen() {
           { paddingBottom: insets.bottom + SPACING.xxl },
         ]}
         keyboardShouldPersistTaps="handled">
-        <Field label="¿Qué vas a publicar?">
-          <View style={styles.chips}>
-            {availableTypes.map(item => (
-              <Chip
+        {sectionTitle('¿Qué vas a publicar?', true)}
+        <View style={styles.chips}>
+          {availableTypes.map(item => {
+            const isActive = type === item;
+            return (
+              <TouchableOpacity
                 key={item}
-                label={LISTING_TYPE_LABEL[item]}
-                selected={type === item}
                 onPress={() => setType(item)}
-              />
-            ))}
-          </View>
-        </Field>
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: isActive ? colors.primary : colors.surface,
+                  },
+                ]}>
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  color={isActive ? colors.textInverse : colors.textPrimary}>
+                  {LISTING_TYPE_LABEL[item]}
+                </CustomTextComponent>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-        <Field label="Categoría">
+        {sectionTitle('Categoría')}
+        {categories.length === 0 ? (
+          <CustomTextComponent
+            fontSize={FONT_SIZE.sm}
+            color={colors.textTertiary}>
+            Cargando las categorías del conjunto…
+          </CustomTextComponent>
+        ) : (
           <View style={styles.chips}>
-            {categories.map(category => (
-              <Chip
-                key={category.id}
-                label={category.name}
-                selected={categoryId === category.id}
-                onPress={() => setCategoryId(category.id)}
-              />
-            ))}
+            {categories.map(category => {
+              const isActive = categoryId === category.id;
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  onPress={() => setCategoryId(category.id)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isActive
+                        ? colors.primary
+                        : colors.surface,
+                    },
+                  ]}>
+                  <CustomTextComponent
+                    fontSize={FONT_SIZE.sm}
+                    color={isActive ? colors.textInverse : colors.textPrimary}>
+                    {category.name}
+                  </CustomTextComponent>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </Field>
+        )}
 
+        {sectionTitle('Título')}
         <CustomInputComponent
-          nameInput="Título"
           value={title}
           onChangeText={setTitle}
           placeholder="Nevera Haceb de 320 litros"
           maxLength={120}
         />
 
+        {sectionTitle('Descripción')}
         <CustomInputComponent
-          nameInput="Descripción"
           value={description}
           onChangeText={setDescription}
           placeholder="Cuéntale a tu vecino en qué estado está y por qué lo vendes"
           multiline
-          numberOfLines={4}
+          numberOfLines={5}
+          maxLength={4000}
         />
 
-        <Field label="Precio">
-          <View style={styles.chips}>
-            {PRICE_TYPES.map(item => (
-              <Chip
+        {sectionTitle('Precio')}
+        <View style={styles.chips}>
+          {PRICE_TYPES.map(item => {
+            const isActive = priceType === item;
+            return (
+              <TouchableOpacity
                 key={item}
-                label={PRICE_TYPE_LABEL[item]}
-                selected={priceType === item}
                 onPress={() => setPriceType(item)}
-              />
-            ))}
-          </View>
-        </Field>
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: isActive ? colors.primary : colors.surface,
+                  },
+                ]}>
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  color={isActive ? colors.textInverse : colors.textPrimary}>
+                  {PRICE_TYPE_LABEL[item]}
+                </CustomTextComponent>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         {needsAmount && (
           <CustomInputComponent
-            nameInput="Valor"
             value={priceAmount}
-            onChangeText={setPriceAmount}
-            placeholder="800000"
+            onChangeText={raw => setPriceAmount(formatThousands(raw))}
+            placeholder="800.000"
             keyboardType="numeric"
+            leftIcon={{ name: 'attach-money', color: colors.textTertiary }}
           />
         )}
 
         {type === 'PRODUCT' && (
-          <Field label="Estado del artículo">
+          <>
+            {sectionTitle('Estado del artículo')}
             <View style={styles.chips}>
-              {CONDITIONS.map(item => (
-                <Chip
-                  key={item}
-                  label={CONDITION_LABEL[item]}
-                  selected={condition === item}
-                  onPress={() =>
-                    setCondition(condition === item ? null : item)
-                  }
-                />
-              ))}
+              {CONDITIONS.map(item => {
+                const isActive = condition === item;
+                return (
+                  <TouchableOpacity
+                    key={item}
+                    onPress={() => setCondition(isActive ? null : item)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: isActive
+                          ? colors.primary
+                          : colors.surface,
+                      },
+                    ]}>
+                    <CustomTextComponent
+                      fontSize={FONT_SIZE.sm}
+                      color={
+                        isActive ? colors.textInverse : colors.textPrimary
+                      }>
+                      {CONDITION_LABEL[item]}
+                    </CustomTextComponent>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </Field>
+          </>
         )}
 
-        <Field
-          label={`Fotos${needsPhotos ? '' : ' (opcionales)'}`}
-          hint={`Hasta ${maxPhotos}. La primera es la que se ve en la vitrina.`}>
-          <View style={styles.photos}>
-            {photos.map((photo, index) => (
-              <View key={`${photo.uri}-${index}`} style={styles.photoBox}>
-                <Image source={{ uri: photo.uri }} style={styles.photo} />
-                <TouchableOpacity
-                  onPress={() =>
-                    setPhotos(prev => prev.filter((_, i) => i !== index))
-                  }
-                  style={[styles.removePhoto, { backgroundColor: colors.error }]}>
-                  <Icon name="close" size={13} color={colors.textInverse} />
-                </TouchableOpacity>
-              </View>
-            ))}
+        {sectionTitle(needsPhotos ? 'Fotos' : 'Fotos (opcionales)')}
+        <CustomTextComponent
+          fontSize={FONT_SIZE.sm}
+          color={colors.textSecondary}>
+          Hasta {maxPhotos}. La primera es la que se ve en la vitrina.
+        </CustomTextComponent>
 
-            {photos.length < maxPhotos && (
+        <View style={styles.photos}>
+          {photos.map((photo, index) => (
+            <View key={`${photo.uri}-${index}`} style={styles.photoBox}>
+              <Image source={{ uri: photo.uri }} style={styles.photo} />
               <TouchableOpacity
-                onPress={addPhotos}
-                style={[
-                  styles.addPhoto,
-                  { borderColor: colors.border, backgroundColor: colors.surface },
-                ]}>
-                <Icon name="add-a-photo" size={22} color={colors.primary} />
+                onPress={() =>
+                  setPhotos(prev => prev.filter((_, i) => i !== index))
+                }
+                style={[styles.removePhoto, { backgroundColor: colors.error }]}>
+                <Icon name="close" size={13} color={colors.textInverse} />
               </TouchableOpacity>
-            )}
-          </View>
-        </Field>
+            </View>
+          ))}
+
+          {photos.length < maxPhotos && (
+            <TouchableOpacity
+              onPress={addPhotos}
+              style={[
+                styles.addPhoto,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: colors.primarySurface,
+                },
+              ]}>
+              <Icon name="add-a-photo" size={22} color={colors.primary} />
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                color={colors.primary}>
+                Agregar
+              </CustomTextComponent>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/*
           Mostrar el teléfono es una decisión aparte de publicar: nace apagado
@@ -297,17 +397,21 @@ export default function ListingFormScreen() {
           todo el conjunto.
         */}
         {settings?.allowPhoneContact !== false && (
-          <View style={[styles.switchRow, { backgroundColor: colors.surface }]}>
+          <View
+            style={[
+              styles.switchRow,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}>
             <View style={gs.flex1}>
               <CustomTextComponent
-                fontSize={FONT_SIZE.sm}
+                fontSize={FONT_SIZE.md}
                 fontWeight={FONT_WEIGHT.medium as any}
                 color={colors.textPrimary}>
                 Mostrar mi teléfono
               </CustomTextComponent>
               <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                color={colors.textTertiary}>
+                fontSize={FONT_SIZE.sm}
+                color={colors.textSecondary}>
                 Si lo dejas apagado, tus vecinos te avisan por la app y tú
                 decides si les devuelves el contacto.
               </CustomTextComponent>
@@ -318,14 +422,21 @@ export default function ListingFormScreen() {
 
         <TouchableOpacity
           onPress={() => setAcceptTerms(!acceptTerms)}
-          style={[styles.terms, { backgroundColor: colors.surface }]}>
+          activeOpacity={0.8}
+          style={[
+            styles.terms,
+            {
+              backgroundColor: colors.surface,
+              borderColor: acceptTerms ? colors.primary : colors.border,
+            },
+          ]}>
           <Icon
             name={acceptTerms ? 'check-box' : 'check-box-outline-blank'}
-            size={20}
+            size={22}
             color={acceptTerms ? colors.primary : colors.textTertiary}
           />
           <CustomTextComponent
-            fontSize={FONT_SIZE.xs}
+            fontSize={FONT_SIZE.sm}
             color={colors.textSecondary}
             style={gs.flex1}>
             {settings?.termsText ??
@@ -333,98 +444,51 @@ export default function ListingFormScreen() {
           </CustomTextComponent>
         </TouchableOpacity>
 
-        <CustomTextComponent
-          fontSize={FONT_SIZE.xs}
-          color={colors.textTertiary}
-          style={styles.hint}>
-          {moderationHint(settings?.moderationMode)}
-        </CustomTextComponent>
+        <View style={[styles.notice, { backgroundColor: colors.primarySurface }]}>
+          <Icon name="info-outline" size={16} color={colors.primary} />
+          <CustomTextComponent
+            fontSize={FONT_SIZE.sm}
+            color={colors.textSecondary}
+            style={gs.flex1}>
+            {moderationHint(settings?.moderationMode)}
+          </CustomTextComponent>
+        </View>
 
         <CustomButtonComponent
           text="Publicar"
-          iconLeft={{ name: 'send', type: 'material' }}
-          onPress={() => submit()}
+          onPress={submit}
           isLoading={busy}
+          disabled={busy}
+          loaderColor={colors.textInverse}
+          iconLeft={{ name: 'send', type: 'material', color: colors.textInverse }}
+          style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          textStyle={{
+            color: colors.textInverse,
+            fontSize: FONT_SIZE.md,
+            fontWeight: FONT_WEIGHT.semibold,
+          }}
         />
       </ScrollView>
     </View>
   );
 }
 
-// ─── Piezas ──────────────────────────────────────────────────────────────────
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={styles.field}>
-      <CustomTextComponent
-        fontSize={FONT_SIZE.sm}
-        fontWeight={FONT_WEIGHT.medium as any}
-        color={colors.textPrimary}>
-        {label}
-      </CustomTextComponent>
-      {hint && (
-        <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-          {hint}
-        </CustomTextComponent>
-      )}
-      {children}
-    </View>
-  );
-}
-
-function Chip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.chip,
-        {
-          backgroundColor: selected ? colors.primarySurface : colors.surface,
-          borderColor: selected ? colors.primary : colors.border,
-        },
-      ]}>
-      <CustomTextComponent
-        fontSize={FONT_SIZE.xs}
-        color={selected ? colors.primary : colors.textSecondary}>
-        {label}
-      </CustomTextComponent>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { padding: SPACING.lg, gap: SPACING.md },
-  field: { gap: SPACING.xs },
+  content: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xxl,
+    gap: SPACING.sm,
+  },
+  sectionTitle: { marginTop: SPACING.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chip: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
+    borderRadius: RADIUS.md,
   },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   photoBox: { position: 'relative' },
-  photo: { width: 76, height: 76, borderRadius: RADIUS.md },
+  photo: { width: 84, height: 84, borderRadius: RADIUS.md },
   removePhoto: {
     position: 'absolute',
     top: -6,
@@ -436,13 +500,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addPhoto: {
-    width: 76,
-    height: 76,
+    width: 84,
+    height: 84,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
   switchRow: {
     flexDirection: 'row',
@@ -450,6 +515,8 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginTop: SPACING.md,
   },
   terms: {
     flexDirection: 'row',
@@ -457,6 +524,20 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginTop: SPACING.sm,
   },
-  hint: { textAlign: 'center' },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.xs,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.md,
+    marginTop: SPACING.sm,
+  },
+  primaryBtn: {
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.sm,
+  },
 });
