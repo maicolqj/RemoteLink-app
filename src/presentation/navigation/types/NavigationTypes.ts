@@ -19,6 +19,18 @@ export type HomeStackParamList = {
   };
   Packages: undefined;
   PackageDetail: { packageId: string };
+  // Zonas comunes: catálogo, ficha con disponibilidad y las reservas propias.
+  Amenities: undefined;
+  AmenityDetail: { amenityId: string };
+  MyAmenityBookings: undefined;
+  AmenityBookingDetail: { bookingId: string };
+  // PQRF: los radicados propios y, para el consejo, los que le dirigieron.
+  Pqrf: undefined;
+  PqrfCreate: undefined;
+  PqrfDetail: { pqrfId: string };
+  // Votaciones: solo aparecen si la administración las habilitó.
+  Voting: undefined;
+  VotingQuestion: { questionId: string };
   VehicleDetail: { vehicleId: string };
   AccessRequestDetail: { accessRequestId: string };
   // Finance notifications route here; the screen self-loads the resident's unit.

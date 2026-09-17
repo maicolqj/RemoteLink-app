@@ -29,6 +29,8 @@ import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
+import { API_URL } from '../../../data/lib/constants';
+import { BuildBadge } from '../../components/BuildBadge';
 // Misma fuente que el pie del perfil y que `versionName` en build.gradle:
 // se bumpea con `yarn version` y los tres quedan sincronizados.
 import { version as APP_VERSION } from '../../../../package.json';

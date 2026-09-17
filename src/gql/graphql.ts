@@ -102,6 +102,276 @@ export type AdminResetUserPasswordInput = {
   userId: Scalars['String']['input'];
 };
 
+/** Zona común reservable del complejo residencial */
+export type Amenity = {
+  __typename?: 'Amenity';
+  advanceBookingDays: Scalars['Int']['output'];
+  /** Si es true, una unidad con saldo vencido no puede reservar */
+  blockBookingsOnDebt: Scalars['Boolean']['output'];
+  bookingMode: AmenityBookingMode;
+  cancellationDeadlineDays: Scalars['Int']['output'];
+  /** Se suman a cancellationDeadlineDays para formar el plazo real */
+  cancellationDeadlineHours: Scalars['Int']['output'];
+  capacity: Scalars['Int']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
+  councilFreeBookingsPerYear: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  durationUnit: AmenityDurationUnit;
+  feeAmount: Scalars['Float']['output'];
+  feeType: AmenityFeeType;
+  id: Scalars['ID']['output'];
+  /** URLs de fotos de la zona (R2) */
+  imageUrls?: Maybe<Array<Scalars['String']['output']>>;
+  /** Porcentaje de la tarifa que se retiene al cancelar fuera de plazo */
+  lateCancellationFeePercent: Scalars['Int']['output'];
+  location?: Maybe<Scalars['String']['output']>;
+  maxActiveBookingsPerUnit: Scalars['Int']['output'];
+  maxBookingsPerUnitPerMonth: Scalars['Int']['output'];
+  maxDurationMinutes: Scalars['Int']['output'];
+  maxSimultaneousBookings: Scalars['Int']['output'];
+  minAdvanceDays: Scalars['Int']['output'];
+  minDurationMinutes: Scalars['Int']['output'];
+  /** Nombre visible (ej. Salón Comunal Piso 1) */
+  name: Scalars['String']['output'];
+  /** Si es true la reserva nace en PENDING y la administración debe aprobarla */
+  requiresApproval: Scalars['Boolean']['output'];
+  rules?: Maybe<Scalars['String']['output']>;
+  schedules?: Maybe<Array<AmenitySchedule>>;
+  slotDurationMinutes: Scalars['Int']['output'];
+  status: AmenityStatus;
+  type: AmenityType;
+  updatedAt: Scalars['DateTime']['output'];
+  updatedByUserId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Disponibilidad de una zona común en un día calendario */
+export type AmenityAvailabilityDay = {
+  __typename?: 'AmenityAvailabilityDay';
+  busy: Array<AmenityBusyRange>;
+  closedReason?: Maybe<Scalars['String']['output']>;
+  /** Fecha en formato YYYY-MM-DD */
+  date: Scalars['String']['output'];
+  isOpen: Scalars['Boolean']['output'];
+  openWindows: Array<AmenityTimeWindow>;
+  slots: Array<AmenitySlot>;
+};
+
+export type AmenityAvailabilityInput = {
+  amenityId: Scalars['String']['input'];
+  /** Primer día a consultar (YYYY-MM-DD) */
+  from: Scalars['String']['input'];
+  /** Último día a consultar, inclusive (YYYY-MM-DD) */
+  to: Scalars['String']['input'];
+};
+
+/** Disponibilidad de una zona común en un rango de días */
+export type AmenityAvailabilityResponse = {
+  __typename?: 'AmenityAvailabilityResponse';
+  amenityId: Scalars['String']['output'];
+  days: Array<AmenityAvailabilityDay>;
+};
+
+/** Bloqueo puntual de una zona común (mantenimiento, evento) */
+export type AmenityBlackout = {
+  __typename?: 'AmenityBlackout';
+  amenity?: Maybe<Amenity>;
+  amenityId: Scalars['String']['output'];
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  endAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  /** Motivo visible para el residente */
+  reason: Scalars['String']['output'];
+  startAt: Scalars['DateTime']['output'];
+};
+
+/** Reserva de zona común hecha por una unidad */
+export type AmenityBooking = {
+  __typename?: 'AmenityBooking';
+  accessCode?: Maybe<Scalars['String']['output']>;
+  amenity?: Maybe<Amenity>;
+  amenityId: Scalars['String']['output'];
+  approvedAt?: Maybe<Scalars['DateTime']['output']>;
+  approvedByUserId?: Maybe<Scalars['String']['output']>;
+  attendees: Scalars['Int']['output'];
+  cancellationReason?: Maybe<Scalars['String']['output']>;
+  cancelledAt?: Maybe<Scalars['DateTime']['output']>;
+  cancelledByUserId?: Maybe<Scalars['String']['output']>;
+  checkInAt?: Maybe<Scalars['DateTime']['output']>;
+  checkOutAt?: Maybe<Scalars['DateTime']['output']>;
+  checkedInByUserId?: Maybe<Scalars['String']['output']>;
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  damageAmount: Scalars['Float']['output'];
+  damageChargeId?: Maybe<Scalars['String']['output']>;
+  damageChargedAt?: Maybe<Scalars['DateTime']['output']>;
+  damageChargedByUserId?: Maybe<Scalars['String']['output']>;
+  damageDescription?: Maybe<Scalars['String']['output']>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  endAt: Scalars['DateTime']['output'];
+  feeAmount: Scalars['Float']['output'];
+  feeChargeId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  /** Nació gratis por el cupo anual del consejo de administración */
+  isCouncilFreeBooking: Scalars['Boolean']['output'];
+  lateCancellationAmount: Scalars['Float']['output'];
+  lateCancellationChargeId?: Maybe<Scalars['String']['output']>;
+  notes?: Maybe<Scalars['String']['output']>;
+  purpose?: Maybe<Scalars['String']['output']>;
+  rejectionReason?: Maybe<Scalars['String']['output']>;
+  reminderSentAt?: Maybe<Scalars['DateTime']['output']>;
+  requestedByName?: Maybe<Scalars['String']['output']>;
+  requestedByUserId?: Maybe<Scalars['String']['output']>;
+  residentId?: Maybe<Scalars['String']['output']>;
+  startAt: Scalars['DateTime']['output'];
+  status: AmenityBookingStatus;
+  unit?: Maybe<Unit>;
+  unitId: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Modo en que se reservan las franjas horarias de la zona común */
+export type AmenityBookingMode =
+  | 'RANGE'
+  | 'SLOT';
+
+/** Estado de la reserva de zona común */
+export type AmenityBookingStatus =
+  | 'APPROVED'
+  | 'CANCELLED'
+  | 'CHECKED_IN'
+  | 'COMPLETED'
+  | 'EXPIRED'
+  | 'NO_SHOW'
+  | 'PENDING'
+  | 'REJECTED';
+
+/** Intervalo ocupado por una reserva activa */
+export type AmenityBusyRange = {
+  __typename?: 'AmenityBusyRange';
+  bookingsCount: Scalars['Int']['output'];
+  endAt: Scalars['DateTime']['output'];
+  startAt: Scalars['DateTime']['output'];
+};
+
+/** Cupo anual del consejo de administración en una zona común */
+export type AmenityCouncilQuotaResponse = {
+  __typename?: 'AmenityCouncilQuotaResponse';
+  /** Reservas gratis al año que concede la zona. 0 = no concede el beneficio */
+  bookingsPerYear: Scalars['Int']['output'];
+  /** Quien pregunta está marcado como miembro del consejo */
+  isCouncilMember: Scalars['Boolean']['output'];
+  /** Cuántas le quedan este año en esta zona */
+  remaining: Scalars['Int']['output'];
+  /** Cuántas lleva usadas este año en esta zona */
+  used: Scalars['Int']['output'];
+  /** Año calendario sobre el que se cuenta */
+  year: Scalars['Int']['output'];
+};
+
+/** Unidad en que se expresan las duraciones de la zona común */
+export type AmenityDurationUnit =
+  | 'DAYS'
+  | 'HOURS';
+
+/** Forma de cobro de la reserva de zona común */
+export type AmenityFeeType =
+  | 'FREE'
+  | 'PER_BOOKING'
+  | 'PER_HOUR';
+
+/** Horario semanal de apertura de una zona común */
+export type AmenitySchedule = {
+  __typename?: 'AmenitySchedule';
+  amenity?: Maybe<Amenity>;
+  amenityId: Scalars['String']['output'];
+  /** Hora de cierre en formato HH:mm */
+  closeTime: Scalars['String']['output'];
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  /** 0=domingo, 1=lunes … 6=sábado */
+  dayOfWeek: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  /** Hora de apertura en formato HH:mm */
+  openTime: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Horario especial de una zona común para una fecha puntual */
+export type AmenityScheduleException = {
+  __typename?: 'AmenityScheduleException';
+  amenity?: Maybe<Amenity>;
+  amenityId: Scalars['String']['output'];
+  /** Hora de cierre HH:mm */
+  closeTime?: Maybe<Scalars['String']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  /** Fecha en formato YYYY-MM-DD */
+  date: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  /** true: la zona no abre ese día, sin importar el horario semanal */
+  isClosed: Scalars['Boolean']['output'];
+  /** Hora de apertura HH:mm */
+  openTime?: Maybe<Scalars['String']['output']>;
+  reason?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type AmenityScheduleInput = {
+  /** Hora de cierre HH:mm */
+  closeTime: Scalars['String']['input'];
+  /** 0=domingo, 1=lunes … 6=sábado */
+  dayOfWeek: Scalars['Int']['input'];
+  /** Hora de apertura HH:mm */
+  openTime: Scalars['String']['input'];
+};
+
+/** Franja reservable de una zona común */
+export type AmenitySlot = {
+  __typename?: 'AmenitySlot';
+  capacityTotal: Scalars['Int']['output'];
+  capacityUsed: Scalars['Int']['output'];
+  endAt: Scalars['DateTime']['output'];
+  isAvailable: Scalars['Boolean']['output'];
+  startAt: Scalars['DateTime']['output'];
+};
+
+/** Estado operativo de la zona común */
+export type AmenityStatus =
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'MAINTENANCE';
+
+/** Ventana de apertura de la zona común en un día */
+export type AmenityTimeWindow = {
+  __typename?: 'AmenityTimeWindow';
+  endAt: Scalars['DateTime']['output'];
+  startAt: Scalars['DateTime']['output'];
+};
+
+/** Tipo de zona común del complejo residencial */
+export type AmenityType =
+  | 'CANCHA'
+  | 'COWORKING'
+  | 'GIMNASIO'
+  | 'OTRO'
+  | 'PARQUE_INFANTIL'
+  | 'PISCINA'
+  | 'SALON_COMUNAL'
+  | 'SAUNA'
+  | 'TEATRINO'
+  | 'TERRAZA'
+  | 'ZONA_BBQ';
+
 export type ApplyMoraInput = {
   complexId: Scalars['String']['input'];
   graceDays: Scalars['Float']['input'];
@@ -198,6 +468,8 @@ export type AuditAction =
 
 /** Tipo de entidad afectada en el historial de auditoría */
 export type AuditEntityType =
+  | 'Amenity'
+  | 'AmenityBooking'
   | 'Building'
   | 'CallLog'
   | 'FeeCharge'
@@ -206,6 +478,7 @@ export type AuditEntityType =
   | 'ParkingConfig'
   | 'ParkingRecord'
   | 'Payment'
+  | 'Pqrf'
   | 'PucAccount'
   | 'Resident'
   | 'ResidentialComplex'
@@ -218,7 +491,9 @@ export type AuditEntityType =
   | 'Vehicle'
   | 'Visit'
   | 'Visitor'
-  | 'VisitorVehicle';
+  | 'VisitorVehicle'
+  | 'VotingMeeting'
+  | 'VotingQuestion';
 
 /** Registro de auditoría de una acción realizada en el sistema */
 export type AuditLog = {
@@ -370,6 +645,11 @@ export type CallOutcome =
   | 'MISSED'
   | 'REJECTED';
 
+export type CancelAmenityBookingInput = {
+  bookingId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type ChangeParentResponse = {
   __typename?: 'ChangeParentResponse';
   /** Number of roles affected by this change */
@@ -400,6 +680,14 @@ export type ChangePasswordResponse = {
   changedAt?: Maybe<Scalars['DateTime']['output']>;
   message: Scalars['String']['output'];
   success: Scalars['Boolean']['output'];
+};
+
+export type ChargeAmenityDamageInput = {
+  /** Valor a cargar a la unidad */
+  amount: Scalars['Float']['input'];
+  bookingId: Scalars['String']['input'];
+  /** Qué se dañó y por qué se cobra. Lo ve el residente en su estado de cuenta */
+  description: Scalars['String']['input'];
 };
 
 /** Método de cálculo del monto por unidad en una regla de emisión */
@@ -612,10 +900,13 @@ export type ComplexModule =
   | 'PARKING_BILLING'
   | 'PARKING_ROTATION'
   | 'PERSONAL'
+  | 'PQRF'
   | 'RESIDENTES'
   | 'UNIDADES'
   | 'VEHICULOS'
-  | 'VISITAS';
+  | 'VISITAS'
+  | 'VOTACIONES'
+  | 'ZONAS_COMUNES';
 
 /** Plan de suscripción del complejo residencial */
 export type ComplexPlan =
@@ -697,6 +988,76 @@ export type CreateAdminUserInput = {
   role: ValidRoles;
 };
 
+export type CreateAmenityBlackoutInput = {
+  amenityId: Scalars['String']['input'];
+  /** Fin del bloqueo (ISO 8601) */
+  endAt: Scalars['String']['input'];
+  /** Motivo visible para el residente */
+  reason: Scalars['String']['input'];
+  /** Inicio del bloqueo (ISO 8601) */
+  startAt: Scalars['String']['input'];
+};
+
+export type CreateAmenityBookingInput = {
+  amenityId: Scalars['String']['input'];
+  attendees?: Scalars['Int']['input'];
+  /** Fin de la reserva (ISO 8601). Exclusivo: 12:00 no choca con una reserva que empieza a las 12:00 */
+  endAt: Scalars['String']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  /** Motivo del evento (ej. cumpleaños) */
+  purpose?: InputMaybe<Scalars['String']['input']>;
+  /** Inicio de la reserva (ISO 8601) */
+  startAt: Scalars['String']['input'];
+  /** Unidad a nombre de la cual se reserva (solo staff) */
+  unitId?: InputMaybe<Scalars['String']['input']>;
+  /** Usar el cupo anual del consejo si aplica */
+  useCouncilFreeQuota?: Scalars['Boolean']['input'];
+};
+
+export type CreateAmenityInput = {
+  advanceBookingDays?: Scalars['Int']['input'];
+  blockBookingsOnDebt?: Scalars['Boolean']['input'];
+  bookingMode?: AmenityBookingMode;
+  /** Días antes del inicio en que aún se puede cancelar sin quedar con el cobro */
+  cancellationDeadlineDays?: Scalars['Int']['input'];
+  /** Horas que se suman al plazo de cancelación en días */
+  cancellationDeadlineHours?: Scalars['Int']['input'];
+  /** Aforo por reserva. 0 = sin control */
+  capacity?: Scalars['Int']['input'];
+  complexId: Scalars['String']['input'];
+  /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
+  councilFreeBookingsPerYear?: Scalars['Int']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  durationUnit?: AmenityDurationUnit;
+  feeAmount?: Scalars['Float']['input'];
+  feeType?: AmenityFeeType;
+  imageUrls?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** % de la tarifa que se retiene al cancelar fuera de plazo */
+  lateCancellationFeePercent?: Scalars['Int']['input'];
+  location?: InputMaybe<Scalars['String']['input']>;
+  /** 0 = sin límite */
+  maxActiveBookingsPerUnit?: Scalars['Int']['input'];
+  /** 0 = sin límite */
+  maxBookingsPerUnitPerMonth?: Scalars['Int']['input'];
+  /** Solo RANGE: duración máxima en minutos. El rango válido depende de durationUnit */
+  maxDurationMinutes?: Scalars['Int']['input'];
+  /** Reservas que caben a la misma hora (ej. 4 asadores) */
+  maxSimultaneousBookings?: Scalars['Int']['input'];
+  /** Anticipación mínima en días. 0 = se puede reservar para hoy */
+  minAdvanceDays?: Scalars['Int']['input'];
+  /** Solo RANGE: duración mínima en minutos. El rango válido depende de durationUnit */
+  minDurationMinutes?: Scalars['Int']['input'];
+  name: Scalars['String']['input'];
+  requiresApproval?: Scalars['Boolean']['input'];
+  /** Reglamento de uso que ve el residente al reservar */
+  rules?: InputMaybe<Scalars['String']['input']>;
+  schedules?: InputMaybe<Array<AmenityScheduleInput>>;
+  /** Solo SLOT: minutos de cada bloque. El rango válido depende de durationUnit */
+  slotDurationMinutes?: Scalars['Int']['input'];
+  status?: AmenityStatus;
+  type?: AmenityType;
+};
+
 export type CreateBuildingInput = {
   /** ID del complejo */
   complexId: Scalars['String']['input'];
@@ -751,6 +1112,12 @@ export type CreateComplexInput = {
   password?: InputMaybe<Scalars['String']['input']>;
   phoneNumber?: InputMaybe<Scalars['String']['input']>;
   plan?: ComplexPlan;
+  /** Horas entre recordatorios. 0 = sin recordatorios */
+  pqrfReminderIntervalHours?: InputMaybe<Scalars['Int']['input']>;
+  /** Días antes del vencimiento en que empiezan los recordatorios */
+  pqrfReminderLeadDays?: InputMaybe<Scalars['Int']['input']>;
+  /** Días para resolver un PQRF (calendario) */
+  pqrfResolutionDays?: InputMaybe<Scalars['Int']['input']>;
   settings?: InputMaybe<Scalars['JSON']['input']>;
   state: Scalars['String']['input'];
   type?: ComplexType;
@@ -864,6 +1231,16 @@ export type CreatePermissionResponse = {
   status?: Maybe<Scalars['Boolean']['output']>;
 };
 
+export type CreatePqrfInput = {
+  addressee?: PqrfAddressee;
+  complexId: Scalars['String']['input'];
+  /** Cuerpo del radicado */
+  description: Scalars['String']['input'];
+  /** Asunto en una línea */
+  subject: Scalars['String']['input'];
+  type: PqrfType;
+};
+
 export type CreatePucAccountInput = {
   accountClass: AccountClass;
   code: Scalars['String']['input'];
@@ -910,6 +1287,8 @@ export type CreateResidentInput = {
   identityNumber: Scalars['String']['input'];
   /** Tipo de documento de identidad del residente */
   identityType?: UserIdentityType;
+  /** Miembro del consejo de administración */
+  isCouncilMember?: Scalars['Boolean']['input'];
   isMainResident?: Scalars['Boolean']['input'];
   /** Apellido del residente */
   lastName: Scalars['String']['input'];
@@ -1033,6 +1412,25 @@ export type CreateUnitInput = {
   storageRooms?: Scalars['Int']['input'];
   /** Tipo de unidad */
   type?: UnitType;
+};
+
+export type CreateVotingMeetingInput = {
+  complexId: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  kind: VotingMeetingKind;
+  scheduledAt: Scalars['DateTime']['input'];
+  title: Scalars['String']['input'];
+};
+
+export type CreateVotingQuestionInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  meetingId: Scalars['String']['input'];
+  /** Opciones de respuesta, de 2 a 10 */
+  options: Array<Scalars['String']['input']>;
+  secrecy?: InputMaybe<VoteSecrecy>;
+  text: Scalars['String']['input'];
+  /** Solo asambleas: COEFFICIENT (por defecto) o UNIT. En el consejo vota cada miembro */
+  weighting?: InputMaybe<VoteWeighting>;
 };
 
 export type CreateWalletCreditInput = {
@@ -1261,6 +1659,23 @@ export type FilterAccountingDocumentsInput = {
   unitId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type FilterAmenitiesInput = {
+  /** Búsqueda por nombre */
+  search?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<AmenityStatus>;
+  type?: InputMaybe<AmenityType>;
+};
+
+export type FilterAmenityBookingsInput = {
+  amenityId?: InputMaybe<Scalars['String']['input']>;
+  /** Reservas que inician desde esta fecha (ISO 8601) */
+  startFrom?: InputMaybe<Scalars['String']['input']>;
+  /** Reservas que inician hasta esta fecha (ISO 8601) */
+  startUntil?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<AmenityBookingStatus>;
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
 /** Filtros para consultar el historial de auditoría */
 export type FilterAuditLogsInput = {
   /** Filtrar por tipo de acción */
@@ -1343,6 +1758,14 @@ export type FilterPackagesInput = {
   trackingCode?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<PackageType>;
   unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type FilterPqrfInput = {
+  addressee?: InputMaybe<PqrfAddressee>;
+  /** Busca en el número de radicado y en el asunto */
+  search?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<PqrfStatus>;
+  type?: InputMaybe<PqrfType>;
 };
 
 export type FilterResidentsInput = {
@@ -1623,6 +2046,7 @@ export type Mutation = {
   applyWalletToCharge: ApplyWalletResult;
   /** Aprueba la solicitud de acceso de un supervisor. Crea automáticamente la asignación UserComplexAssignment (ACTIVE). El supervisor podrá hacer check-in inmediatamente después. */
   approveAccessRequest: SupervisorAccessRequest;
+  approveAmenityBooking: AmenityBooking;
   /** Autoriza el ingreso. Antes de llamarla, la interfaz DEBE hacer que el residente compare el código de esta pantalla con el del dispositivo que pide entrar. */
   approveDeviceApproval: Scalars['Boolean']['output'];
   approveResident: Resident;
@@ -1632,20 +2056,30 @@ export type Mutation = {
   assignRoleToUser: AssignedUserRolResponse;
   blacklistVisitor: Visitor;
   bulkMoveOutResidents: Array<Resident>;
+  cancelAmenityBooking: AmenityBooking;
   cancelChargeEmission: ChargeEmission;
   cancelVisit: Visit;
   cancelVisitorVehicleEntry: VisitorVehicle;
+  /** Un voto por unidad (asamblea) o por consejero */
+  castVote: VotingQuestion;
   causeRecurringCharges: RecurringCausationResult;
   causeRecurringChargesRange: RecurringCausationResult;
   changeComplexStatus: ResidentialComplex;
   /** Cambiar la contraseña del usuario autenticado */
   changePassword: ChangePasswordResponse;
   changeRoleParent: ChangeParentResponse;
+  chargeAmenityDamage: AmenityBooking;
+  checkInAmenityBooking: AmenityBooking;
+  checkOutAmenityBooking: AmenityBooking;
+  closeVotingQuestion: VotingQuestion;
   configureRotation: ParkingRotationConfig;
   confirmChargeEmission: ChargeEmission;
   confirmPackageDelivery: Package;
   /** Crea un usuario administrativo (COMPLIANCE_OFFICER, COMPLEX, ACCOUNTANT, SUPERVISOR). Requiere rol SUPER_ADMIN_ROL. */
   createAdminUser: User;
+  createAmenity: Amenity;
+  createAmenityBlackout: AmenityBlackout;
+  createAmenityBooking: AmenityBooking;
   createBuilding: Building;
   createChargeCategory: ChargeCategory;
   createChargeEmission: ChargeEmission;
@@ -1656,6 +2090,8 @@ export type Mutation = {
   /** Crea un documento legal. Solo SUPER_ADMIN. */
   createLegalDocument: LegalDocument;
   createPermission: CreatePermissionResponse;
+  /** Radica un PQRF */
+  createPqrf: Pqrf;
   createPucAccount: PucAccount;
   createRecurringCharge: RecurringCharge;
   createResident: Resident;
@@ -1664,8 +2100,13 @@ export type Mutation = {
   /** Crea personal del complejo: guardia (SECURITY_ROL), supervisor (SUPERVISOR_ROL) o contador (ACCOUNTANT_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL. */
   createStaffMember: CreateStaffMemberResponse;
   createUnit: Unit;
+  createVotingMeeting: VotingMeeting;
+  createVotingQuestion: VotingQuestion;
   createWalletCredit: WalletEntryObject;
   deactivateMobileToken: PushSubscriptionResult;
+  deleteAmenity: Scalars['Boolean']['output'];
+  deleteAmenityBlackout: Scalars['Boolean']['output'];
+  deleteAmenityScheduleException: Scalars['Boolean']['output'];
   deleteChargeCategory: Scalars['Boolean']['output'];
   deleteFeeConfig: Scalars['Boolean']['output'];
   /** Elimina un documento legal. Solo SUPER_ADMIN. */
@@ -1676,6 +2117,8 @@ export type Mutation = {
   deleteRecurringCharge: Scalars['Boolean']['output'];
   /** Elimina (soft delete) un usuario del sistema */
   deleteUser: User;
+  deleteVotingMeeting: Scalars['Boolean']['output'];
+  deleteVotingQuestion: Scalars['Boolean']['output'];
   /** Rechaza el ingreso. Es terminal: el solicitante debe pedir una nueva autorización. */
   denyDeviceApproval: Scalars['Boolean']['output'];
   denyVisitEntry: Visit;
@@ -1702,6 +2145,9 @@ export type Mutation = {
   moveOutResident: Resident;
   moveResidentsToUnit: Array<Resident>;
   moveRoleSubtree: MoveSubtreeResponse;
+  /** Marca el radicado como abierto por quien lo atiende */
+  openPqrf: Pqrf;
+  openVotingQuestion: VotingQuestion;
   reactivateResident: Resident;
   /** Reactiva un usuario suspendido */
   reactivateUser: User;
@@ -1731,6 +2177,7 @@ export type Mutation = {
   registerWalkIn: Visit;
   /** Rechaza la solicitud de acceso de un supervisor con un motivo opcional. */
   rejectAccessRequest: SupervisorAccessRequest;
+  rejectAmenityBooking: AmenityBooking;
   rejectResident: Resident;
   removeBuilding: Scalars['Boolean']['output'];
   removeComplex: Scalars['Boolean']['output'];
@@ -1767,6 +2214,8 @@ export type Mutation = {
   /** Establece nueva contraseña usando el token recibido por email. Token de un solo uso, válido 1 hora. */
   resetPassword: SetPasswordResponse;
   resolvePanicAlert: PanicAlert;
+  /** Marca el radicado como resuelto por quien lo atiende */
+  resolvePqrf: Pqrf;
   restoreComplex: ResidentialComplex;
   /** Restore a soft deleted permission by setting status to true */
   restorePermission: RestorePermissionResponse;
@@ -1792,11 +2241,13 @@ export type Mutation = {
   scheduleVisit: Visit;
   seedPucAccounts: Array<PucAccount>;
   sendNotification: SendNotificationResult;
+  setAmenitySchedules: Amenity;
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
   setParkingRate: VisitorParkingConfig;
   /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido. */
   setResidentAccessCode: ResidentDevice;
+  setVotingEnabled: Scalars['Boolean']['output'];
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
   /** Registra el check-out del supervisor. Cierra la visita activa (status: CLOSED). */
@@ -1811,6 +2262,7 @@ export type Mutation = {
   togglePucAccount: PucAccount;
   triggerPanicAlert: TriggerPanicAlertResult;
   undoMoveOutResident: Resident;
+  updateAmenity: Amenity;
   updateBuilding: Building;
   updateChargeCategory: ChargeCategory;
   updateComplex: ResidentialComplex;
@@ -1820,6 +2272,7 @@ export type Mutation = {
   updateLegalDocument: LegalDocument;
   /** Update an existing permission */
   updatePermission: UpdatePermissionResponse;
+  updatePqrfCouncilResolvers: Array<PqrfCouncilMember>;
   updatePucAccount: PucAccount;
   updateRecurringCharge: RecurringCharge;
   updateResident: Resident;
@@ -1831,7 +2284,10 @@ export type Mutation = {
   updateUserIdentity: User;
   updateVehicle: Vehicle;
   updateVisitorParkingConfig: VisitorParkingConfig;
+  updateVotingCouncilVoiceOnly: Array<VotingCouncilMember>;
+  updateVotingQuestion: VotingQuestion;
   uploadSignedDpa: ResidentialComplex;
+  upsertAmenityScheduleException: AmenityScheduleException;
   upsertCoefficientWeighting: CoefficientWeighting;
   upsertComplexFinanceConfig: ComplexFinanceConfig;
   /** Asigna un rol a un usuario */
@@ -1880,6 +2336,11 @@ export type MutationApproveAccessRequestArgs = {
 };
 
 
+export type MutationApproveAmenityBookingArgs = {
+  bookingId: Scalars['String']['input'];
+};
+
+
 export type MutationApproveDeviceApprovalArgs = {
   approvalId: Scalars['ID']['input'];
 };
@@ -1917,6 +2378,11 @@ export type MutationBulkMoveOutResidentsArgs = {
 };
 
 
+export type MutationCancelAmenityBookingArgs = {
+  input: CancelAmenityBookingInput;
+};
+
+
 export type MutationCancelChargeEmissionArgs = {
   emissionId: Scalars['String']['input'];
   reason?: InputMaybe<Scalars['String']['input']>;
@@ -1931,6 +2397,12 @@ export type MutationCancelVisitArgs = {
 export type MutationCancelVisitorVehicleEntryArgs = {
   cancellationReason: Scalars['String']['input'];
   visitorVehicleId: Scalars['String']['input'];
+};
+
+
+export type MutationCastVoteArgs = {
+  optionId: Scalars['String']['input'];
+  questionId: Scalars['String']['input'];
 };
 
 
@@ -1965,6 +2437,27 @@ export type MutationChangeRoleParentArgs = {
 };
 
 
+export type MutationChargeAmenityDamageArgs = {
+  input: ChargeAmenityDamageInput;
+};
+
+
+export type MutationCheckInAmenityBookingArgs = {
+  accessCode: Scalars['String']['input'];
+  complexId: Scalars['String']['input'];
+};
+
+
+export type MutationCheckOutAmenityBookingArgs = {
+  bookingId: Scalars['String']['input'];
+};
+
+
+export type MutationCloseVotingQuestionArgs = {
+  questionId: Scalars['String']['input'];
+};
+
+
 export type MutationConfigureRotationArgs = {
   input: ConfigureRotationInput;
 };
@@ -1982,6 +2475,21 @@ export type MutationConfirmPackageDeliveryArgs = {
 
 export type MutationCreateAdminUserArgs = {
   input: CreateAdminUserInput;
+};
+
+
+export type MutationCreateAmenityArgs = {
+  input: CreateAmenityInput;
+};
+
+
+export type MutationCreateAmenityBlackoutArgs = {
+  input: CreateAmenityBlackoutInput;
+};
+
+
+export type MutationCreateAmenityBookingArgs = {
+  input: CreateAmenityBookingInput;
 };
 
 
@@ -2030,6 +2538,11 @@ export type MutationCreatePermissionArgs = {
 };
 
 
+export type MutationCreatePqrfArgs = {
+  input: CreatePqrfInput;
+};
+
+
 export type MutationCreatePucAccountArgs = {
   input: CreatePucAccountInput;
 };
@@ -2065,6 +2578,16 @@ export type MutationCreateUnitArgs = {
 };
 
 
+export type MutationCreateVotingMeetingArgs = {
+  input: CreateVotingMeetingInput;
+};
+
+
+export type MutationCreateVotingQuestionArgs = {
+  input: CreateVotingQuestionInput;
+};
+
+
 export type MutationCreateWalletCreditArgs = {
   input: CreateWalletCreditInput;
 };
@@ -2072,6 +2595,21 @@ export type MutationCreateWalletCreditArgs = {
 
 export type MutationDeactivateMobileTokenArgs = {
   deviceToken: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteAmenityArgs = {
+  amenityId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteAmenityBlackoutArgs = {
+  blackoutId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteAmenityScheduleExceptionArgs = {
+  exceptionId: Scalars['String']['input'];
 };
 
 
@@ -2114,6 +2652,16 @@ export type MutationDeleteRecurringChargeArgs = {
 
 export type MutationDeleteUserArgs = {
   userId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteVotingMeetingArgs = {
+  meetingId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteVotingQuestionArgs = {
+  questionId: Scalars['String']['input'];
 };
 
 
@@ -2207,6 +2755,16 @@ export type MutationMoveResidentsToUnitArgs = {
 export type MutationMoveRoleSubtreeArgs = {
   newParentId?: InputMaybe<Scalars['String']['input']>;
   roleId: Scalars['String']['input'];
+};
+
+
+export type MutationOpenPqrfArgs = {
+  pqrfId: Scalars['String']['input'];
+};
+
+
+export type MutationOpenVotingQuestionArgs = {
+  questionId: Scalars['String']['input'];
 };
 
 
@@ -2317,6 +2875,11 @@ export type MutationRegisterWalkInArgs = {
 
 export type MutationRejectAccessRequestArgs = {
   input: RejectAccessRequestInput;
+};
+
+
+export type MutationRejectAmenityBookingArgs = {
+  input: RejectAmenityBookingInput;
 };
 
 
@@ -2447,6 +3010,11 @@ export type MutationResolvePanicAlertArgs = {
 };
 
 
+export type MutationResolvePqrfArgs = {
+  pqrfId: Scalars['String']['input'];
+};
+
+
 export type MutationRestoreComplexArgs = {
   id: Scalars['String']['input'];
 };
@@ -2543,6 +3111,11 @@ export type MutationSendNotificationArgs = {
 };
 
 
+export type MutationSetAmenitySchedulesArgs = {
+  input: SetAmenitySchedulesInput;
+};
+
+
 export type MutationSetInitialPasswordArgs = {
   newPassword: Scalars['String']['input'];
 };
@@ -2555,6 +3128,13 @@ export type MutationSetParkingRateArgs = {
 
 export type MutationSetResidentAccessCodeArgs = {
   input: SetAccessCodeInput;
+};
+
+
+export type MutationSetVotingEnabledArgs = {
+  audience: VotingAudience;
+  complexId: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
 };
 
 
@@ -2617,6 +3197,11 @@ export type MutationUndoMoveOutResidentArgs = {
 };
 
 
+export type MutationUpdateAmenityArgs = {
+  input: UpdateAmenityInput;
+};
+
+
 export type MutationUpdateBuildingArgs = {
   input: UpdateBuildingInput;
 };
@@ -2652,6 +3237,12 @@ export type MutationUpdateLegalDocumentArgs = {
 export type MutationUpdatePermissionArgs = {
   id: Scalars['String']['input'];
   updatePermissionInput: UpdatePermissionInput;
+};
+
+
+export type MutationUpdatePqrfCouncilResolversArgs = {
+  complexId: Scalars['String']['input'];
+  userIds: Array<Scalars['String']['input']>;
 };
 
 
@@ -2706,9 +3297,25 @@ export type MutationUpdateVisitorParkingConfigArgs = {
 };
 
 
+export type MutationUpdateVotingCouncilVoiceOnlyArgs = {
+  complexId: Scalars['String']['input'];
+  voiceOnlyUserIds: Array<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateVotingQuestionArgs = {
+  input: UpdateVotingQuestionInput;
+};
+
+
 export type MutationUploadSignedDpaArgs = {
   fileName?: InputMaybe<Scalars['String']['input']>;
   pdfBase64: Scalars['String']['input'];
+};
+
+
+export type MutationUpsertAmenityScheduleExceptionArgs = {
+  input: UpsertScheduleExceptionInput;
 };
 
 
@@ -2876,6 +3483,12 @@ export type NotificationType =
   | 'ACCESS_REQUEST_APPROVED'
   | 'ACCESS_REQUEST_REJECTED'
   | 'ACCESS_REVOKED_INACTIVITY'
+  | 'AMENITY_BOOKING_APPROVED'
+  | 'AMENITY_BOOKING_CANCELLED'
+  | 'AMENITY_BOOKING_NO_SHOW'
+  | 'AMENITY_BOOKING_REJECTED'
+  | 'AMENITY_BOOKING_REQUESTED'
+  | 'AMENITY_DAMAGE_CHARGED'
   | 'AMENITY_REMINDER'
   | 'CHARGE_ADDED'
   | 'CHARGE_WAIVED'
@@ -2899,6 +3512,9 @@ export type NotificationType =
   | 'PAYMENT_OVERDUE'
   | 'PAYMENT_RECEIVED'
   | 'PAYMENT_REVERSED'
+  | 'PQRF_RECEIVED'
+  | 'PQRF_REMINDER'
+  | 'PQRF_RESOLVED'
   | 'PROFILE_UPDATED'
   | 'RESIDENT_APPROVED'
   | 'RESIDENT_PENDING'
@@ -2918,6 +3534,7 @@ export type NotificationType =
   | 'VISIT_APPROVED'
   | 'VISIT_DENIED'
   | 'VISIT_REMINDER'
+  | 'VOTING_OPENED'
   | 'WALLET_APPLIED'
   | 'WALLET_CREDIT';
 
@@ -2997,6 +3614,18 @@ export type PaginatedAccountingDocumentsResponse = {
   pagination: PaginationReponse;
 };
 
+export type PaginatedAmenitiesResponse = {
+  __typename?: 'PaginatedAmenitiesResponse';
+  items: Array<Amenity>;
+  pagination: PaginationReponse;
+};
+
+export type PaginatedAmenityBookingsResponse = {
+  __typename?: 'PaginatedAmenityBookingsResponse';
+  items: Array<AmenityBooking>;
+  pagination: PaginationReponse;
+};
+
 /** Lista paginada de registros de auditoría */
 export type PaginatedAuditLogsResponse = {
   __typename?: 'PaginatedAuditLogsResponse';
@@ -3062,6 +3691,13 @@ export type PaginatedPermissionsResponse = {
   __typename?: 'PaginatedPermissionsResponse';
   items: Array<Permission>;
   meta: PaginationReponse;
+};
+
+/** Radicados PQRF paginados */
+export type PaginatedPqrfResponse = {
+  __typename?: 'PaginatedPqrfResponse';
+  items: Array<Pqrf>;
+  pagination: PaginationReponse;
 };
 
 export type PaginatedResidentsResponse = {
@@ -3366,6 +4002,83 @@ export type PlateCheckResponse = {
   vehicle?: Maybe<Vehicle>;
 };
 
+/** Radicado PQRF de un residente */
+export type Pqrf = {
+  __typename?: 'Pqrf';
+  acknowledgements?: Maybe<Array<PqrfAcknowledgement>>;
+  /** A quién se dirige: define quién puede leerlo */
+  addressee: PqrfAddressee;
+  /** Número de radicado, consecutivo por complejo */
+  code: Scalars['String']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  consecutive: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description: Scalars['String']['output'];
+  dueAt: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  requestedByName?: Maybe<Scalars['String']['output']>;
+  requestedByUserId?: Maybe<Scalars['String']['output']>;
+  residentId?: Maybe<Scalars['String']['output']>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Resuelto por silencio administrativo positivo */
+  resolvedBySilence: Scalars['Boolean']['output'];
+  status: PqrfStatus;
+  subject: Scalars['String']['output'];
+  type: PqrfType;
+  unit?: Maybe<Unit>;
+  unitId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  /** Quien consulta puede marcarlo como resuelto */
+  viewerCanResolve: Scalars['Boolean']['output'];
+  /** Quien consulta ya marcó su parte */
+  viewerHasResolved: Scalars['Boolean']['output'];
+  /** Quien consulta es del consejo pero no le toca responderlo */
+  viewerIsCouncilObserver: Scalars['Boolean']['output'];
+};
+
+/** Paso de un destinatario sobre el radicado */
+export type PqrfAcknowledgement = {
+  __typename?: 'PqrfAcknowledgement';
+  id: Scalars['String']['output'];
+  instance: PqrfAddressee;
+  openedAt: Scalars['DateTime']['output'];
+  pqrfId: Scalars['String']['output'];
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  userId: Scalars['String']['output'];
+  userName?: Maybe<Scalars['String']['output']>;
+};
+
+/** Instancia a la que se dirige el radicado */
+export type PqrfAddressee =
+  | 'ADMINISTRACION'
+  | 'AMBOS'
+  | 'CONSEJO';
+
+/** Miembro del consejo y si responde los PQRF */
+export type PqrfCouncilMember = {
+  __typename?: 'PqrfCouncilMember';
+  /** Le toca responder los PQRF dirigidos al consejo */
+  canResolve: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  unitLabel?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
+};
+
+/** Estado del radicado PQRF */
+export type PqrfStatus =
+  | 'EN_TRAMITE'
+  | 'RADICADO'
+  | 'RESUELTO';
+
+/** Tipo de radicado: petición, queja, reclamo, sugerencia o felicitación */
+export type PqrfType =
+  | 'FELICITACION'
+  | 'PETICION'
+  | 'QUEJA'
+  | 'RECLAMO'
+  | 'SUGERENCIA';
+
 /** Concepto del cargo para la prelación legal de imputación de pagos */
 export type PrelacionConcept =
   | 'EXTRAORDINARY'
@@ -3477,6 +4190,13 @@ export type Query = {
   activeSupervisorVisit?: Maybe<SupervisorVisit>;
   activeVisitorVehicles: Array<VisitorVehicle>;
   activeVisits: Array<Visit>;
+  amenities: PaginatedAmenitiesResponse;
+  amenity: Amenity;
+  amenityAvailability: AmenityAvailabilityResponse;
+  amenityBlackouts: Array<AmenityBlackout>;
+  amenityBooking: AmenityBooking;
+  amenityBookings: PaginatedAmenityBookingsResponse;
+  amenityScheduleExceptions: Array<AmenityScheduleException>;
   /** Obtiene un registro de auditoría por su número de referencia (AUD-YYYYMMDD-XXXX) con labels enriquecidos. */
   auditLog: AuditLogDetailResponse;
   /** Historial de auditoría paginado. SUPER_ADMIN ve todo el sistema. COMPLEX_ROL solo ve las acciones de ACCOUNTANT_ROL, SUPERVISOR_ROL y SECURITY_ROL de su complejo. */
@@ -3513,16 +4233,21 @@ export type Query = {
   me: MeResponse;
   /** Retorna el historial de solicitudes de acceso del supervisor (últimas 50). */
   myAccessRequests: Array<SupervisorAccessRequest>;
+  myAmenityCouncilQuota: AmenityCouncilQuotaResponse;
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
   myNotifications: PaginatedNotificationsResponse;
+  myPqrfRequests: PaginatedPqrfResponse;
   /** Lista los dispositivos vinculados del residente autenticado. */
   myResidentDevices: Array<ResidentDevice>;
   myResidentProfile: Resident;
   /** Retorna las últimas 50 visitas del supervisor. Filtrable por estado. */
   mySupervisorVisits: Array<SupervisorVisit>;
+  myUnitAmenityBookings: PaginatedAmenityBookingsResponse;
   myUnitPackages: PaginatedPackagesResponse;
   myVisits: PaginatedVisitsResponse;
+  /** Lo que el residente puede votar o consultar */
+  myVotingMeetings: Array<VotingMeeting>;
   nearbyComplexes: Array<NearbyComplexResponse>;
   note: Note;
   notificationDetail: NotificationDetailResponse;
@@ -3543,6 +4268,9 @@ export type Query = {
   permissions: PaginatedPermissionsResponse;
   /** Verifica conectividad con el backend. Siempre retorna "pong". */
   ping: Scalars['String']['output'];
+  pqrfCouncilMembers: Array<PqrfCouncilMember>;
+  pqrfRequest: Pqrf;
+  pqrfRequests: PaginatedPqrfResponse;
   previewChargeEmission: ChargeEmissionPreviewResponse;
   pucAccounts: Array<PucAccount>;
   recurringCharges: Array<RecurringCharge>;
@@ -3584,6 +4312,13 @@ export type Query = {
   visitorVehicles: PaginatedVisitorVehiclesResponse;
   visitors: PaginatedVisitorsResponse;
   visits: PaginatedVisitsResponse;
+  /** El consejo y quién tiene voto */
+  votingCouncilMembers: Array<VotingCouncilMember>;
+  votingEnabled: Scalars['Boolean']['output'];
+  /** Todas las reuniones (administración) */
+  votingMeetings: Array<VotingMeeting>;
+  votingQuestion: VotingQuestion;
+  votingSettings: VotingSettings;
   walletsSummary: WalletSummaryPaginated;
   /** Indica si el canal de login por WhatsApp entrante está habilitado en el servidor. El cliente la consulta antes de ofrecer la opción, en vez de descubrirlo fallando con WA_LOGIN_NOT_CONFIGURED. No revela nada del residente: solo refleja la configuración. */
   whatsAppLoginAvailable: Scalars['Boolean']['output'];
@@ -3621,6 +4356,47 @@ export type QueryActiveVisitorVehiclesArgs = {
 
 export type QueryActiveVisitsArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type QueryAmenitiesArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterAmenitiesInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryAmenityArgs = {
+  amenityId: Scalars['String']['input'];
+};
+
+
+export type QueryAmenityAvailabilityArgs = {
+  input: AmenityAvailabilityInput;
+};
+
+
+export type QueryAmenityBlackoutsArgs = {
+  amenityId: Scalars['String']['input'];
+};
+
+
+export type QueryAmenityBookingArgs = {
+  bookingId: Scalars['String']['input'];
+};
+
+
+export type QueryAmenityBookingsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterAmenityBookingsInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryAmenityScheduleExceptionsArgs = {
+  amenityId: Scalars['String']['input'];
+  from: Scalars['String']['input'];
+  to: Scalars['String']['input'];
 };
 
 
@@ -3755,6 +4531,11 @@ export type QueryGetRoleHierarchyArgs = {
 };
 
 
+export type QueryMyAmenityCouncilQuotaArgs = {
+  amenityId: Scalars['String']['input'];
+};
+
+
 export type QueryMyNotificationsArgs = {
   complexId?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<FilterNotificationsInput>;
@@ -3762,8 +4543,22 @@ export type QueryMyNotificationsArgs = {
 };
 
 
+export type QueryMyPqrfRequestsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterPqrfInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
 export type QueryMySupervisorVisitsArgs = {
   status?: InputMaybe<SupervisorVisitStatus>;
+};
+
+
+export type QueryMyUnitAmenityBookingsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterAmenityBookingsInput>;
+  pagination?: InputMaybe<PaginationInput>;
 };
 
 
@@ -3777,6 +4572,11 @@ export type QueryMyUnitPackagesArgs = {
 export type QueryMyVisitsArgs = {
   filters?: InputMaybe<FilterVisitsInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMyVotingMeetingsArgs = {
+  complexId: Scalars['String']['input'];
 };
 
 
@@ -3853,6 +4653,23 @@ export type QueryPermissionArgs = {
 
 export type QueryPermissionsArgs = {
   input: SearchPermissionsInput;
+};
+
+
+export type QueryPqrfCouncilMembersArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryPqrfRequestArgs = {
+  pqrfId: Scalars['String']['input'];
+};
+
+
+export type QueryPqrfRequestsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterPqrfInput>;
+  pagination?: InputMaybe<PaginationInput>;
 };
 
 
@@ -4063,6 +4880,31 @@ export type QueryVisitsArgs = {
 };
 
 
+export type QueryVotingCouncilMembersArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryVotingEnabledArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryVotingMeetingsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryVotingQuestionArgs = {
+  questionId: Scalars['String']['input'];
+};
+
+
+export type QueryVotingSettingsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
 export type QueryWalletsSummaryArgs = {
   complexId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
@@ -4256,6 +5098,7 @@ export type RegisterWalkInInput = {
   complexId: Scalars['String']['input'];
   /** ID del residente anfitrión */
   hostResidentId: Scalars['String']['input'];
+  /** Datos del documento; se guardan en el visitante */
   metadata?: InputMaybe<Scalars['JSON']['input']>;
   /** Observaciones del guardia */
   notes?: InputMaybe<Scalars['String']['input']>;
@@ -4281,6 +5124,12 @@ export type RejectAccessRequestInput = {
   reason?: InputMaybe<Scalars['String']['input']>;
   /** ID de la solicitud a rechazar */
   requestId: Scalars['String']['input'];
+};
+
+export type RejectAmenityBookingInput = {
+  bookingId: Scalars['String']['input'];
+  /** Motivo del rechazo. Obligatorio: el residente debe saber por qué */
+  reason: Scalars['String']['input'];
 };
 
 export type RejectResidentInput = {
@@ -4439,6 +5288,8 @@ export type Resident = {
   /** Fecha de fin de contrato (para arrendatarios) */
   endDate?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
+  /** Miembro del consejo de administración */
+  isCouncilMember: Scalars['Boolean']['output'];
   /** Es el residente principal de la unidad */
   isMainResident: Scalars['Boolean']['output'];
   /** Fecha real de mudanza */
@@ -4603,6 +5454,14 @@ export type ResidentialComplex = {
   phoneNumber?: Maybe<Scalars['String']['output']>;
   /** Plan de suscripción activo */
   plan: ComplexPlan;
+  /** Consejeros que responden los PQRF. Vacío = todo el consejo */
+  pqrfCouncilResolverUserIds: Array<Scalars['String']['output']>;
+  /** Horas entre recordatorios. 0 = sin recordatorios */
+  pqrfReminderIntervalHours: Scalars['Int']['output'];
+  /** Días antes del vencimiento en que empiezan los recordatorios */
+  pqrfReminderLeadDays: Scalars['Int']['output'];
+  /** Días que tiene el complejo para resolver un PQRF */
+  pqrfResolutionDays: Scalars['Int']['output'];
   /** Rol fijo del complejo residencial */
   roles: Array<ValidRoles>;
   /** URL del RUT del complejo (R2) */
@@ -4634,6 +5493,12 @@ export type ResidentialComplex = {
   /** Tipo de complejo residencial */
   type: ComplexType;
   updatedAt: Scalars['DateTime']['output'];
+  /** Reuniones del consejo visibles para el consejo */
+  votingCouncilEnabled: Scalars['Boolean']['output'];
+  /** Consejeros con voz pero sin voto en las reuniones del consejo */
+  votingCouncilVoiceOnlyUserIds: Array<Scalars['String']['output']>;
+  /** Asambleas visibles para los residentes */
+  votingEnabled: Scalars['Boolean']['output'];
   /** Sitio web */
   website?: Maybe<Scalars['String']['output']>;
   /** Código postal */
@@ -4941,6 +5806,11 @@ export type SetAccessCodeInput = {
   currentCode?: InputMaybe<Scalars['String']['input']>;
   /** Nombre del dispositivo (ej. "iPhone de Juan") */
   label?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type SetAmenitySchedulesInput = {
+  amenityId: Scalars['String']['input'];
+  schedules: Array<AmenityScheduleInput>;
 };
 
 /** Datos para configurar o actualizar la tarifa de parqueadero */
@@ -5262,6 +6132,50 @@ export type UnreadCountResponse = {
   count: Scalars['Int']['output'];
 };
 
+export type UpdateAmenityInput = {
+  advanceBookingDays?: InputMaybe<Scalars['Int']['input']>;
+  blockBookingsOnDebt?: InputMaybe<Scalars['Boolean']['input']>;
+  bookingMode?: InputMaybe<AmenityBookingMode>;
+  /** Días antes del inicio en que aún se puede cancelar sin quedar con el cobro */
+  cancellationDeadlineDays?: InputMaybe<Scalars['Int']['input']>;
+  /** Horas que se suman al plazo de cancelación en días */
+  cancellationDeadlineHours?: InputMaybe<Scalars['Int']['input']>;
+  /** Aforo por reserva. 0 = sin control */
+  capacity?: InputMaybe<Scalars['Int']['input']>;
+  /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
+  councilFreeBookingsPerYear?: InputMaybe<Scalars['Int']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  durationUnit?: InputMaybe<AmenityDurationUnit>;
+  feeAmount?: InputMaybe<Scalars['Float']['input']>;
+  feeType?: InputMaybe<AmenityFeeType>;
+  /** ID de la zona común a actualizar */
+  id: Scalars['String']['input'];
+  imageUrls?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** % de la tarifa que se retiene al cancelar fuera de plazo */
+  lateCancellationFeePercent?: InputMaybe<Scalars['Int']['input']>;
+  location?: InputMaybe<Scalars['String']['input']>;
+  /** 0 = sin límite */
+  maxActiveBookingsPerUnit?: InputMaybe<Scalars['Int']['input']>;
+  /** 0 = sin límite */
+  maxBookingsPerUnitPerMonth?: InputMaybe<Scalars['Int']['input']>;
+  /** Solo RANGE: duración máxima en minutos. El rango válido depende de durationUnit */
+  maxDurationMinutes?: InputMaybe<Scalars['Int']['input']>;
+  /** Reservas que caben a la misma hora (ej. 4 asadores) */
+  maxSimultaneousBookings?: InputMaybe<Scalars['Int']['input']>;
+  /** Anticipación mínima en días. 0 = se puede reservar para hoy */
+  minAdvanceDays?: InputMaybe<Scalars['Int']['input']>;
+  /** Solo RANGE: duración mínima en minutos. El rango válido depende de durationUnit */
+  minDurationMinutes?: InputMaybe<Scalars['Int']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  requiresApproval?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Reglamento de uso que ve el residente al reservar */
+  rules?: InputMaybe<Scalars['String']['input']>;
+  /** Solo SLOT: minutos de cada bloque. El rango válido depende de durationUnit */
+  slotDurationMinutes?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<AmenityStatus>;
+  type?: InputMaybe<AmenityType>;
+};
+
 export type UpdateBuildingInput = {
   /** ID del complejo */
   complexId?: InputMaybe<Scalars['String']['input']>;
@@ -5307,6 +6221,12 @@ export type UpdateComplexInput = {
   password?: InputMaybe<Scalars['String']['input']>;
   phoneNumber?: InputMaybe<Scalars['String']['input']>;
   plan?: InputMaybe<ComplexPlan>;
+  /** Horas entre recordatorios. 0 = sin recordatorios */
+  pqrfReminderIntervalHours?: InputMaybe<Scalars['Int']['input']>;
+  /** Días antes del vencimiento en que empiezan los recordatorios */
+  pqrfReminderLeadDays?: InputMaybe<Scalars['Int']['input']>;
+  /** Días para resolver un PQRF (calendario) */
+  pqrfResolutionDays?: InputMaybe<Scalars['Int']['input']>;
   settings?: InputMaybe<Scalars['JSON']['input']>;
   state?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<ComplexType>;
@@ -5425,6 +6345,8 @@ export type UpdateResidentInput = {
   endDate?: InputMaybe<Scalars['String']['input']>;
   /** ID del registro de residente a actualizar */
   id: Scalars['String']['input'];
+  /** Miembro del consejo de administración */
+  isCouncilMember?: InputMaybe<Scalars['Boolean']['input']>;
   isMainResident?: InputMaybe<Scalars['Boolean']['input']>;
   /** Apellido del usuario residente */
   lastName?: InputMaybe<Scalars['String']['input']>;
@@ -5551,6 +6473,15 @@ export type UpdateVisitorParkingConfigInput = {
   showLogoOnReceipt?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+export type UpdateVotingQuestionInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  options?: InputMaybe<Array<Scalars['String']['input']>>;
+  questionId: Scalars['String']['input'];
+  secrecy?: InputMaybe<VoteSecrecy>;
+  text?: InputMaybe<Scalars['String']['input']>;
+  weighting?: InputMaybe<VoteWeighting>;
+};
+
 export type UpsertCoefficientWeightingInput = {
   /** Base del score: 'AREA' | 'UNIT' */
   base?: InputMaybe<Scalars['String']['input']>;
@@ -5580,6 +6511,20 @@ export type UpsertComplexFinanceConfigInput = {
   earlyDiscountPct?: InputMaybe<Scalars['Float']['input']>;
   moraGraceDays?: InputMaybe<Scalars['Int']['input']>;
   moraRate?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type UpsertScheduleExceptionInput = {
+  amenityId: Scalars['String']['input'];
+  /** Requerido si isClosed=false. Un cierre anterior a la apertura termina al día siguiente */
+  closeTime?: InputMaybe<Scalars['String']['input']>;
+  /** Fecha en formato YYYY-MM-DD */
+  date: Scalars['String']['input'];
+  /** true: la zona no abre ese día */
+  isClosed?: Scalars['Boolean']['input'];
+  /** Requerido si isClosed=false. Formato HH:mm */
+  openTime?: InputMaybe<Scalars['String']['input']>;
+  /** Motivo; el residente lo ve cuando el día queda cerrado */
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Entidad que representa un usuario del sistema */
@@ -5795,6 +6740,7 @@ export type UsersListResponse = {
 };
 
 export type ValidPermissions =
+  | 'APPROVE_AMENITY_BOOKING'
   | 'APPROVE_RESIDENT'
   | 'APPROVE_VEHICLE'
   | 'APPROVE_VISIT'
@@ -5802,10 +6748,13 @@ export type ValidPermissions =
   | 'BLACKLIST_VISITOR'
   | 'BLOCK_RESIDENTS'
   | 'BLOCK_USER'
+  | 'CHECK_IN_AMENITY_BOOKING'
   | 'CHECK_PLATE'
   | 'CONFIGURE_ROTATION'
+  | 'CREATE_AMENITY_BOOKING'
   | 'CREATE_NOTE'
   | 'CREATE_PACKAGE'
+  | 'CREATE_PQRF'
   | 'CREATE_RESIDENCE'
   | 'CREATE_RESIDENTS'
   | 'CREATE_ROLE'
@@ -5830,6 +6779,7 @@ export type ValidPermissions =
   | 'EXPORT_REPORTS'
   | 'GENERATE_CHARGES'
   | 'LOG_CALL'
+  | 'MANAGE_AMENITIES'
   | 'MANAGE_EXPENSES'
   | 'MANAGE_FEE_CONFIGS'
   | 'MANAGE_PACKAGES'
@@ -5852,6 +6802,8 @@ export type ValidPermissions =
   | 'SUPERADMIN'
   | 'TOGGLE_RESIDENCE_STATUS'
   | 'VIEW_ACCOUNT_BALANCE'
+  | 'VIEW_AMENITIES'
+  | 'VIEW_AMENITY_BOOKINGS'
   | 'VIEW_CALL_LOGS'
   | 'VIEW_CHARGES'
   | 'VIEW_EXPENSES'
@@ -5861,6 +6813,7 @@ export type ValidPermissions =
   | 'VIEW_NOTIFICATIONS'
   | 'VIEW_PACKAGES'
   | 'VIEW_PAYMENTS'
+  | 'VIEW_PQRF'
   | 'VIEW_PRODUCTS'
   | 'VIEW_RECIDENTS_LOCATION'
   | 'VIEW_REPORTS'
@@ -5883,6 +6836,7 @@ export type ValidRoles =
   | 'ACCOUNTANT_ROL'
   | 'COMPILANCE_OFFICER_ROL'
   | 'COMPLEX_ROL'
+  | 'COUNCIL_ROL'
   | 'RESIDENT_ROL'
   | 'SECURITY_ROL'
   | 'SUPERVISOR_ROL'
@@ -6241,6 +7195,149 @@ export type VisitorVehicle = {
   vehicleType: VehicleType;
 };
 
+/** Voto nominal (se sabe quién votó qué) o secreto (solo totales) */
+export type VoteSecrecy =
+  | 'NOMINAL'
+  | 'SECRET';
+
+/** Peso del voto: coeficiente, una unidad un voto, o un consejero un voto */
+export type VoteWeighting =
+  | 'COEFFICIENT'
+  | 'MEMBER'
+  | 'UNIT';
+
+/** Residentes (asambleas) o consejo (sus reuniones) */
+export type VotingAudience =
+  | 'COUNCIL'
+  | 'RESIDENTS';
+
+/** Voto nominal: quién votó qué */
+export type VotingBallotView = {
+  __typename?: 'VotingBallotView';
+  optionText: Scalars['String']['output'];
+  votedAt: Scalars['DateTime']['output'];
+  /** Unidad ("Torre 2 · 301") o nombre del consejero */
+  voterLabel: Scalars['String']['output'];
+  /** Persona que registró el voto */
+  voterName?: Maybe<Scalars['String']['output']>;
+  weight: Scalars['Float']['output'];
+};
+
+/** Miembro del consejo y si vota en sus reuniones */
+export type VotingCouncilMember = {
+  __typename?: 'VotingCouncilMember';
+  /** Tiene voto; si no, solo voz */
+  hasVote: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  unitLabel?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
+};
+
+/** Reunión en la que se vota: asamblea o consejo */
+export type VotingMeeting = {
+  __typename?: 'VotingMeeting';
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  kind: VotingMeetingKind;
+  questions?: Maybe<Array<VotingQuestion>>;
+  scheduledAt: Scalars['DateTime']['output'];
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Asamblea de copropietarios o reunión del consejo */
+export type VotingMeetingKind =
+  | 'ASAMBLEA'
+  | 'CONSEJO';
+
+/** Opción de respuesta de una pregunta */
+export type VotingOption = {
+  __typename?: 'VotingOption';
+  id: Scalars['String']['output'];
+  position: Scalars['Int']['output'];
+  questionId: Scalars['String']['output'];
+  text: Scalars['String']['output'];
+};
+
+/** Resultado de una opción */
+export type VotingOptionResult = {
+  __typename?: 'VotingOptionResult';
+  optionId: Scalars['String']['output'];
+  /** Fracción de los votos emitidos (0 a 1) */
+  share: Scalars['Float']['output'];
+  /** Fracción del total habilitado para votar (0 a 1) */
+  shareOfEligible: Scalars['Float']['output'];
+  text: Scalars['String']['output'];
+  /** Cuántas unidades o consejeros la eligieron */
+  votes: Scalars['Int']['output'];
+  /** Suma de pesos: coeficientes, unidades o consejeros */
+  weight: Scalars['Float']['output'];
+};
+
+/** Pregunta sometida a votación */
+export type VotingQuestion = {
+  __typename?: 'VotingQuestion';
+  closedAt?: Maybe<Scalars['DateTime']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  meeting?: Maybe<VotingMeeting>;
+  meetingId: Scalars['String']['output'];
+  /** Opción que eligió quien consulta (o su unidad, en asamblea) */
+  myVoteOptionId?: Maybe<Scalars['String']['output']>;
+  openedAt?: Maybe<Scalars['DateTime']['output']>;
+  options?: Maybe<Array<VotingOption>>;
+  position: Scalars['Int']['output'];
+  /** Resultados. El residente los ve al cerrarse; la administración, siempre */
+  results?: Maybe<VotingResults>;
+  secrecy: VoteSecrecy;
+  status: VotingQuestionStatus;
+  text: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  /** Quien consulta todavía puede votar */
+  viewerCanVote: Scalars['Boolean']['output'];
+  /** Quien consulta es del consejo pero solo tiene voz */
+  viewerHasVoiceOnly: Scalars['Boolean']['output'];
+  weighting: VoteWeighting;
+};
+
+/** Borrador, abierta a votos o cerrada */
+export type VotingQuestionStatus =
+  | 'CLOSED'
+  | 'DRAFT'
+  | 'OPEN';
+
+/** Resultados de una pregunta */
+export type VotingResults = {
+  __typename?: 'VotingResults';
+  ballots?: Maybe<Array<VotingBallotView>>;
+  /** Unidades o consejeros habilitados */
+  eligibleCount: Scalars['Int']['output'];
+  /** Peso total habilitado (suma de coeficientes, unidades o consejeros) */
+  eligibleWeight: Scalars['Float']['output'];
+  options: Array<VotingOptionResult>;
+  participants?: Maybe<Array<Scalars['String']['output']>>;
+  /** Peso que votó sobre el habilitado (0 a 1) */
+  participation: Scalars['Float']['output'];
+  votedCount: Scalars['Int']['output'];
+  votedWeight: Scalars['Float']['output'];
+  weighting: VoteWeighting;
+};
+
+/** Módulo e interruptores de votaciones del complejo */
+export type VotingSettings = {
+  __typename?: 'VotingSettings';
+  /** Reuniones del consejo visibles para el consejo */
+  councilEnabled: Scalars['Boolean']['output'];
+  /** El SUPER_ADMIN le habilitó el módulo al complejo */
+  moduleEnabled: Scalars['Boolean']['output'];
+  /** Asambleas visibles para los residentes */
+  residentsEnabled: Scalars['Boolean']['output'];
+};
+
 export type WalletEntryObject = {
   __typename?: 'WalletEntryObject';
   amount: Scalars['Float']['output'];
@@ -6314,6 +7411,59 @@ export type RejectAccessRequestMutationVariables = Exact<{
 
 export type RejectAccessRequestMutation = { __typename?: 'Mutation', rejectAccessRequest: { __typename?: 'SupervisorAccessRequest', id: string, status: AccessRequestStatus, rejectionReason?: string | null, resolvedAt?: any | null } };
 
+export type AmenitiesQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filters?: InputMaybe<FilterAmenitiesInput>;
+}>;
+
+
+export type AmenitiesQuery = { __typename?: 'Query', amenities: { __typename?: 'PaginatedAmenitiesResponse', items: Array<{ __typename?: 'Amenity', id: string, name: string, description?: string | null, type: AmenityType, status: AmenityStatus, location?: string | null, rules?: string | null, imageUrls?: Array<string> | null, bookingMode: AmenityBookingMode, durationUnit: AmenityDurationUnit, slotDurationMinutes: number, minDurationMinutes: number, maxDurationMinutes: number, capacity: number, maxSimultaneousBookings: number, advanceBookingDays: number, minAdvanceDays: number, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, requiresApproval: boolean, feeType: AmenityFeeType, feeAmount: number, complexId: string, schedules?: Array<{ __typename?: 'AmenitySchedule', id: string, dayOfWeek: number, openTime: string, closeTime: string, isActive: boolean }> | null }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type AmenityAvailabilityQueryVariables = Exact<{
+  input: AmenityAvailabilityInput;
+}>;
+
+
+export type AmenityAvailabilityQuery = { __typename?: 'Query', amenityAvailability: { __typename?: 'AmenityAvailabilityResponse', amenityId: string, days: Array<{ __typename?: 'AmenityAvailabilityDay', date: string, isOpen: boolean, closedReason?: string | null, openWindows: Array<{ __typename?: 'AmenityTimeWindow', startAt: any, endAt: any }>, slots: Array<{ __typename?: 'AmenitySlot', startAt: any, endAt: any, capacityTotal: number, capacityUsed: number, isAvailable: boolean }>, busy: Array<{ __typename?: 'AmenityBusyRange', startAt: any, endAt: any, bookingsCount: number }> }> } };
+
+export type MyUnitAmenityBookingsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filters?: InputMaybe<FilterAmenityBookingsInput>;
+}>;
+
+
+export type MyUnitAmenityBookingsQuery = { __typename?: 'Query', myUnitAmenityBookings: { __typename?: 'PaginatedAmenityBookingsResponse', items: Array<{ __typename?: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename?: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type AmenityBookingQueryVariables = Exact<{
+  bookingId: Scalars['String']['input'];
+}>;
+
+
+export type AmenityBookingQuery = { __typename?: 'Query', amenityBooking: { __typename?: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename?: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null } };
+
+export type MyAmenityCouncilQuotaQueryVariables = Exact<{
+  amenityId: Scalars['String']['input'];
+}>;
+
+
+export type MyAmenityCouncilQuotaQuery = { __typename?: 'Query', myAmenityCouncilQuota: { __typename?: 'AmenityCouncilQuotaResponse', isCouncilMember: boolean, bookingsPerYear: number, used: number, remaining: number, year: number } };
+
+export type CreateAmenityBookingMutationVariables = Exact<{
+  input: CreateAmenityBookingInput;
+}>;
+
+
+export type CreateAmenityBookingMutation = { __typename?: 'Mutation', createAmenityBooking: { __typename?: 'AmenityBooking', id: string, amenityId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, status: AmenityBookingStatus, accessCode?: string | null, feeAmount: number, isCouncilFreeBooking: boolean, createdAt: any, amenity?: { __typename?: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null } };
+
+export type CancelAmenityBookingMutationVariables = Exact<{
+  input: CancelAmenityBookingInput;
+}>;
+
+
+export type CancelAmenityBookingMutation = { __typename?: 'Mutation', cancelAmenityBooking: { __typename?: 'AmenityBooking', id: string, status: AmenityBookingStatus, cancellationReason?: string | null, feeAmount: number } };
+
 export type LoginResidentMutationVariables = Exact<{
   input: LoginResidentInput;
 }>;
@@ -6338,7 +7488,7 @@ export type RefreshTokenMutation = { __typename?: 'Mutation', refreshToken: { __
 export type GetMyResidentProfileQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMyResidentProfileQuery = { __typename?: 'Query', myResidentProfile: { __typename?: 'Resident', id: string, type: ResidentType, status: ResidentStatus, isMainResident: boolean, startDate: string, user?: { __typename?: 'User', id: string, name: string, lastName: string, email: string, phoneNumber: string, identity?: string | null, rating: number } | null, unit?: { __typename?: 'Unit', id: string, number: string, floor: number, building?: { __typename?: 'Building', id: string, name: string, floors: number } | null } | null, complex?: { __typename?: 'ResidentialComplex', id: string, name: string } | null } };
+export type GetMyResidentProfileQuery = { __typename?: 'Query', myResidentProfile: { __typename?: 'Resident', id: string, type: ResidentType, status: ResidentStatus, isMainResident: boolean, isCouncilMember: boolean, startDate: string, user?: { __typename?: 'User', id: string, name: string, lastName: string, email: string, phoneNumber: string, identity?: string | null, rating: number } | null, unit?: { __typename?: 'Unit', id: string, number: string, floor: number, building?: { __typename?: 'Building', id: string, name: string, floors: number } | null } | null, complex?: { __typename?: 'ResidentialComplex', id: string, name: string } | null } };
 
 export type SetAccessCodeMutationVariables = Exact<{
   input: SetAccessCodeInput;
@@ -6586,6 +7736,54 @@ export type GetResidentByUserIdQueryVariables = Exact<{
 
 export type GetResidentByUserIdQuery = { __typename?: 'Query', residentByUserId?: { __typename?: 'Resident', id: string, user?: { __typename?: 'User', id: string, name: string, lastName: string, phoneNumber: string } | null, unit?: { __typename?: 'Unit', id: string, number: string, floor: number, building?: { __typename?: 'Building', id: string, name: string } | null } | null } | null };
 
+export type PqrfFieldsFragment = { __typename?: 'Pqrf', id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null };
+
+export type MyPqrfRequestsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filters?: InputMaybe<FilterPqrfInput>;
+}>;
+
+
+export type MyPqrfRequestsQuery = { __typename?: 'Query', myPqrfRequests: { __typename?: 'PaginatedPqrfResponse', items: Array<{ __typename?: 'Pqrf', id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, totalPages: number, totalItems: number, hasNextPage: boolean } } };
+
+export type PqrfRequestsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filters?: InputMaybe<FilterPqrfInput>;
+}>;
+
+
+export type PqrfRequestsQuery = { __typename?: 'Query', pqrfRequests: { __typename?: 'PaginatedPqrfResponse', items: Array<{ __typename?: 'Pqrf', id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, totalPages: number, totalItems: number, hasNextPage: boolean } } };
+
+export type PqrfRequestQueryVariables = Exact<{
+  pqrfId: Scalars['String']['input'];
+}>;
+
+
+export type PqrfRequestQuery = { __typename?: 'Query', pqrfRequest: { __typename?: 'Pqrf', viewerCanResolve: boolean, viewerIsCouncilObserver: boolean, id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, acknowledgements?: Array<{ __typename?: 'PqrfAcknowledgement', id: string, userId: string, userName?: string | null, instance: PqrfAddressee, openedAt: any, resolvedAt?: any | null }> | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null } };
+
+export type OpenPqrfMutationVariables = Exact<{
+  pqrfId: Scalars['String']['input'];
+}>;
+
+
+export type OpenPqrfMutation = { __typename?: 'Mutation', openPqrf: { __typename?: 'Pqrf', viewerCanResolve: boolean, viewerIsCouncilObserver: boolean, id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, acknowledgements?: Array<{ __typename?: 'PqrfAcknowledgement', id: string, userId: string, userName?: string | null, instance: PqrfAddressee, openedAt: any, resolvedAt?: any | null }> | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null } };
+
+export type ResolvePqrfMutationVariables = Exact<{
+  pqrfId: Scalars['String']['input'];
+}>;
+
+
+export type ResolvePqrfMutation = { __typename?: 'Mutation', resolvePqrf: { __typename?: 'Pqrf', viewerCanResolve: boolean, viewerIsCouncilObserver: boolean, id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, acknowledgements?: Array<{ __typename?: 'PqrfAcknowledgement', id: string, userId: string, userName?: string | null, instance: PqrfAddressee, openedAt: any, resolvedAt?: any | null }> | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null } };
+
+export type CreatePqrfMutationVariables = Exact<{
+  input: CreatePqrfInput;
+}>;
+
+
+export type CreatePqrfMutation = { __typename?: 'Mutation', createPqrf: { __typename?: 'Pqrf', id: string, code: string, type: PqrfType, addressee: PqrfAddressee, status: PqrfStatus, subject: string, description: string, requestedByName?: string | null, resolvedAt?: any | null, dueAt: any, resolvedBySilence: boolean, unitId?: string | null, createdAt: any, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null } };
+
 export type RequestSecurityCallMutationVariables = Exact<{
   complexId: Scalars['String']['input'];
 }>;
@@ -6658,13 +7856,55 @@ export type MisVisitasQueryVariables = Exact<{
 
 export type MisVisitasQuery = { __typename?: 'Query', myVisits: { __typename?: 'PaginatedVisitsResponse', items: Array<{ __typename?: 'Visit', id: string, type: VisitType, status: VisitStatus, purpose?: string | null, expectedArrivalAt?: any | null, expectedArrivalUntil?: any | null, qrToken?: string | null, qrUsed: boolean, qrExpiresAt?: any | null, vehiclePlate?: string | null, entryTime?: any | null, exitTime?: any | null, createdAt: any, visitor?: { __typename?: 'Visitor', id: string, name: string, lastName: string, identity: string, identityType: VisitorIdentityType, phone?: string | null, photoUrl?: string | null, isBlacklisted: boolean, blacklistReason?: string | null, blacklistedAt?: any | null } | null, unit?: { __typename?: 'Unit', id: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
+export type VotingResultsFieldsFragment = { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> };
 
+export type VotingQuestionFieldsFragment = { __typename?: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, options?: Array<{ __typename?: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null };
+
+export type VotingEnabledQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type VotingEnabledQuery = { __typename?: 'Query', votingEnabled: boolean };
+
+export type MyVotingMeetingsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type MyVotingMeetingsQuery = { __typename?: 'Query', myVotingMeetings: Array<{ __typename?: 'VotingMeeting', id: string, kind: VotingMeetingKind, title: string, description?: string | null, scheduledAt: any, questions?: Array<{ __typename?: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, options?: Array<{ __typename?: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null }> | null }> };
+
+export type VotingQuestionQueryVariables = Exact<{
+  questionId: Scalars['String']['input'];
+}>;
+
+
+export type VotingQuestionQuery = { __typename?: 'Query', votingQuestion: { __typename?: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, meeting?: { __typename?: 'VotingMeeting', id: string, kind: VotingMeetingKind, title: string, scheduledAt: any } | null, options?: Array<{ __typename?: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null } };
+
+export type CastVoteMutationVariables = Exact<{
+  questionId: Scalars['String']['input'];
+  optionId: Scalars['String']['input'];
+}>;
+
+
+export type CastVoteMutation = { __typename?: 'Mutation', castVote: { __typename?: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, meeting?: { __typename?: 'VotingMeeting', id: string, kind: VotingMeetingKind, title: string, scheduledAt: any } | null, options?: Array<{ __typename?: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null } };
+
+export const PqrfFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PqrfFieldsFragment, unknown>;
+export const VotingResultsFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}}]} as unknown as DocumentNode<VotingResultsFieldsFragment, unknown>;
+export const VotingQuestionFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}}]} as unknown as DocumentNode<VotingQuestionFieldsFragment, unknown>;
 export const ApproveAccessRequestDocument = {"__meta__":{"hash":"e5e0b1dcb5ed24a79212819c5eebbee172b503a377a79f86a73bb49c3a60cd4d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApproveAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"approveAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"requestId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<ApproveAccessRequestMutation, ApproveAccessRequestMutationVariables>;
 export const RejectAccessRequestDocument = {"__meta__":{"hash":"98e6e0258d54c7b67545c94e4cf69e98b941ed24669d2f8163471d1ba71bb223"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RejectAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RejectAccessRequestInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"rejectAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<RejectAccessRequestMutation, RejectAccessRequestMutationVariables>;
+export const AmenitiesDocument = {"__meta__":{"hash":"d6b5beeb6541b243578ed1a8d9dbe572377618ea1cd93885e34e4c0bdc1db6d7"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Amenities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenitiesInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"amenities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"location"}},{"kind":"Field","name":{"kind":"Name","value":"rules"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"bookingMode"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"slotDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"minDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"maxDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"capacity"}},{"kind":"Field","name":{"kind":"Name","value":"maxSimultaneousBookings"}},{"kind":"Field","name":{"kind":"Name","value":"advanceBookingDays"}},{"kind":"Field","name":{"kind":"Name","value":"minAdvanceDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"requiresApproval"}},{"kind":"Field","name":{"kind":"Name","value":"feeType"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"schedules"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dayOfWeek"}},{"kind":"Field","name":{"kind":"Name","value":"openTime"}},{"kind":"Field","name":{"kind":"Name","value":"closeTime"}},{"kind":"Field","name":{"kind":"Name","value":"isActive"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<AmenitiesQuery, AmenitiesQueryVariables>;
+export const AmenityAvailabilityDocument = {"__meta__":{"hash":"31ac254e129e00a4bec84f0814b2c0e3c3478c51727299cff30cdf0ef95b7ffb"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityAvailability"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AmenityAvailabilityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"amenityAvailability"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"days"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"isOpen"}},{"kind":"Field","name":{"kind":"Name","value":"closedReason"}},{"kind":"Field","name":{"kind":"Name","value":"openWindows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"slots"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"capacityTotal"}},{"kind":"Field","name":{"kind":"Name","value":"capacityUsed"}},{"kind":"Field","name":{"kind":"Name","value":"isAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"busy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsCount"}}]}}]}}]}}]}}]} as unknown as DocumentNode<AmenityAvailabilityQuery, AmenityAvailabilityQueryVariables>;
+export const MyUnitAmenityBookingsDocument = {"__meta__":{"hash":"89555d1db908087ea7084c87590eefb3e960f46512395cb1be029d41186c7e1b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyUnitAmenityBookings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenityBookingsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myUnitAmenityBookings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<MyUnitAmenityBookingsQuery, MyUnitAmenityBookingsQueryVariables>;
+export const AmenityBookingDocument = {"__meta__":{"hash":"04537a30bc19eea11cf3af3f8bfd99c52e70cc6cd21d6b3318548e8c64d4df2e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"amenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"bookingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}}]}}]} as unknown as DocumentNode<AmenityBookingQuery, AmenityBookingQueryVariables>;
+export const MyAmenityCouncilQuotaDocument = {"__meta__":{"hash":"8e4e26386cfc11533c3cc58907bc5245ec8ec6ff7872195fa1c9d78703bbf7ce"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyAmenityCouncilQuota"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myAmenityCouncilQuota"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"amenityId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isCouncilMember"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"used"}},{"kind":"Field","name":{"kind":"Name","value":"remaining"}},{"kind":"Field","name":{"kind":"Name","value":"year"}}]}}]}}]} as unknown as DocumentNode<MyAmenityCouncilQuotaQuery, MyAmenityCouncilQuotaQueryVariables>;
+export const CreateAmenityBookingDocument = {"__meta__":{"hash":"9c0f0ab270ea2bd2d391d70af6f842657673e3fac47089a24af25ce7931c29ea"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAmenityBookingMutation, CreateAmenityBookingMutationVariables>;
+export const CancelAmenityBookingDocument = {"__meta__":{"hash":"900a64e28deb4599c499271a6d8bd26b2eae1aa44edba2fe7194d1c0678ebf0d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CancelAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cancelAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}}]}}]}}]} as unknown as DocumentNode<CancelAmenityBookingMutation, CancelAmenityBookingMutationVariables>;
 export const LoginResidentDocument = {"__meta__":{"hash":"b1e2df147e890a65b1d0b8bf2b946b107a451c9f05b4c593fc73fdc6d2fcea20"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginResident"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResidentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginResident"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginResidentMutation, LoginResidentMutationVariables>;
 export const ResendResidentSystemCodeDocument = {"__meta__":{"hash":"01a150c4906dcc1bab370c37a1300839cf93ce75e94944cdc94e6f111a882fac"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResendResidentSystemCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resendResidentSystemCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<ResendResidentSystemCodeMutation, ResendResidentSystemCodeMutationVariables>;
 export const RefreshTokenDocument = {"__meta__":{"hash":"909a47dddea0f8ea32c2c9ba6702f714820f7e64ee99980a0508ab84ee13378c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RefreshToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"refreshToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"refreshToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RefreshTokenMutation, RefreshTokenMutationVariables>;
-export const GetMyResidentProfileDocument = {"__meta__":{"hash":"cc660b5d95a3a5e0bb4d81ca4485e49152030f96a017d71a3ad9bc2fee2fd6aa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"isMainResident"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floors"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"complex"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetMyResidentProfileQuery, GetMyResidentProfileQueryVariables>;
+export const GetMyResidentProfileDocument = {"__meta__":{"hash":"78a0d63ca070a0a87a95a90b8c7ee850cdd85570021f950c67e3bc761aeb6b10"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetMyResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myResidentProfile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"isMainResident"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilMember"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floors"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"complex"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetMyResidentProfileQuery, GetMyResidentProfileQueryVariables>;
 export const SetAccessCodeDocument = {"__meta__":{"hash":"8def4618aff1531ab989f99a0c00efc3f66bf5d940bfa6be314320bfb1b319bc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetAccessCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetAccessCodeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setResidentAccessCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"deviceId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"platform"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<SetAccessCodeMutation, SetAccessCodeMutationVariables>;
 export const LoginWithAccessCodeDocument = {"__meta__":{"hash":"ebe62a2e72089b7661140e986baf764b7c1037655db68034e5a1b518678f66ee"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginWithAccessCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginAccessCodeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginWithAccessCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginWithAccessCodeMutation, LoginWithAccessCodeMutationVariables>;
 export const ResidentHasAccessCodeDocument = {"__meta__":{"hash":"daff72effedb9a568174d81f8dcc1ca3de1c6aac085a62ceaaaecb561d9ca2bd"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResidentHasAccessCode"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"residentHasAccessCode"}}]}}]} as unknown as DocumentNode<ResidentHasAccessCodeQuery, ResidentHasAccessCodeQueryVariables>;
@@ -6700,6 +7940,12 @@ export const AcknowledgePanicAlertDocument = {"__meta__":{"hash":"cba602bfc13262
 export const GetUnitDocument = {"__meta__":{"hash":"16b00b7a72c1b756b34d25c6dd77322cd54a5d13e0a59c9a3911016f4dfce1f6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unit"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitQuery, GetUnitQueryVariables>;
 export const ActivePanicAlertsDocument = {"__meta__":{"hash":"d5439524aa3cd203c5008ee66775739c17c4a89e94247b7e17f03c690588e6b6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ActivePanicAlerts"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activePanicAlerts"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"createdByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<ActivePanicAlertsQuery, ActivePanicAlertsQueryVariables>;
 export const GetResidentByUserIdDocument = {"__meta__":{"hash":"6229ed3af7541789355a58742f9931c425600cc33ae7ff30edf0c779008aca2d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetResidentByUserId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"residentByUserId"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetResidentByUserIdQuery, GetResidentByUserIdQueryVariables>;
+export const MyPqrfRequestsDocument = {"__meta__":{"hash":"8a10fc5f693fbd063b883a72d3e46f54b0a132e75f61a96d6b55ac859db3d55c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyPqrfRequests"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterPqrfInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myPqrfRequests"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<MyPqrfRequestsQuery, MyPqrfRequestsQueryVariables>;
+export const PqrfRequestsDocument = {"__meta__":{"hash":"b3970991d0e995883c015ac26fb3955cf6d735e532f9cc37d35e5812ca210954"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PqrfRequests"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterPqrfInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pqrfRequests"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PqrfRequestsQuery, PqrfRequestsQueryVariables>;
+export const PqrfRequestDocument = {"__meta__":{"hash":"e48e7ec052fb54187aa7f6749aab6f7eb0ca6af4133db7e962973f9f7a816f60"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PqrfRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pqrfRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"pqrfId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanResolve"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsCouncilObserver"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"userName"}},{"kind":"Field","name":{"kind":"Name","value":"instance"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PqrfRequestQuery, PqrfRequestQueryVariables>;
+export const OpenPqrfDocument = {"__meta__":{"hash":"6a914f6b5201826809e8fd25de69cda5b3c554b27685bace18862359abe21017"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"OpenPqrf"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"openPqrf"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"pqrfId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanResolve"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsCouncilObserver"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"userName"}},{"kind":"Field","name":{"kind":"Name","value":"instance"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<OpenPqrfMutation, OpenPqrfMutationVariables>;
+export const ResolvePqrfDocument = {"__meta__":{"hash":"d635b3a0915b0d5121b325f5a29376aaf8b0fd8c4b5d1ed6b9db95aacba7c061"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResolvePqrf"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resolvePqrf"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"pqrfId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pqrfId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanResolve"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsCouncilObserver"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"userName"}},{"kind":"Field","name":{"kind":"Name","value":"instance"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<ResolvePqrfMutation, ResolvePqrfMutationVariables>;
+export const CreatePqrfDocument = {"__meta__":{"hash":"9fe596c9a2d31c26e1314c7a2d18df4271c2598c794d2f3cfb899f2f2f05091e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreatePqrf"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreatePqrfInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createPqrf"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<CreatePqrfMutation, CreatePqrfMutationVariables>;
 export const RequestSecurityCallDocument = {"__meta__":{"hash":"d740245eb639732628877d2bb278d6d6fc5d2e51ab73a74dd30187743464d6a3"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestSecurityCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"requestSecurityCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<RequestSecurityCallMutation, RequestSecurityCallMutationVariables>;
 export const VehicleDocument = {"__meta__":{"hash":"efe2199458730aa97f8cff1b3fff348472d06b4668400c79ce975cafaf6aef2a"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Vehicle"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"vehicle"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"plate"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"brand"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"year"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"fuelType"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"parkingSpot"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"approvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"residentId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<VehicleQuery, VehicleQueryVariables>;
 export const ScheduleVisitDocument = {"__meta__":{"hash":"7cd9fedef7abe6aecf9a60d70e926aa3cc36acd0f970d822539c34e368a292d3"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ScheduleVisit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ScheduleVisitInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"scheduleVisit"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"qrToken"}},{"kind":"Field","name":{"kind":"Name","value":"qrExpiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalUntil"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"visitor"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fullName"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"identityType"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}}]}}]}}]}}]} as unknown as DocumentNode<ScheduleVisitMutation, ScheduleVisitMutationVariables>;
@@ -6710,3 +7956,7 @@ export const BlacklistVisitorDocument = {"__meta__":{"hash":"a112bd9a75918a58fe8
 export const RemoveVisitorFromBlacklistDocument = {"__meta__":{"hash":"7e78492e104ccc48653d08e2726aa54c7852c00f33155630437d1b53cd3e674b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveVisitorFromBlacklist"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"visitorId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeVisitorFromBlacklist"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"visitorId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"visitorId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"isBlacklisted"}},{"kind":"Field","name":{"kind":"Name","value":"blacklistReason"}},{"kind":"Field","name":{"kind":"Name","value":"blacklistedAt"}}]}}]}}]} as unknown as DocumentNode<RemoveVisitorFromBlacklistMutation, RemoveVisitorFromBlacklistMutationVariables>;
 export const VisitDocument = {"__meta__":{"hash":"f62dc70704ad4930b9ed10b72162354472a485bf78dc510056853b256120ce7c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Visit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"visit"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"entryTime"}},{"kind":"Field","name":{"kind":"Name","value":"exitTime"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalUntil"}},{"kind":"Field","name":{"kind":"Name","value":"vehiclePlate"}},{"kind":"Field","name":{"kind":"Name","value":"denialReason"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"approvedByResidentAt"}},{"kind":"Field","name":{"kind":"Name","value":"deniedByResidentAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"visitor"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"identityType"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"isBlacklisted"}}]}}]}}]}}]} as unknown as DocumentNode<VisitQuery, VisitQueryVariables>;
 export const MisVisitasDocument = {"__meta__":{"hash":"e1f7a16d1649daa4c610f56fcabbf0332c73bfaa164d3553cdec45d1961f19b8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MisVisitas"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterVisitsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myVisits"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalUntil"}},{"kind":"Field","name":{"kind":"Name","value":"qrToken"}},{"kind":"Field","name":{"kind":"Name","value":"qrUsed"}},{"kind":"Field","name":{"kind":"Name","value":"qrExpiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"vehiclePlate"}},{"kind":"Field","name":{"kind":"Name","value":"entryTime"}},{"kind":"Field","name":{"kind":"Name","value":"exitTime"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"visitor"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"identityType"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"isBlacklisted"}},{"kind":"Field","name":{"kind":"Name","value":"blacklistReason"}},{"kind":"Field","name":{"kind":"Name","value":"blacklistedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<MisVisitasQuery, MisVisitasQueryVariables>;
+export const VotingEnabledDocument = {"__meta__":{"hash":"606179a3470ed5ed12c8396d6f8f107a7816b2210804d81244f29753928a8c29"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"VotingEnabled"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"votingEnabled"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}]}]}}]} as unknown as DocumentNode<VotingEnabledQuery, VotingEnabledQueryVariables>;
+export const MyVotingMeetingsDocument = {"__meta__":{"hash":"1b6e222ffaecfcd867cc8a04f37b3fe34c7c68ea63d17527561bbd797567d0c6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyVotingMeetings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myVotingMeetings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledAt"}},{"kind":"Field","name":{"kind":"Name","value":"questions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingQuestionFields"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}}]} as unknown as DocumentNode<MyVotingMeetingsQuery, MyVotingMeetingsQueryVariables>;
+export const VotingQuestionDocument = {"__meta__":{"hash":"58d5adafda4b42aa431fb77e9e348d1a20685859316dd88b5c23a830c7077bd8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"VotingQuestion"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"questionId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"votingQuestion"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"questionId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"questionId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingQuestionFields"}},{"kind":"Field","name":{"kind":"Name","value":"meeting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}}]} as unknown as DocumentNode<VotingQuestionQuery, VotingQuestionQueryVariables>;
+export const CastVoteDocument = {"__meta__":{"hash":"81cd631eaf14c8dc631ae1efc40cc6cfbdb769e4e3481cba353651fd3dbcb843"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CastVote"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"questionId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"optionId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"castVote"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"questionId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"questionId"}}},{"kind":"Argument","name":{"kind":"Name","value":"optionId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"optionId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingQuestionFields"}},{"kind":"Field","name":{"kind":"Name","value":"meeting"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}}]} as unknown as DocumentNode<CastVoteMutation, CastVoteMutationVariables>;

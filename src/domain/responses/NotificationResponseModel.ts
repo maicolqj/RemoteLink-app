@@ -7,6 +7,10 @@ export type NotificationEntityType =
   | 'vehicle'
   | 'visitor_vehicle'
   | 'resident'
+  | 'amenityBooking'
+  | 'pqrf'
+  // Votación abierta: el aviso lleva directo a la pregunta.
+  | 'voting'
   | 'ACCESS_REQUEST';
 
 export interface NotificationCreatedBy {
