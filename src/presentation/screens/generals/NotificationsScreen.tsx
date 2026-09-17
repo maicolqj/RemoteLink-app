@@ -16,6 +16,7 @@ import type { NotificationEntityType } from '../../../domain/responses/Notificat
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+import { SCREEN_MODULE, moduleLabel } from '../../constants/modules';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'Notifications'>;
 
@@ -27,16 +28,6 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // Finance notifications carry no entityType — they're identified by their type
 // (PAYMENT_*, CHARGE_*, WALLET_*, MORA_*) and route to the account statement.
 const FINANCE_TYPE_RE = /(PAYMENT|CHARGE|WALLET|MORA)/i;
-
-// `metadata` arrives as a JSON string over FCM, or as an object from the backend.
-function parseMetadata(raw: unknown): Record<string, any> | undefined {
-  if (!raw) return undefined;
-  if (typeof raw === 'object') return raw as Record<string, any>;
-  if (typeof raw === 'string') {
-    try { return JSON.parse(raw); } catch { return undefined; }
-  }
-  return undefined;
-}
 
 function NotificationItem({ item, onPress, onDelete, busy }: { item: Notification; onPress: (item: Notification) => void; onDelete: (item: Notification) => void; busy: boolean }) {
   const { colors } = useTheme();
@@ -141,61 +132,106 @@ export default function NotificationsScreen() {
     });
   }, [showAlert, hideAlert, removeAllNotifications, isDeletingAll, showError]);
 
+  /**
+   * Navega solo si el conjunto tiene encendido el módulo de esa pantalla.
+   *
+   * Un aviso viejo sobrevive al apagado del módulo: queda en la bandeja y en la
+   * bandeja del sistema. Tocarlo llevaría a una pantalla que el servidor va a
+   * rechazar, así que acá se corta el paso y se dice por qué —desaparecer el
+   * aviso sería peor: el residente recuerda haberlo recibido—.
+   */
+  const go = useCallback((screen: keyof HomeStackParamList, params?: object) => {
+    const module = SCREEN_MODULE[screen as string];
+    if (module && !useAuthStore.getState().isModuleEnabled(module)) {
+      showInfo(
+        `La administración desactivó ${moduleLabel(module)} en tu conjunto, así que este aviso ya no tiene a dónde llevarte.`,
+        'Módulo no disponible',
+      );
+      return;
+    }
+    (navigation.navigate as (s: string, p?: object) => void)(screen as string, params);
+  }, [navigation, showInfo]);
+
   // Route to the entity screen the notification points at. Visits, packages and
   // finances have screens today; anything else just surfaces its content.
   const openEntity = useCallback((args: {
     entityType?: NotificationEntityType;
     entityId?: string;
     type?: string;
-    metadata?: Record<string, any>;
     item: Notification;
   }) => {
-    const { entityType, entityId, type, metadata, item } = args;
+    const { entityType, entityId, type, item } = args;
 
     if (entityType === 'visit' && entityId) {
-      navigation.navigate('VisitDetail', { visitId: entityId });
+      go('VisitDetail', { visitId: entityId });
       return;
     }
     // El backend etiqueta las notificaciones de zonas comunes con este
     // entityType; sin esta rama, tocar el aviso de una reserva no lleva a nada.
     if (entityType === 'amenityBooking' && entityId) {
-      navigation.navigate('AmenityBookingDetail', { bookingId: entityId });
+      go('AmenityBookingDetail', { bookingId: entityId });
       return;
     }
     // El aviso de votación abierta lleva directo a la pregunta.
     if (entityType === 'voting') {
-      if (entityId) navigation.navigate('VotingQuestion', { questionId: entityId });
-      else navigation.navigate('Voting');
+      if (entityId) go('VotingQuestion', { questionId: entityId });
+      else go('Voting');
       return;
     }
     // Los radicados no tienen ficha propia todavía —la respuesta llega en la
     // siguiente entrega—, así que el aviso abre la bandeja.
     if (entityType === 'pqrf') {
-      if (entityId) navigation.navigate('PqrfDetail', { pqrfId: entityId });
-      else navigation.navigate('Pqrf');
+      if (entityId) go('PqrfDetail', { pqrfId: entityId });
+      else go('Pqrf');
+      return;
+    }
+    // Reporte de convivencia: el aviso abre el caso, con su evidencia y el
+    // plazo de descargos. Sin esta rama caía en el cajón de finanzas, porque
+    // el reporte lleva `unitId` en metadata como casi todos los módulos.
+    if (
+      (entityType === 'maintenance_ticket' || entityType === 'maintenanceTicket') &&
+      entityId
+    ) {
+      go('MaintenanceDetail', { ticketId: entityId });
+      return;
+    }
+
+    if ((entityType === 'pet_incident' || entityType === 'petIncident') && entityId) {
+      go('PetIncidentDetail', { incidentId: entityId });
+      return;
+    }
+    if (entityType === 'pet') {
+      if (entityId) go('PetDetail', { petId: entityId });
+      else go('Pets');
       return;
     }
     if (entityType === 'package' && entityId) {
-      navigation.navigate('PackageDetail', { packageId: entityId });
+      go('PackageDetail', { packageId: entityId });
       return;
     }
     if (entityType === 'vehicle' && entityId) {
-      navigation.navigate('VehicleDetail', { vehicleId: entityId });
+      go('VehicleDetail', { vehicleId: entityId });
       return;
     }
     if (entityType === 'ACCESS_REQUEST' && entityId) {
-      navigation.navigate('AccessRequestDetail', { accessRequestId: entityId });
+      go('AccessRequestDetail', { accessRequestId: entityId });
       return;
     }
-    // Finance has no entityType — detect by type token or a unit reference in
-    // metadata. The Finances screen self-loads the resident's account statement.
-    const isFinance = (type && FINANCE_TYPE_RE.test(type)) || !!metadata?.unitId;
+    // Finance has no entityType — detect by its type token. The Finances screen
+    // self-loads the resident's account statement.
+    //
+    // Antes bastaba con que `metadata` trajera un `unitId` para mandar el aviso
+    // a finanzas, y eso es justo lo que ponen en metadata mascotas, visitas,
+    // vehículos y paquetes: un reporte de convivencia terminaba abriendo el
+    // estado de cuenta. Un aviso que YA dice a qué entidad apunta nunca es de
+    // finanzas, así que este cajón solo recoge lo que no la trae.
+    const isFinance = !entityType && !!type && FINANCE_TYPE_RE.test(type);
     if (isFinance) {
-      navigation.navigate('Finances');
+      go('Finances');
       return;
     }
     showInfo(item.body || 'Sin contenido adicional.', item.title);
-  }, [navigation, showInfo]);
+  }, [go, showInfo]);
 
   const handlePress = useCallback(async (item: Notification) => {
     if (resolvingId) return;
@@ -206,7 +242,6 @@ export default function NotificationsScreen() {
     let entityType = item.data?.entityType as NotificationEntityType | undefined;
     let entityId = item.data?.entityId;
     let type = item.data?.type;
-    let metadata = parseMetadata(item.data?.metadata);
     const complexId = useAuthStore.getState().resident?.complex?.id;
 
     // Prefer the explicit notificationId from the payload; only fall back to the
@@ -220,7 +255,6 @@ export default function NotificationsScreen() {
         entityType = (detail?.entityType ?? entityType) as NotificationEntityType | undefined;
         entityId = detail?.entityId ?? entityId ?? undefined;
         type = detail?.type ?? type;
-        metadata = parseMetadata(detail?.metadata) ?? metadata;
       } catch {
         setResolvingId(null);
         showError('No se pudo abrir la notificación.');
@@ -229,7 +263,7 @@ export default function NotificationsScreen() {
       setResolvingId(null);
     }
 
-    openEntity({ entityType, entityId, type, metadata, item });
+    openEntity({ entityType, entityId, type, item });
   }, [resolvingId, markAsRead, openEntity, showError]);
 
   const headerActions = [

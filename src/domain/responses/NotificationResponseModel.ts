@@ -11,6 +11,16 @@ export type NotificationEntityType =
   | 'pqrf'
   // Votación abierta: el aviso lleva directo a la pregunta.
   | 'voting'
+  // Censo de mascotas y reportes de convivencia. `petIncident` es el valor que
+  // quedó guardado en los avisos emitidos antes de unificar el nombre: los que
+  // ya están en la bandeja del residente siguen llegando con ese.
+  | 'pet'
+  | 'pet_incident'
+  | 'petIncident'
+  // Daños en zonas comunes. `maintenanceTicket` es el alias que el backend
+  // acepta; los avisos viajan con el primero.
+  | 'maintenance_ticket'
+  | 'maintenanceTicket'
   | 'ACCESS_REQUEST';
 
 export interface NotificationCreatedBy {
