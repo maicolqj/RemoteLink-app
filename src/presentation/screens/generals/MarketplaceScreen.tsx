@@ -1,8 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   View,
   FlatList,
   Image,
+  Platform,
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
@@ -10,6 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import CustomTextComponent from '../../components/CustomTextComponent';
@@ -41,6 +49,19 @@ import {
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'Marketplace'>;
 
+const FAB_SIZE = 56;
+
+/**
+ * Hasta dónde llega el botón de pánico, medido contra la ventana.
+ *
+ * Lo pinta el RootNavigator encima de toda la app: se ancla a 80 (android) o
+ * 100 (ios) del borde, dentro de un halo de 76 que deja el círculo rojo —de
+ * 56— centrado, o sea 10 más arriba. De ahí sale el borde superior del círculo.
+ */
+const PANIC_FAB_BOTTOM = Platform.OS === 'ios' ? 100 : 90;
+const PANIC_HALO_OFFSET = 10;
+const PANIC_FAB_TOP = PANIC_FAB_BOTTOM + PANIC_HALO_OFFSET + FAB_SIZE;
+
 /** Pestañas de la vitrina. "Guardados" es la lista de favoritos del residente. */
 type Tab = 'all' | 'favorites';
 
@@ -69,6 +90,20 @@ export default function MarketplaceScreen() {
   const loadListings = useMarketplaceStore(state => state.load);
   const loadMore = useMarketplaceStore(state => state.loadMore);
   const toggleFavorite = useMarketplaceStore(state => state.toggleFavorite);
+
+  /**
+   * Publicar va justo encima del pánico, nunca debajo: taparle el botón de
+   * emergencia a un residente con un aviso de venta no se puede.
+   *
+   * Hay que descontar la barra de pestañas porque el pánico se mide contra la
+   * ventana y esta pantalla termina donde la barra empieza. Sin ese descuento,
+   * el mismo número deja el botón flotando muy por encima.
+   */
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
+  const publishFabBottom = Math.max(
+    SPACING.lg,
+    PANIC_FAB_TOP - tabBarHeight + SPACING.md,
+  );
 
   const [tab, setTab] = useState<Tab>('all');
   const [searchInput, setSearchInput] = useState('');
@@ -274,7 +309,7 @@ export default function MarketplaceScreen() {
           columnWrapperStyle={styles.column}
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: insets.bottom + SPACING.xxl * 2 },
+            { paddingBottom: publishFabBottom + FAB_SIZE + SPACING.lg },
           ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -308,10 +343,7 @@ export default function MarketplaceScreen() {
         onPress={() => navigation.navigate('ListingForm')}
         style={[
           styles.fab,
-          {
-            backgroundColor: colors.primary,
-            bottom: insets.bottom + SPACING.lg,
-          },
+          { backgroundColor: colors.primary, bottom: publishFabBottom },
         ]}
         activeOpacity={0.85}>
         <Icon name="add" size={26} color={colors.textInverse} />
@@ -376,6 +408,17 @@ function ListingCard({
           {listing.title}
         </CustomTextComponent>
 
+        {/* Dos líneas de la descripción: es lo que decide si abren el aviso. */}
+        {!!listing.description && (
+          <CustomTextComponent
+            fontSize={FONT_SIZE.xs}
+            color={colors.textSecondary}
+            numberOfLines={2}
+            style={styles.cardDescription}>
+            {listing.description}
+          </CustomTextComponent>
+        )}
+
         <CustomTextComponent
           fontSize={FONT_SIZE.xs}
           color={colors.textTertiary}
@@ -407,7 +450,11 @@ function ListingCard({
 }
 
 const styles = StyleSheet.create({
-  search: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
+  search: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    marginBottom: SPACING.md,
+  },
   tabs: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -449,12 +496,13 @@ const styles = StyleSheet.create({
   },
   cardBody: { padding: SPACING.md, gap: 2 },
   cardTitle: { marginBottom: 2 },
+  cardDescription: { lineHeight: 15, marginBottom: 2 },
   cardPrice: { marginVertical: SPACING.xs },
   fab: {
     position: 'absolute',
     right: SPACING.lg,
-    width: 56,
-    height: 56,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,7 +7,11 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +42,7 @@ import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
   CONDITION_LABEL,
+  canEditStatus,
   LISTING_STATUS_LABEL,
   LISTING_STATUS_TONE,
   LISTING_TYPE_LABEL,
@@ -97,9 +102,23 @@ export default function ListingDetailScreen() {
     }
   }, [params.listingId, showError, navigation]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  /**
+   * Al volver de editar hay que releer el aviso, pero sin la rueda de carga:
+   * la ficha ya está pintada y volver a vaciarla se ve como un parpadeo.
+   */
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        load();
+        return;
+      }
+      fetchListing(params.listingId)
+        .then(setListing)
+        .catch(() => undefined);
+    }, [load, params.listingId]),
+  );
 
   const onInterested = useCallback(async () => {
     if (!listing) return;
@@ -169,6 +188,24 @@ export default function ListingDetailScreen() {
     });
   }, [listing, showAlert, showError, showSuccess]);
 
+  /**
+   * Deja constancia de que alguien buscó al vecino por fuera de la app.
+   *
+   * Sin esto el contador de interesados solo cuenta a los que tocaron “Me
+   * interesa”, y quien publicó no se entera de las llamadas —que son la mayoría
+   * cuando el teléfono está a la vista—. Si falla no se interrumpe la llamada:
+   * el contacto es lo importante, el conteo es lo accesorio.
+   */
+  const trackContact = useCallback(() => {
+    if (!listing || listing.viewerIsOwner) return;
+    registerInterest(listing.id)
+      .then(updated => {
+        setListing(updated);
+        patchListing(updated);
+      })
+      .catch(() => undefined);
+  }, [listing, patchListing]);
+
   const openPhone = useCallback(
     (phone: string, viaWhatsApp: boolean) => {
       const clean = phone.replace(/[^\d+]/g, '');
@@ -181,6 +218,50 @@ export default function ListingDetailScreen() {
     },
     [showError],
   );
+
+  /**
+   * Llamar se confirma antes de salir de la app.
+   *
+   * El marcador del teléfono muestra el número —eso no lo decide la app—, así
+   * que al menos se dice a quién se va a llamar antes de que aparezca: tocar
+   * “Llamar” sin querer y quedar marcando a un vecino es lo que incomoda.
+   */
+  const onCall = useCallback(() => {
+    const phone = listing?.contact?.phone;
+    if (!phone) return;
+
+    const who = listing?.contact?.displayName ?? 'tu vecino';
+    const where = listing?.contact?.unitLabel ?? listingUnitLabel(listing!);
+
+    showAlert({
+      type: 'question',
+      title: `¿Llamar a ${who}?`,
+      description: [
+        where,
+        'Publicó su teléfono para que lo contacten por este aviso. Se abrirá la aplicación de llamadas.',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      buttons: [
+        {
+          text: 'Llamar',
+          style: 'primary',
+          onPress: () => {
+            trackContact();
+            openPhone(phone, false);
+          },
+        },
+        { text: 'Cancelar', style: 'text', onPress: () => undefined },
+      ],
+    });
+  }, [listing, showAlert, trackContact, openPhone]);
+
+  const onWhatsApp = useCallback(() => {
+    const phone = listing?.contact?.phone;
+    if (!phone) return;
+    trackContact();
+    openPhone(phone, true);
+  }, [listing, trackContact, openPhone]);
 
   if (isLoading || !listing) {
     return (
@@ -305,7 +386,7 @@ export default function ListingDetailScreen() {
                     type: 'material',
                     color: colors.textInverse,
                   }}
-                  onPress={() => openPhone(contact.phone!, false)}
+                  onPress={onCall}
                   style={[
                     styles.actionBtn,
                     gs.flex1,
@@ -324,7 +405,7 @@ export default function ListingDetailScreen() {
                       type: 'material',
                       color: colors.textInverse,
                     }}
-                    onPress={() => openPhone(contact.phone!, true)}
+                    onPress={onWhatsApp}
                     style={[
                       styles.actionBtn,
                       gs.flex1,
@@ -389,14 +470,34 @@ export default function ListingDetailScreen() {
               />
 
               <TouchableOpacity onPress={onReport} style={styles.reportBtn}>
-                <Icon name="flag" size={15} color={colors.textTertiary} />
+                <Icon name="flag" size={15} color={colors.error} />
                 <CustomTextComponent
                   fontSize={FONT_SIZE.xs}
-                  color={colors.textTertiary}>
+                  color={colors.error}>
                   Reportar esta publicación
                 </CustomTextComponent>
               </TouchableOpacity>
             </>
+          )}
+
+          {listing.viewerIsOwner && canEditStatus(listing.status) && (
+            <CustomButtonComponent
+              text="Editar el aviso"
+              iconLeft={{
+                name: 'edit',
+                type: 'material',
+                color: colors.textInverse,
+              }}
+              onPress={() =>
+                navigation.navigate('ListingForm', { listingId: listing.id })
+              }
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              textStyle={{
+                color: colors.textInverse,
+                fontSize: FONT_SIZE.md,
+                fontWeight: FONT_WEIGHT.semibold,
+              }}
+            />
           )}
 
           {listing.viewerIsOwner && (

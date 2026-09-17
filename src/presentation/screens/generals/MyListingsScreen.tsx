@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   FlatList,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -36,6 +36,7 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
   LISTING_STATUS_LABEL,
   LISTING_STATUS_TONE,
+  canEditStatus,
   expiryLabel,
   listingPrice,
   listingWhen,
@@ -87,9 +88,11 @@ export default function MyListingsScreen() {
     }
   }, [complexId, showError]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -215,6 +218,22 @@ export default function MyListingsScreen() {
           )}
 
           <View style={styles.actions}>
+            {/*
+              Corregir se ofrece mientras el aviso siga siendo suyo: el que
+              espera aprobación y el rechazado son justo los que hay que poder
+              arreglar, y volver a publicarlo desde cero gasta el cupo de la
+              unidad.
+            */}
+            {canEditStatus(item.status) && (
+              <Action
+                icon="edit"
+                label="Editar"
+                onPress={() =>
+                  navigation.navigate('ListingForm', { listingId: item.id })
+                }
+              />
+            )}
+
             {item.status === 'PUBLISHED' && (
               <>
                 <Action

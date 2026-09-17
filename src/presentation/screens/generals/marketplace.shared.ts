@@ -166,3 +166,21 @@ export const canEditStatus = (status: ListingStatus): boolean =>
   status === 'REJECTED' ||
   status === 'PUBLISHED' ||
   status === 'PAUSED';
+
+/**
+ * Qué pasa al guardar una corrección.
+ *
+ * Con moderación previa un aviso ya publicado vuelve a la cola y desaparece de
+ * la vitrina hasta que lo aprueben: decírselo antes de guardar es lo que evita
+ * el "¿por qué se borró mi aviso?".
+ */
+export const editModerationHint = (
+  mode?: string,
+  status?: ListingStatus,
+): string => {
+  if (mode === 'AUTO') return 'Los cambios quedan visibles de inmediato.';
+  if (status === 'PUBLISHED') {
+    return 'Al guardar, la administración revisa el aviso otra vez y deja de verse en la vitrina hasta que lo apruebe.';
+  }
+  return 'La administración revisa el aviso antes de publicarlo. Te avisamos cuando quede visible.';
+};

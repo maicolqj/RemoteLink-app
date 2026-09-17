@@ -13,6 +13,7 @@ import {
   MARK_LISTING_AS_SOLD,
   RENEW_LISTING,
   REMOVE_LISTING,
+  UPDATE_LISTING,
 } from '../../domain/graphql/marketplace.queries';
 import { getApiErrorMessage } from '../utils/apiError';
 import type { PhotoUpload } from '../../domain/interfaces/PhotoUpload';
@@ -259,4 +260,84 @@ export async function createListing(
   }
 
   return (await response.json()) as Listing;
+}
+
+// ─── Corregir un aviso propio ────────────────────────────────────────────────
+
+export interface UpdateListingInput {
+  listingId: string;
+  type?: string;
+  categoryId?: string;
+  title?: string;
+  description?: string;
+  priceType?: string;
+  priceAmount?: number;
+  condition?: string;
+  contactPreference?: string;
+  showPhone?: boolean;
+  /** Lista final de fotos ya subidas: sirve para quitarlas o reordenarlas. */
+  imageUrls?: string[];
+}
+
+export async function updateListing(
+  input: UpdateListingInput,
+): Promise<Listing> {
+  const { data, error } = await apolloClient.mutate<{
+    updateListing: Listing;
+  }>({
+    mutation: UPDATE_LISTING,
+    variables: { input },
+  });
+  if (error) {
+    throw new Error(getApiErrorMessage(error, 'No se pudo guardar el aviso'));
+  }
+  return data!.updateListing;
+}
+
+/**
+ * Agrega fotos a un aviso que ya existe.
+ *
+ * Es el mismo camino que al publicar —multipart contra el backend, que sube a
+ * R2— porque una foto nueva no puede entrar por `updateListing`: ahí solo se
+ * admite la lista de lo que ya está subido.
+ */
+export async function appendListingImages(
+  listingId: string,
+  photos: PhotoUpload[],
+): Promise<string[]> {
+  const form = new FormData();
+
+  photos.forEach(photo => {
+    form.append('images', {
+      uri: photo.uri,
+      type: photo.type,
+      name: photo.name,
+    } as unknown as Blob);
+  });
+
+  const tokens = await SecureStorageService.getTokens();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/marketplace/listings/${listingId}/images`,
+    {
+      method: 'POST',
+      headers: tokens?.accessToken
+        ? { Authorization: `Bearer ${tokens.accessToken}` }
+        : {},
+      body: form,
+    },
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const message = Array.isArray(payload.message)
+      ? payload.message.join('\n')
+      : payload.message;
+    throw new Error(message ?? 'No se pudieron subir las fotos');
+  }
+
+  const payload = (await response.json()) as { imageUrls?: string[] };
+  return payload.imageUrls ?? [];
 }

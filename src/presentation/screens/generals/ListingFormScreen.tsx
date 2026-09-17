@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
@@ -16,16 +17,23 @@ import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import AppHeader from '../../components/AppHeader';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { usePhotoPicker } from '../../hooks/usePhotoPicker';
 import { useAuthStore } from '../../store/auth.store';
 import { useMarketplaceStore } from '../../store/marketplace.store';
-import { createListing } from '../../../infraestructure/services/marketplace.service';
+import {
+  appendListingImages,
+  createListing,
+  fetchListing,
+  updateListing,
+} from '../../../infraestructure/services/marketplace.service';
 import type { PhotoUpload } from '../../../domain/interfaces/PhotoUpload';
 import type {
   ItemCondition,
+  Listing,
   ListingType,
   PriceType,
 } from '../../../domain/responses/MarketplaceResponseModel';
@@ -40,10 +48,12 @@ import {
   PRICE_TYPES,
   PRICE_TYPES_WITH_AMOUNT,
   PRICE_TYPE_LABEL,
+  editModerationHint,
   moderationHint,
 } from './marketplace.shared';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'ListingForm'>;
+type FormRoute = RouteProp<HomeStackParamList, 'ListingForm'>;
 
 /** Miles con punto mientras se escribe: $800.000 se lee, 800000 se descifra. */
 const formatThousands = (raw: string): string => {
@@ -61,9 +71,14 @@ const formatThousands = (raw: string): string => {
  *
  * El teléfono NO se publica por defecto: mostrarlo es una decisión aparte, y
  * por eso es un interruptor apagado con su explicación al lado.
+ *
+ * La misma pantalla corrige un aviso propio cuando llega con `listingId`: el
+ * residente que se equivocó en el precio —o al que le rechazaron el aviso—
+ * arregla lo que escribió sin tener que publicarlo otra vez desde cero.
  */
 export default function ListingFormScreen() {
   const navigation = useNavigation<NavProp>();
+  const { params } = useRoute<FormRoute>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const gs = useGlobalStyles();
@@ -76,6 +91,7 @@ export default function ListingFormScreen() {
   const categories = useMarketplaceStore(state => state.categories);
   const settings = useMarketplaceStore(state => state.settings);
   const init = useMarketplaceStore(state => state.init);
+  const patchListing = useMarketplaceStore(state => state.patchListing);
 
   const [type, setType] = useState<ListingType>('PRODUCT');
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -89,6 +105,14 @@ export default function ListingFormScreen() {
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
   const [busy, setBusy] = useState(false);
 
+  const listingId = params?.listingId;
+  const isEdit = !!listingId;
+
+  /** Lo que ya está subido. Aquí solo se puede quitar; lo nuevo va en `photos`. */
+  const [original, setOriginal] = useState<Listing | null>(null);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(isEdit);
+
   /**
    * Las categorías se cargan aquí también y no solo en la vitrina: a esta
    * pantalla se puede llegar directo desde "Mis publicaciones", y sin
@@ -99,9 +123,54 @@ export default function ListingFormScreen() {
     if (complexId && categories.length === 0) init(complexId);
   }, [complexId, categories.length, init]);
 
+  /**
+   * Trae el aviso que se va a corregir y deja el formulario como quedó.
+   *
+   * Se pide al servidor y no se recibe por parámetro a propósito: quien entra
+   * a editar tiene que ver el estado de ahora —pudo vencerse o haber pasado
+   * por moderación mientras la lista estaba en pantalla—.
+   */
+  useEffect(() => {
+    if (!listingId) return;
+    let alive = true;
+
+    fetchListing(listingId)
+      .then(listing => {
+        if (!alive) return;
+        setOriginal(listing);
+        setType(listing.type);
+        setCategoryId(listing.categoryId);
+        setTitle(listing.title);
+        setDescription(listing.description);
+        setPriceType(listing.priceType);
+        setPriceAmount(
+          listing.priceAmount === null || listing.priceAmount === undefined
+            ? ''
+            : formatThousands(String(listing.priceAmount)),
+        );
+        setCondition(listing.condition ?? null);
+        setShowPhone(listing.showPhone);
+        setExistingImages(listing.imageUrls);
+        // Las condiciones se aceptaron al publicar; no se vuelven a pedir.
+        setAcceptTerms(true);
+      })
+      .catch((e: any) => {
+        showError(e?.message ?? 'No se pudo abrir el aviso.');
+        navigation.goBack();
+      })
+      .finally(() => {
+        if (alive) setIsLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [listingId, showError, navigation]);
+
   const maxPhotos = settings?.maxImagesPerListing ?? 5;
   const needsPhotos = type !== 'WANTED';
   const needsAmount = PRICE_TYPES_WITH_AMOUNT.includes(priceType);
+  const totalPhotos = existingImages.length + photos.length;
 
   const availableTypes = useMemo(
     () =>
@@ -112,16 +181,66 @@ export default function ListingFormScreen() {
   );
 
   const addPhotos = useCallback(() => {
-    const remaining = maxPhotos - photos.length;
+    const remaining = maxPhotos - totalPhotos;
     if (remaining <= 0) {
       showError(`Puedes subir hasta ${maxPhotos} fotos.`);
       return;
     }
 
     choosePhoto(picked => {
-      setPhotos(prev => [...prev, ...picked].slice(0, maxPhotos));
+      setPhotos(prev => [...prev, ...picked].slice(0, remaining + prev.length));
     }, remaining);
-  }, [choosePhoto, maxPhotos, photos.length, showError]);
+  }, [choosePhoto, maxPhotos, totalPhotos, showError]);
+
+  /**
+   * Guarda la corrección de un aviso propio.
+   *
+   * Primero se guarda el texto con la lista de fotos que debe quedar y solo
+   * después se suben las nuevas: al revés, el tope de fotos del conjunto
+   * contaría también las que el residente acaba de quitar.
+   */
+  const saveEdit = useCallback(async () => {
+    if (!original || !categoryId) return;
+
+    const imagesChanged =
+      existingImages.length !== original.imageUrls.length ||
+      existingImages.some((url, index) => original.imageUrls[index] !== url);
+
+    const updated = await updateListing({
+      listingId: original.id,
+      type,
+      categoryId,
+      title: title.trim(),
+      description: description.trim(),
+      priceType,
+      priceAmount: needsAmount
+        ? Number(priceAmount.replace(/\D/g, ''))
+        : undefined,
+      condition: type === 'PRODUCT' && condition ? condition : undefined,
+      contactPreference: showPhone ? 'WHATSAPP' : 'IN_APP',
+      showPhone,
+      imageUrls: imagesChanged ? existingImages : undefined,
+    });
+
+    if (photos.length > 0) {
+      const imageUrls = await appendListingImages(original.id, photos);
+      patchListing({ ...updated, imageUrls });
+    } else {
+      patchListing(updated);
+    }
+
+    showSuccess(
+      updated.status === 'PENDING_REVIEW'
+        ? 'Guardamos los cambios. La administración revisa el aviso otra vez antes de publicarlo.'
+        : 'Guardamos los cambios en tu aviso.',
+      'Listo',
+    );
+    navigation.goBack();
+  }, [
+    original, categoryId, existingImages, type, title, description, priceType,
+    needsAmount, priceAmount, condition, showPhone, photos, navigation,
+    showSuccess, patchListing,
+  ]);
 
   const submit = useCallback(async () => {
     if (!complexId) return;
@@ -133,9 +252,11 @@ export default function ListingFormScreen() {
     if (description.trim().length < 10) {
       return showError('Describe un poco mejor lo que publicas.');
     }
-    if (needsPhotos && photos.length === 0) {
+    if (needsPhotos && totalPhotos === 0) {
       return showError(
-        'Agrega al menos una foto: sin foto casi nadie abre un aviso.',
+        isEdit
+          ? 'El aviso necesita al menos una foto. Agrega una antes de quitar las que están.'
+          : 'Agrega al menos una foto: sin foto casi nadie abre un aviso.',
       );
     }
     if (needsAmount && !priceAmount.trim()) {
@@ -147,6 +268,11 @@ export default function ListingFormScreen() {
 
     setBusy(true);
     try {
+      if (isEdit) {
+        await saveEdit();
+        return;
+      }
+
       await createListing(
         {
           complexId,
@@ -174,14 +300,19 @@ export default function ListingFormScreen() {
       );
       navigation.goBack();
     } catch (e: any) {
-      showError(e?.message ?? 'No se pudo publicar el aviso.');
+      showError(
+        e?.message ??
+          (isEdit
+            ? 'No se pudo guardar el aviso.'
+            : 'No se pudo publicar el aviso.'),
+      );
     } finally {
       setBusy(false);
     }
   }, [
-    complexId, categoryId, title, description, needsPhotos, photos, needsAmount,
-    priceAmount, acceptTerms, type, priceType, condition, showPhone, settings,
-    navigation, showError, showSuccess,
+    complexId, categoryId, title, description, needsPhotos, totalPhotos, photos,
+    needsAmount, priceAmount, acceptTerms, type, priceType, condition,
+    showPhone, settings, navigation, showError, showSuccess, isEdit, saveEdit,
   ]);
 
   const sectionTitle = (text: string, first = false) => (
@@ -194,10 +325,23 @@ export default function ListingFormScreen() {
     </CustomTextComponent>
   );
 
+  if (isLoading) {
+    return (
+      <View style={[gs.screen, { paddingTop: insets.top }]}>
+        <AppHeader
+          title="Editar aviso"
+          showBack
+          onBack={() => navigation.goBack()}
+        />
+        <LoadingSpinner />
+      </View>
+    );
+  }
+
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
-        title="Publicar aviso"
+        title={isEdit ? 'Editar aviso' : 'Publicar aviso'}
         showBack
         onBack={() => navigation.goBack()}
       />
@@ -358,6 +502,20 @@ export default function ListingFormScreen() {
         </CustomTextComponent>
 
         <View style={styles.photos}>
+          {/* Lo que ya está en R2: aquí solo se quita, no se vuelve a subir. */}
+          {existingImages.map((url, index) => (
+            <View key={url} style={styles.photoBox}>
+              <Image source={{ uri: url }} style={styles.photo} />
+              <TouchableOpacity
+                onPress={() =>
+                  setExistingImages(prev => prev.filter((_, i) => i !== index))
+                }
+                style={[styles.removePhoto, { backgroundColor: colors.error }]}>
+                <Icon name="close" size={13} color={colors.textInverse} />
+              </TouchableOpacity>
+            </View>
+          ))}
+
           {photos.map((photo, index) => (
             <View key={`${photo.uri}-${index}`} style={styles.photoBox}>
               <Image source={{ uri: photo.uri }} style={styles.photo} />
@@ -371,7 +529,7 @@ export default function ListingFormScreen() {
             </View>
           ))}
 
-          {photos.length < maxPhotos && (
+          {totalPhotos < maxPhotos && (
             <TouchableOpacity
               onPress={addPhotos}
               style={[
@@ -420,29 +578,32 @@ export default function ListingFormScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          onPress={() => setAcceptTerms(!acceptTerms)}
-          activeOpacity={0.8}
-          style={[
-            styles.terms,
-            {
-              backgroundColor: colors.surface,
-              borderColor: acceptTerms ? colors.primary : colors.border,
-            },
-          ]}>
-          <Icon
-            name={acceptTerms ? 'check-box' : 'check-box-outline-blank'}
-            size={22}
-            color={acceptTerms ? colors.primary : colors.textTertiary}
-          />
-          <CustomTextComponent
-            fontSize={FONT_SIZE.sm}
-            color={colors.textSecondary}
-            style={gs.flex1}>
-            {settings?.termsText ??
-              'La administración solo facilita este espacio: no participa en el negocio ni responde por él. Quien publica responde por su aviso.'}
-          </CustomTextComponent>
-        </TouchableOpacity>
+        {/* Las condiciones se aceptan al publicar; corregir no las vuelve a pedir. */}
+        {!isEdit && (
+          <TouchableOpacity
+            onPress={() => setAcceptTerms(!acceptTerms)}
+            activeOpacity={0.8}
+            style={[
+              styles.terms,
+              {
+                backgroundColor: colors.surface,
+                borderColor: acceptTerms ? colors.primary : colors.border,
+              },
+            ]}>
+            <Icon
+              name={acceptTerms ? 'check-box' : 'check-box-outline-blank'}
+              size={22}
+              color={acceptTerms ? colors.primary : colors.textTertiary}
+            />
+            <CustomTextComponent
+              fontSize={FONT_SIZE.sm}
+              color={colors.textSecondary}
+              style={gs.flex1}>
+              {settings?.termsText ??
+                'La administración solo facilita este espacio: no participa en el negocio ni responde por él. Quien publica responde por su aviso.'}
+            </CustomTextComponent>
+          </TouchableOpacity>
+        )}
 
         <View style={[styles.notice, { backgroundColor: colors.primarySurface }]}>
           <Icon name="info-outline" size={16} color={colors.primary} />
@@ -450,17 +611,23 @@ export default function ListingFormScreen() {
             fontSize={FONT_SIZE.sm}
             color={colors.textSecondary}
             style={gs.flex1}>
-            {moderationHint(settings?.moderationMode)}
+            {isEdit
+              ? editModerationHint(settings?.moderationMode, original?.status)
+              : moderationHint(settings?.moderationMode)}
           </CustomTextComponent>
         </View>
 
         <CustomButtonComponent
-          text="Publicar"
+          text={isEdit ? 'Guardar cambios' : 'Publicar'}
           onPress={submit}
           isLoading={busy}
           disabled={busy}
           loaderColor={colors.textInverse}
-          iconLeft={{ name: 'send', type: 'material', color: colors.textInverse }}
+          iconLeft={{
+            name: isEdit ? 'save' : 'send',
+            type: 'material',
+            color: colors.textInverse,
+          }}
           style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
           textStyle={{
             color: colors.textInverse,
