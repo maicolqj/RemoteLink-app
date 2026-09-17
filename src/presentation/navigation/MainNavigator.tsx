@@ -8,8 +8,6 @@ import { SPACING } from '../constants/spacing';
 import { useTheme } from '../providers/context/ThemeContext';
 import HomeStack from './stacks/HomeStack';
 import VisitsStack from './stacks/VisitsStack';
-// Tienda comentada temporalmente — pendiente para actualizaciones futuras.
-// import MarketplaceStack from './stacks/MarketplaceStack';
 import ProfileStack from './stacks/ProfileStack';
 import { useNotificationsStore } from '../store/notifications.store';
 
@@ -23,8 +21,8 @@ const TAB_CONFIG: Record<keyof MainTabParamList, TabIconConfig> = {
   HomeTab:        { name: 'HomeTab',        label: 'Inicio',   icon: 'home' },
   // Finanzas moved into HomeStack — no longer a bottom tab.
   // VisitsTab:      { name: 'VisitsTab',      label: 'Visitas',  icon: 'people' },
-  // Tienda comentada temporalmente — pendiente para actualizaciones futuras.
-  // MarketplaceTab: { name: 'MarketplaceTab', label: 'Tienda',   icon: 'store' },
+  // Clasificados no es una pestaña: entra por el Home, como el resto de los
+  // módulos que el complejo puede tener apagados.
   ProfileTab:     { name: 'ProfileTab',     label: 'Perfil',   icon: 'person' },
 };
 
@@ -70,15 +68,6 @@ export default function MainNavigator() {
         options={{
           tabBarLabel: TAB_CONFIG.VisitsTab.label,
           tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.VisitsTab.icon} focused={focused} colors={colors} />,
-        }}
-      /> */}
-      {/* Tienda comentada temporalmente — pendiente para actualizaciones futuras.
-      <Tab.Screen
-        name="MarketplaceTab"
-        component={MarketplaceStack}
-        options={{
-          tabBarLabel: TAB_CONFIG.MarketplaceTab.label,
-          tabBarIcon: ({ focused }) => <TabBarIcon iconName={TAB_CONFIG.MarketplaceTab.icon} focused={focused} colors={colors} />,
         }}
       /> */}
       <Tab.Screen

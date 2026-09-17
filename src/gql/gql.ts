@@ -57,6 +57,19 @@ type Documents = {
     "\n  \n  mutation RateMaintenanceTicket($input: RateMaintenanceTicketInput!) {\n    rateMaintenanceTicket(input: $input) {\n      ...MaintenanceTicketFields\n    }\n  }\n": typeof types.RateMaintenanceTicketDocument,
     "\n  \n  mutation ReopenMaintenanceTicket($ticketId: String!, $reason: String!) {\n    reopenMaintenanceTicket(ticketId: $ticketId, reason: $reason) {\n      ...MaintenanceTicketFields\n    }\n  }\n": typeof types.ReopenMaintenanceTicketDocument,
     "\n  \n  mutation AddMaintenanceComment($input: AddMaintenanceCommentInput!) {\n    addMaintenanceComment(input: $input) {\n      ...MaintenanceTicketFields\n      events {\n        id\n        type\n        message\n        imageUrls\n        authorName\n        authorRole\n        createdAt\n      }\n    }\n  }\n": typeof types.AddMaintenanceCommentDocument,
+    "\n  fragment ListingFields on MarketplaceListing {\n    id\n    type\n    title\n    description\n    condition\n    imageUrls\n    priceAmount\n    priceType\n    currency\n    contactPreference\n    showPhone\n    status\n    rejectionReason\n    publishedAt\n    expiresAt\n    viewsCount\n    contactsCount\n    favoritesCount\n    createdAt\n    categoryId\n    category {\n      id\n      name\n      icon\n    }\n    unit {\n      id\n      number\n      building {\n        id\n        name\n      }\n    }\n    contact {\n      displayName\n      unitLabel\n      preference\n      phone\n      inAppOnly\n    }\n    viewerHasFavorited\n    viewerHasContacted\n    viewerIsOwner\n  }\n": typeof types.ListingFieldsFragmentDoc,
+    "\n  \n  query MarketplaceListings(\n    $complexId: String!\n    $pagination: PaginationInput\n    $filters: FilterListingsInput\n  ) {\n    marketplaceListings(\n      complexId: $complexId\n      pagination: $pagination\n      filters: $filters\n    ) {\n      items {\n        ...ListingFields\n      }\n      pagination {\n        currentPage\n        totalPages\n        hasNextPage\n      }\n    }\n  }\n": typeof types.MarketplaceListingsDocument,
+    "\n  \n  query MarketplaceListing($listingId: String!) {\n    marketplaceListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.MarketplaceListingDocument,
+    "\n  query MarketplaceCategoriesApp($complexId: String!) {\n    marketplaceCategories(complexId: $complexId) {\n      id\n      name\n      icon\n    }\n  }\n": typeof types.MarketplaceCategoriesAppDocument,
+    "\n  query MarketplaceSettingsApp($complexId: String!) {\n    marketplaceSettings(complexId: $complexId) {\n      complexId\n      moderationMode\n      listingDurationDays\n      maxActiveListingsPerUnit\n      maxImagesPerListing\n      allowPhoneContact\n      allowWantedListings\n      termsText\n    }\n  }\n": typeof types.MarketplaceSettingsAppDocument,
+    "\n  \n  mutation RegisterListingInterest($input: RegisterListingInterestInput!) {\n    registerListingInterest(input: $input) {\n      ...ListingFields\n    }\n  }\n": typeof types.RegisterListingInterestDocument,
+    "\n  mutation ToggleListingFavorite($listingId: String!) {\n    toggleListingFavorite(listingId: $listingId)\n  }\n": typeof types.ToggleListingFavoriteDocument,
+    "\n  mutation ReportListing($input: ReportListingInput!) {\n    reportListing(input: $input) {\n      id\n      status\n    }\n  }\n": typeof types.ReportListingDocument,
+    "\n  \n  mutation PauseListingApp($listingId: String!) {\n    pauseListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.PauseListingAppDocument,
+    "\n  \n  mutation ResumeListingApp($listingId: String!) {\n    resumeListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.ResumeListingAppDocument,
+    "\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.MarkListingAsSoldDocument,
+    "\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.RenewListingDocument,
+    "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n": typeof types.RemoveListingAppDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": typeof types.SaveMobileTokenDocument,
     "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": typeof types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": typeof types.MarkNotificationAsReadDocument,
@@ -148,6 +161,19 @@ const documents: Documents = {
     "\n  \n  mutation RateMaintenanceTicket($input: RateMaintenanceTicketInput!) {\n    rateMaintenanceTicket(input: $input) {\n      ...MaintenanceTicketFields\n    }\n  }\n": types.RateMaintenanceTicketDocument,
     "\n  \n  mutation ReopenMaintenanceTicket($ticketId: String!, $reason: String!) {\n    reopenMaintenanceTicket(ticketId: $ticketId, reason: $reason) {\n      ...MaintenanceTicketFields\n    }\n  }\n": types.ReopenMaintenanceTicketDocument,
     "\n  \n  mutation AddMaintenanceComment($input: AddMaintenanceCommentInput!) {\n    addMaintenanceComment(input: $input) {\n      ...MaintenanceTicketFields\n      events {\n        id\n        type\n        message\n        imageUrls\n        authorName\n        authorRole\n        createdAt\n      }\n    }\n  }\n": types.AddMaintenanceCommentDocument,
+    "\n  fragment ListingFields on MarketplaceListing {\n    id\n    type\n    title\n    description\n    condition\n    imageUrls\n    priceAmount\n    priceType\n    currency\n    contactPreference\n    showPhone\n    status\n    rejectionReason\n    publishedAt\n    expiresAt\n    viewsCount\n    contactsCount\n    favoritesCount\n    createdAt\n    categoryId\n    category {\n      id\n      name\n      icon\n    }\n    unit {\n      id\n      number\n      building {\n        id\n        name\n      }\n    }\n    contact {\n      displayName\n      unitLabel\n      preference\n      phone\n      inAppOnly\n    }\n    viewerHasFavorited\n    viewerHasContacted\n    viewerIsOwner\n  }\n": types.ListingFieldsFragmentDoc,
+    "\n  \n  query MarketplaceListings(\n    $complexId: String!\n    $pagination: PaginationInput\n    $filters: FilterListingsInput\n  ) {\n    marketplaceListings(\n      complexId: $complexId\n      pagination: $pagination\n      filters: $filters\n    ) {\n      items {\n        ...ListingFields\n      }\n      pagination {\n        currentPage\n        totalPages\n        hasNextPage\n      }\n    }\n  }\n": types.MarketplaceListingsDocument,
+    "\n  \n  query MarketplaceListing($listingId: String!) {\n    marketplaceListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.MarketplaceListingDocument,
+    "\n  query MarketplaceCategoriesApp($complexId: String!) {\n    marketplaceCategories(complexId: $complexId) {\n      id\n      name\n      icon\n    }\n  }\n": types.MarketplaceCategoriesAppDocument,
+    "\n  query MarketplaceSettingsApp($complexId: String!) {\n    marketplaceSettings(complexId: $complexId) {\n      complexId\n      moderationMode\n      listingDurationDays\n      maxActiveListingsPerUnit\n      maxImagesPerListing\n      allowPhoneContact\n      allowWantedListings\n      termsText\n    }\n  }\n": types.MarketplaceSettingsAppDocument,
+    "\n  \n  mutation RegisterListingInterest($input: RegisterListingInterestInput!) {\n    registerListingInterest(input: $input) {\n      ...ListingFields\n    }\n  }\n": types.RegisterListingInterestDocument,
+    "\n  mutation ToggleListingFavorite($listingId: String!) {\n    toggleListingFavorite(listingId: $listingId)\n  }\n": types.ToggleListingFavoriteDocument,
+    "\n  mutation ReportListing($input: ReportListingInput!) {\n    reportListing(input: $input) {\n      id\n      status\n    }\n  }\n": types.ReportListingDocument,
+    "\n  \n  mutation PauseListingApp($listingId: String!) {\n    pauseListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.PauseListingAppDocument,
+    "\n  \n  mutation ResumeListingApp($listingId: String!) {\n    resumeListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.ResumeListingAppDocument,
+    "\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.MarkListingAsSoldDocument,
+    "\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.RenewListingDocument,
+    "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n": types.RemoveListingAppDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": types.SaveMobileTokenDocument,
     "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": types.MarkNotificationAsReadDocument,
@@ -382,6 +408,58 @@ export function graphql(source: "\n  \n  mutation ReopenMaintenanceTicket($ticke
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  \n  mutation AddMaintenanceComment($input: AddMaintenanceCommentInput!) {\n    addMaintenanceComment(input: $input) {\n      ...MaintenanceTicketFields\n      events {\n        id\n        type\n        message\n        imageUrls\n        authorName\n        authorRole\n        createdAt\n      }\n    }\n  }\n"): (typeof documents)["\n  \n  mutation AddMaintenanceComment($input: AddMaintenanceCommentInput!) {\n    addMaintenanceComment(input: $input) {\n      ...MaintenanceTicketFields\n      events {\n        id\n        type\n        message\n        imageUrls\n        authorName\n        authorRole\n        createdAt\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment ListingFields on MarketplaceListing {\n    id\n    type\n    title\n    description\n    condition\n    imageUrls\n    priceAmount\n    priceType\n    currency\n    contactPreference\n    showPhone\n    status\n    rejectionReason\n    publishedAt\n    expiresAt\n    viewsCount\n    contactsCount\n    favoritesCount\n    createdAt\n    categoryId\n    category {\n      id\n      name\n      icon\n    }\n    unit {\n      id\n      number\n      building {\n        id\n        name\n      }\n    }\n    contact {\n      displayName\n      unitLabel\n      preference\n      phone\n      inAppOnly\n    }\n    viewerHasFavorited\n    viewerHasContacted\n    viewerIsOwner\n  }\n"): (typeof documents)["\n  fragment ListingFields on MarketplaceListing {\n    id\n    type\n    title\n    description\n    condition\n    imageUrls\n    priceAmount\n    priceType\n    currency\n    contactPreference\n    showPhone\n    status\n    rejectionReason\n    publishedAt\n    expiresAt\n    viewsCount\n    contactsCount\n    favoritesCount\n    createdAt\n    categoryId\n    category {\n      id\n      name\n      icon\n    }\n    unit {\n      id\n      number\n      building {\n        id\n        name\n      }\n    }\n    contact {\n      displayName\n      unitLabel\n      preference\n      phone\n      inAppOnly\n    }\n    viewerHasFavorited\n    viewerHasContacted\n    viewerIsOwner\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  query MarketplaceListings(\n    $complexId: String!\n    $pagination: PaginationInput\n    $filters: FilterListingsInput\n  ) {\n    marketplaceListings(\n      complexId: $complexId\n      pagination: $pagination\n      filters: $filters\n    ) {\n      items {\n        ...ListingFields\n      }\n      pagination {\n        currentPage\n        totalPages\n        hasNextPage\n      }\n    }\n  }\n"): (typeof documents)["\n  \n  query MarketplaceListings(\n    $complexId: String!\n    $pagination: PaginationInput\n    $filters: FilterListingsInput\n  ) {\n    marketplaceListings(\n      complexId: $complexId\n      pagination: $pagination\n      filters: $filters\n    ) {\n      items {\n        ...ListingFields\n      }\n      pagination {\n        currentPage\n        totalPages\n        hasNextPage\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  query MarketplaceListing($listingId: String!) {\n    marketplaceListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  query MarketplaceListing($listingId: String!) {\n    marketplaceListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MarketplaceCategoriesApp($complexId: String!) {\n    marketplaceCategories(complexId: $complexId) {\n      id\n      name\n      icon\n    }\n  }\n"): (typeof documents)["\n  query MarketplaceCategoriesApp($complexId: String!) {\n    marketplaceCategories(complexId: $complexId) {\n      id\n      name\n      icon\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MarketplaceSettingsApp($complexId: String!) {\n    marketplaceSettings(complexId: $complexId) {\n      complexId\n      moderationMode\n      listingDurationDays\n      maxActiveListingsPerUnit\n      maxImagesPerListing\n      allowPhoneContact\n      allowWantedListings\n      termsText\n    }\n  }\n"): (typeof documents)["\n  query MarketplaceSettingsApp($complexId: String!) {\n    marketplaceSettings(complexId: $complexId) {\n      complexId\n      moderationMode\n      listingDurationDays\n      maxActiveListingsPerUnit\n      maxImagesPerListing\n      allowPhoneContact\n      allowWantedListings\n      termsText\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation RegisterListingInterest($input: RegisterListingInterestInput!) {\n    registerListingInterest(input: $input) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation RegisterListingInterest($input: RegisterListingInterestInput!) {\n    registerListingInterest(input: $input) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ToggleListingFavorite($listingId: String!) {\n    toggleListingFavorite(listingId: $listingId)\n  }\n"): (typeof documents)["\n  mutation ToggleListingFavorite($listingId: String!) {\n    toggleListingFavorite(listingId: $listingId)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ReportListing($input: ReportListingInput!) {\n    reportListing(input: $input) {\n      id\n      status\n    }\n  }\n"): (typeof documents)["\n  mutation ReportListing($input: ReportListingInput!) {\n    reportListing(input: $input) {\n      id\n      status\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation PauseListingApp($listingId: String!) {\n    pauseListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation PauseListingApp($listingId: String!) {\n    pauseListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation ResumeListingApp($listingId: String!) {\n    resumeListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation ResumeListingApp($listingId: String!) {\n    resumeListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n"): (typeof documents)["\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

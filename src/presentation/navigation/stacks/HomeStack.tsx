@@ -30,6 +30,10 @@ import VehicleDetailScreen from '../../screens/generals/VehicleDetailScreen';
 import AccessRequestDetailScreen from '../../screens/generals/AccessRequestDetailScreen';
 import FinancesScreen from '../../screens/generals/FinancesScreen';
 import PaymentDetailScreen from '../../screens/generals/PaymentDetailScreen';
+import MarketplaceScreen from '../../screens/generals/MarketplaceScreen';
+import ListingDetailScreen from '../../screens/generals/ListingDetailScreen';
+import MyListingsScreen from '../../screens/generals/MyListingsScreen';
+import ListingFormScreen from '../../screens/generals/ListingFormScreen';
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
 
@@ -67,6 +71,12 @@ export default function HomeStack() {
       <Stack.Screen name="AccessRequestDetail" component={AccessRequestDetailScreen} />
       <Stack.Screen name="Finances" component={FinancesScreen} />
       <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
+      {/* Clasificados: la tienda de demostración vivía en su propia pestaña;
+          ahora es un módulo más del Home, como PQRF o zonas comunes. */}
+      <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+      <Stack.Screen name="ListingDetail" component={ListingDetailScreen} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} />
+      <Stack.Screen name="ListingForm" component={ListingFormScreen} />
     </Stack.Navigator>
   );
 }

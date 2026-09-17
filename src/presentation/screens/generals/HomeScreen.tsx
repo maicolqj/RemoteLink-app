@@ -218,11 +218,11 @@ export default function HomeScreen() {
     { id: 'pqrf',    icon: 'forum',     label: 'PQRF',    screen: 'Pqrf',        color: colors.info, module: 'PQRF' },
     { id: 'pets',    icon: 'pets',      label: 'Mascotas', screen: 'Pets',       color: colors.warning, module: 'MASCOTAS' },
     { id: 'maintenance', icon: 'build', label: 'Daños',   screen: 'Maintenance', color: colors.error, module: 'MANTENIMIENTO' },
+    { id: 'marketplace', icon: 'storefront', label: 'Clasificados', screen: 'Marketplace', color: colors.accent, module: 'CLASIFICADOS' },
     ...(votingEnabled
       ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary, module: 'VOTACIONES' }]
       : []),
     // Comentado temporalmente — pendiente para actualizaciones futuras.
-    // { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
     // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
   ].filter(action => !action.module || moduleEnabledIn(enabledModules, action.module)),
   [colors, votingEnabled, enabledModules]);
