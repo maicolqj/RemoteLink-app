@@ -94,6 +94,12 @@ export type AccountingLine = {
   unitId?: Maybe<Scalars['String']['output']>;
 };
 
+export type AddMaintenanceCommentInput = {
+  isInternal?: InputMaybe<Scalars['Boolean']['input']>;
+  message: Scalars['String']['input'];
+  ticketId: Scalars['String']['input'];
+};
+
 /** Datos para que un administrador restablezca la contraseña de un miembro del personal */
 export type AdminResetUserPasswordInput = {
   /** Nueva contraseña asignada por el administrador */
@@ -394,6 +400,12 @@ export type ApplyWalletToChargeInput = {
   unitId: Scalars['String']['input'];
 };
 
+export type ApprovePetInput = {
+  /** Notas internas de la administración */
+  notes?: InputMaybe<Scalars['String']['input']>;
+  petId: Scalars['String']['input'];
+};
+
 export type ApproveResidentInput = {
   /** Notas opcionales del Compliance Officer */
   notes?: InputMaybe<Scalars['String']['input']>;
@@ -413,6 +425,15 @@ export type AssignChildrenResponse = {
   parentId: Scalars['String']['output'];
   /** Name of the parent role */
   parentName: Scalars['String']['output'];
+};
+
+export type AssignMaintenanceTicketInput = {
+  assignedUserId?: InputMaybe<Scalars['String']['input']>;
+  assigneeType: MaintenanceAssigneeType;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  scheduledFor?: InputMaybe<Scalars['DateTime']['input']>;
+  ticketId: Scalars['String']['input'];
+  vendorId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type AssignedChildResult = {
@@ -474,10 +495,16 @@ export type AuditEntityType =
   | 'CallLog'
   | 'FeeCharge'
   | 'FeeConfig'
+  | 'MaintenanceLocationTag'
+  | 'MaintenanceTicket'
+  | 'MaintenanceVendor'
+  | 'MarketplaceListing'
   | 'Note'
   | 'ParkingConfig'
   | 'ParkingRecord'
   | 'Payment'
+  | 'Pet'
+  | 'PetIncident'
   | 'Pqrf'
   | 'PucAccount'
   | 'Resident'
@@ -589,6 +616,26 @@ export type BulkMoveOutResidentsInput = {
   residentIds: Array<Scalars['String']['input']>;
 };
 
+/** Acción a aplicar sobre las notificaciones seleccionadas */
+export type BulkNotificationAction =
+  | 'DELETE'
+  | 'MARK_READ'
+  | 'MARK_UNREAD'
+  | 'STAR'
+  | 'UNSTAR';
+
+export type BulkNotificationActionInput = {
+  action: BulkNotificationAction;
+  notificationIds: Array<Scalars['String']['input']>;
+};
+
+/** Resultado de una acción en lote sobre la bandeja */
+export type BulkNotificationActionResult = {
+  __typename?: 'BulkNotificationActionResult';
+  affected: Scalars['Int']['output'];
+  skipped: Scalars['Int']['output'];
+};
+
 /** Dirección de la llamada */
 export type CallDirection =
   | 'INCOMING'
@@ -648,6 +695,12 @@ export type CallOutcome =
 export type CancelAmenityBookingInput = {
   bookingId: Scalars['String']['input'];
   reason?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type ChangeMaintenanceStatusInput = {
+  message?: InputMaybe<Scalars['String']['input']>;
+  status: MaintenanceTicketStatus;
+  ticketId: Scalars['String']['input'];
 };
 
 export type ChangeParentResponse = {
@@ -810,6 +863,20 @@ export type ChargeType =
   /** Cobro único, se genera una sola vez */
   | 'ONCE';
 
+export type CheckMaintenanceDuplicateInput = {
+  amenityId?: InputMaybe<Scalars['String']['input']>;
+  buildingId?: InputMaybe<Scalars['String']['input']>;
+  category: MaintenanceCategory;
+  complexId: Scalars['String']['input'];
+  floor?: InputMaybe<Scalars['Int']['input']>;
+  gpsAccuracyMeters?: InputMaybe<Scalars['Int']['input']>;
+  lat?: InputMaybe<Scalars['Float']['input']>;
+  lng?: InputMaybe<Scalars['Float']['input']>;
+  locationTagCode?: InputMaybe<Scalars['String']['input']>;
+  locationText?: InputMaybe<Scalars['String']['input']>;
+  locationType: MaintenanceLocationType;
+};
+
 /** Pesos para derivar el coeficiente de copropiedad por características */
 export type CoefficientWeighting = {
   __typename?: 'CoefficientWeighting';
@@ -890,8 +957,11 @@ export type ComplexFinancialSummaryResponse = {
 
 /** Módulos funcionales disponibles para un complejo residencial */
 export type ComplexModule =
+  | 'CLASIFICADOS'
   | 'EDIFICIOS'
   | 'FINANZAS'
+  | 'MANTENIMIENTO'
+  | 'MASCOTAS'
   | 'MENSAJES'
   | 'MOVIMIENTOS'
   | 'NOTAS'
@@ -1187,6 +1257,33 @@ export type CreateLegalDocumentInput = {
   title: Scalars['String']['input'];
 };
 
+export type CreateMaintenanceLocationTagInput = {
+  amenityId?: InputMaybe<Scalars['String']['input']>;
+  buildingId?: InputMaybe<Scalars['String']['input']>;
+  code: Scalars['String']['input'];
+  complexId: Scalars['String']['input'];
+  defaultCategory?: InputMaybe<MaintenanceCategory>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Negativo para sótanos */
+  floor?: InputMaybe<Scalars['Int']['input']>;
+  kind?: InputMaybe<MaintenanceTagKind>;
+  lat?: InputMaybe<Scalars['Float']['input']>;
+  lng?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+};
+
+export type CreateMaintenanceVendorInput = {
+  complexId: Scalars['String']['input'];
+  contactName?: InputMaybe<Scalars['String']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  /** NIT o cédula */
+  legalId?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+  specialties?: InputMaybe<Array<MaintenanceCategory>>;
+};
+
 /** Datos requeridos para crear un nuevo permiso */
 export type CreatePermissionInput = {
   /** Obliges to have a previous permission to assign another (e.g., need "user:read" to get "user:edit"). */
@@ -1229,6 +1326,12 @@ export type CreatePermissionResponse = {
   name: ValidPermissions;
   /** indicates if permission is active */
   status?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type CreatePetIncidentStatementInput = {
+  incidentId: Scalars['String']['input'];
+  /** Respuesta de la unidad */
+  text: Scalars['String']['input'];
 };
 
 export type CreatePqrfInput = {
@@ -1521,6 +1624,14 @@ export type DpaValidationStatus =
   | 'PENDING'
   | 'REJECTED';
 
+export type ExecuteNotificationActionInput = {
+  actionCode: Scalars['String']['input'];
+  complexId?: InputMaybe<Scalars['String']['input']>;
+  notificationId: Scalars['String']['input'];
+  /** Respuestas a los campos que pide la acción */
+  values?: InputMaybe<Scalars['JSON']['input']>;
+};
+
 /** Categoría del gasto operativo del complejo */
 export type ExpenseCategory =
   /** Gastos administrativos */
@@ -1734,6 +1845,47 @@ export type FilterIncomesInput = {
   startDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
+export type FilterListingsInput = {
+  categoryId?: InputMaybe<Scalars['String']['input']>;
+  maxPrice?: InputMaybe<Scalars['Float']['input']>;
+  minPrice?: InputMaybe<Scalars['Float']['input']>;
+  /** Solo las que guardé como favoritas */
+  onlyFavorites?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Solo mis publicaciones */
+  onlyMine?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Solo las que tienen reportes sin resolver */
+  onlyReported?: InputMaybe<Scalars['Boolean']['input']>;
+  priceType?: InputMaybe<MarketplacePriceType>;
+  /** Busca en el título y en la descripción */
+  search?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<MarketplaceListingStatus>;
+  type?: InputMaybe<MarketplaceListingType>;
+  /** Solo para la administración: avisos de una unidad */
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type FilterMaintenanceTicketsInput = {
+  amenityId?: InputMaybe<Scalars['String']['input']>;
+  assignedUserId?: InputMaybe<Scalars['String']['input']>;
+  assigneeType?: InputMaybe<MaintenanceAssigneeType>;
+  buildingId?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<MaintenanceCategory>;
+  dateFrom?: InputMaybe<Scalars['String']['input']>;
+  dateTo?: InputMaybe<Scalars['String']['input']>;
+  locationTagId?: InputMaybe<Scalars['String']['input']>;
+  onlyMine?: InputMaybe<Scalars['Boolean']['input']>;
+  onlyOverdue?: InputMaybe<Scalars['Boolean']['input']>;
+  onlyUnassigned?: InputMaybe<Scalars['Boolean']['input']>;
+  priority?: InputMaybe<MaintenancePriority>;
+  /** Calificación exacta 1-5 */
+  rating?: InputMaybe<Scalars['Int']['input']>;
+  /** Busca por número del ticket, título o descripción */
+  search?: InputMaybe<Scalars['String']['input']>;
+  /** Varios estados a la vez: el tablero pide columnas, no una */
+  statuses?: InputMaybe<Array<MaintenanceTicketStatus>>;
+  vendorId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type FilterNotesInput = {
   /** Filtrar por uno o varios roles creadores. Cada rol solo puede filtrar dentro de los roles que tiene visibilidad */
   createdByRoles?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -1747,7 +1899,9 @@ export type FilterNotesInput = {
 
 export type FilterNotificationsInput = {
   isRead?: InputMaybe<Scalars['Boolean']['input']>;
+  isStarred?: InputMaybe<Scalars['Boolean']['input']>;
   priority?: InputMaybe<NotificationPriority>;
+  search?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<NotificationType>;
 };
 
@@ -1757,6 +1911,31 @@ export type FilterPackagesInput = {
   status?: InputMaybe<PackageStatus>;
   trackingCode?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<PackageType>;
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type FilterPetIncidentsInput = {
+  dateFrom?: InputMaybe<Scalars['String']['input']>;
+  dateTo?: InputMaybe<Scalars['String']['input']>;
+  /** Solo los reportes sin mascota identificada */
+  onlyUnidentified?: InputMaybe<Scalars['String']['input']>;
+  petId?: InputMaybe<Scalars['String']['input']>;
+  /** Busca por número del reporte o por el relato */
+  search?: InputMaybe<Scalars['String']['input']>;
+  severity?: InputMaybe<PetIncidentSeverity>;
+  status?: InputMaybe<PetIncidentStatus>;
+  type?: InputMaybe<PetIncidentType>;
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type FilterPetsInput = {
+  /** Solo razas de manejo especial */
+  isSpecialBreed?: InputMaybe<Scalars['Boolean']['input']>;
+  residentId?: InputMaybe<Scalars['String']['input']>;
+  /** Busca por nombre, raza, color o microchip */
+  search?: InputMaybe<Scalars['String']['input']>;
+  species?: InputMaybe<PetSpecies>;
+  status?: InputMaybe<PetStatus>;
   unitId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -1928,6 +2107,20 @@ export type LegalDocument = {
   version: Scalars['Int']['output'];
 };
 
+/** Datos de contacto del publicador */
+export type ListingContactResponse = {
+  __typename?: 'ListingContactResponse';
+  /** Nombre visible del publicador */
+  displayName: Scalars['String']['output'];
+  /** El canal quedó reducido al aviso dentro de la app */
+  inAppOnly: Scalars['Boolean']['output'];
+  /** Teléfono. Nulo si no se destapó o el conjunto no lo permite */
+  phone?: Maybe<Scalars['String']['output']>;
+  preference: MarketplaceContactPreference;
+  /** Unidad del publicador */
+  unitLabel?: Maybe<Scalars['String']['output']>;
+};
+
 export type LogCallInput = {
   answeredAt?: InputMaybe<Scalars['String']['input']>;
   buildingName?: InputMaybe<Scalars['String']['input']>;
@@ -1981,6 +2174,583 @@ export type LoginSystemCodeInput = {
   password: Scalars['String']['input'];
 };
 
+/** Naturaleza del responsable asignado al ticket */
+export type MaintenanceAssigneeType =
+  | 'INTERNAL'
+  | 'VENDOR';
+
+export type MaintenanceBoardColumn = {
+  __typename?: 'MaintenanceBoardColumn';
+  status: MaintenanceTicketStatus;
+  tickets: Array<MaintenanceTicket>;
+  total: Scalars['Int']['output'];
+};
+
+export type MaintenanceBoardResponse = {
+  __typename?: 'MaintenanceBoardResponse';
+  columns: Array<MaintenanceBoardColumn>;
+  /** Tickets abiertos con el SLA vencido */
+  overdueCount: Scalars['Int']['output'];
+};
+
+/** Tipo de daño reportado en zonas comunes */
+export type MaintenanceCategory =
+  | 'ASCENSORES'
+  | 'ASEO'
+  | 'ELECTRICO'
+  | 'ESTRUCTURA'
+  | 'GAS'
+  | 'ILUMINACION'
+  | 'JARDINERIA'
+  | 'OTRO'
+  | 'PISCINA'
+  | 'PLOMERIA'
+  | 'PUERTAS_Y_ACCESOS'
+  | 'SEGURIDAD';
+
+export type MaintenanceCategoryCount = {
+  __typename?: 'MaintenanceCategoryCount';
+  category: MaintenanceCategory;
+  count: Scalars['Int']['output'];
+};
+
+/** Tipo de anotación en la bitácora del ticket */
+export type MaintenanceEventType =
+  | 'ASSIGNED'
+  | 'CLOSED'
+  | 'COMMENT'
+  | 'CREATED'
+  | 'ENDORSED'
+  | 'PROGRESS'
+  | 'RATED'
+  | 'REOPENED'
+  | 'RESOLVED'
+  | 'SLA_BREACHED'
+  | 'STATUS_CHANGED'
+  | 'TRIAGED';
+
+/** Concentración de incidencias por sitio */
+export type MaintenanceHeatmapCell = {
+  __typename?: 'MaintenanceHeatmapCell';
+  /** Identificador del sitio agrupado */
+  key: Scalars['String']['output'];
+  /** Nombre visible del sitio */
+  label: Scalars['String']['output'];
+  lat?: Maybe<Scalars['Float']['output']>;
+  lng?: Maybe<Scalars['Float']['output']>;
+  /** Los que siguen sin resolver */
+  openCount: Scalars['Int']['output'];
+  /** Los que vencieron su plazo */
+  overdueCount: Scalars['Int']['output'];
+  /** Categoría que más se repite en el sitio */
+  topCategory?: Maybe<MaintenanceCategory>;
+  total: Scalars['Int']['output'];
+};
+
+/** Punto de ubicación con QR o NFC dentro del complejo */
+export type MaintenanceLocationTag = {
+  __typename?: 'MaintenanceLocationTag';
+  amenity?: Maybe<Amenity>;
+  amenityId?: Maybe<Scalars['String']['output']>;
+  building?: Maybe<Building>;
+  buildingId?: Maybe<Scalars['String']['output']>;
+  /** Código impreso en el sticker */
+  code: Scalars['String']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  defaultCategory?: Maybe<MaintenanceCategory>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  floor?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  kind: MaintenanceTagKind;
+  lat?: Maybe<Scalars['Float']['output']>;
+  lng?: Maybe<Scalars['Float']['output']>;
+  /** Nombre visible del punto */
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Método con el que se fijó la ubicación del daño */
+export type MaintenanceLocationType =
+  | 'AMENITY'
+  | 'GPS'
+  | 'TAG'
+  | 'TREE';
+
+/** Punto del mapa de incidencias */
+export type MaintenanceMapPinResponse = {
+  __typename?: 'MaintenanceMapPinResponse';
+  category: MaintenanceCategory;
+  code: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  endorsementCount: Scalars['Int']['output'];
+  gpsAccuracyMeters?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['ID']['output'];
+  isOverdue: Scalars['Boolean']['output'];
+  isPrecise: Scalars['Boolean']['output'];
+  lat: Scalars['Float']['output'];
+  lng: Scalars['Float']['output'];
+  locationType: MaintenanceLocationType;
+  priority: MaintenancePriority;
+  status: MaintenanceTicketStatus;
+  title: Scalars['String']['output'];
+};
+
+/** Prioridad de atención del ticket de mantenimiento */
+export type MaintenancePriority =
+  | 'CRITICAL'
+  | 'HIGH'
+  | 'LOW'
+  | 'MEDIUM';
+
+/** Opciones de ubicación para radicar un ticket */
+export type MaintenanceReportOptionsResponse = {
+  __typename?: 'MaintenanceReportOptionsResponse';
+  amenities: Array<Amenity>;
+  buildings: Array<Building>;
+  /** Error máximo del GPS aceptado como ubicación confiable */
+  gpsAccuracyMeters: Scalars['Int']['output'];
+  residentReportingEnabled: Scalars['Boolean']['output'];
+  tags: Array<MaintenanceLocationTag>;
+};
+
+/** Plazo de atención comprometido por categoría */
+export type MaintenanceSlaConfig = {
+  __typename?: 'MaintenanceSlaConfig';
+  category: MaintenanceCategory;
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  priority: MaintenancePriority;
+  /** Horas para dejarlo reparado */
+  resolutionHours: Scalars['Int']['output'];
+  /** Horas para asignar responsable */
+  responseHours: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Resumen de mantenimiento del complejo */
+export type MaintenanceStatsResponse = {
+  __typename?: 'MaintenanceStatsResponse';
+  /** Calificación promedio */
+  averageRating?: Maybe<Scalars['Float']['output']>;
+  /** Horas promedio entre radicar y resolver */
+  averageResolutionHours?: Maybe<Scalars['Float']['output']>;
+  byCategory: Array<MaintenanceCategoryCount>;
+  byStatus: Array<MaintenanceStatusCount>;
+  openTickets: Scalars['Int']['output'];
+  overdueTickets: Scalars['Int']['output'];
+  ratedTickets: Scalars['Int']['output'];
+  /** Porcentaje de resueltos dentro del plazo */
+  slaComplianceRate?: Maybe<Scalars['Float']['output']>;
+  /** Costo acumulado de las reparaciones cerradas */
+  totalCost?: Maybe<Scalars['Float']['output']>;
+  totalTickets: Scalars['Int']['output'];
+};
+
+export type MaintenanceStatusCount = {
+  __typename?: 'MaintenanceStatusCount';
+  count: Scalars['Int']['output'];
+  status: MaintenanceTicketStatus;
+};
+
+/** Soporte físico del punto de ubicación */
+export type MaintenanceTagKind =
+  | 'BOTH'
+  | 'NFC'
+  | 'QR';
+
+/** Ticket de mantenimiento en zonas comunes */
+export type MaintenanceTicket = {
+  __typename?: 'MaintenanceTicket';
+  actualCost?: Maybe<Scalars['Float']['output']>;
+  amenity?: Maybe<Amenity>;
+  amenityId?: Maybe<Scalars['String']['output']>;
+  assignedAt?: Maybe<Scalars['DateTime']['output']>;
+  assignedByUserId?: Maybe<Scalars['String']['output']>;
+  assignedUser?: Maybe<User>;
+  /** Personal interno asignado */
+  assignedUserId?: Maybe<Scalars['String']['output']>;
+  assigneeType?: Maybe<MaintenanceAssigneeType>;
+  building?: Maybe<Building>;
+  buildingId?: Maybe<Scalars['String']['output']>;
+  category: MaintenanceCategory;
+  closedAt?: Maybe<Scalars['DateTime']['output']>;
+  closedByUserId?: Maybe<Scalars['String']['output']>;
+  closurePhotoHashes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Fotos de la reparación terminada (R2) */
+  closurePhotoUrls?: Maybe<Array<Scalars['String']['output']>>;
+  /** Número del ticket, consecutivo */
+  code: Scalars['String']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  consecutive: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  description: Scalars['String']['output'];
+  /** Ticket original cuando este se marcó como duplicado */
+  duplicateOfTicketId?: Maybe<Scalars['String']['output']>;
+  endorsementCount: Scalars['Int']['output'];
+  events?: Maybe<Array<MaintenanceTicketEvent>>;
+  floor?: Maybe<Scalars['Int']['output']>;
+  gpsAccuracyMeters?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['ID']['output'];
+  lastReopenedAt?: Maybe<Scalars['DateTime']['output']>;
+  lat?: Maybe<Scalars['Float']['output']>;
+  lng?: Maybe<Scalars['Float']['output']>;
+  locationTag?: Maybe<MaintenanceLocationTag>;
+  locationTagId?: Maybe<Scalars['String']['output']>;
+  /** Referencia escrita del sitio (junto al parqueadero 45) */
+  locationText?: Maybe<Scalars['String']['output']>;
+  locationType: MaintenanceLocationType;
+  occurredAt: Scalars['DateTime']['output'];
+  onHoldReason?: Maybe<Scalars['String']['output']>;
+  photoHashes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Fotos del daño (R2) */
+  photoUrls?: Maybe<Array<Scalars['String']['output']>>;
+  priority: MaintenancePriority;
+  ratedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Calificación de 1 a 5 */
+  rating?: Maybe<Scalars['Int']['output']>;
+  ratingComment?: Maybe<Scalars['String']['output']>;
+  rejectionReason?: Maybe<Scalars['String']['output']>;
+  reopenCount: Scalars['Int']['output'];
+  reportedByName?: Maybe<Scalars['String']['output']>;
+  /** Rol de quien reportó, congelado al radicar */
+  reportedByRole?: Maybe<Scalars['String']['output']>;
+  reportedByUnit?: Maybe<Unit>;
+  reportedByUnitId?: Maybe<Scalars['String']['output']>;
+  reportedByUserId?: Maybe<Scalars['String']['output']>;
+  resolutionNotes?: Maybe<Scalars['String']['output']>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  resolvedByUserId?: Maybe<Scalars['String']['output']>;
+  scheduledFor?: Maybe<Scalars['DateTime']['output']>;
+  slaBreachedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Vencimiento del SLA */
+  slaDueAt?: Maybe<Scalars['DateTime']['output']>;
+  slaHours?: Maybe<Scalars['Int']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status: MaintenanceTicketStatus;
+  /** Resumen corto del daño */
+  title: Scalars['String']['output'];
+  triagedAt?: Maybe<Scalars['DateTime']['output']>;
+  triagedByUserId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  vendor?: Maybe<MaintenanceVendor>;
+  /** Proveedor externo asignado */
+  vendorId?: Maybe<Scalars['String']['output']>;
+  videoHash?: Maybe<Scalars['String']['output']>;
+  /** Video corto del daño (R2) */
+  videoUrl?: Maybe<Scalars['String']['output']>;
+  visibility: MaintenanceVisibility;
+};
+
+/** Anotación en la bitácora de un ticket */
+export type MaintenanceTicketEvent = {
+  __typename?: 'MaintenanceTicketEvent';
+  author?: Maybe<User>;
+  authorName?: Maybe<Scalars['String']['output']>;
+  authorRole?: Maybe<Scalars['String']['output']>;
+  authorUserId?: Maybe<Scalars['String']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  fromStatus?: Maybe<MaintenanceTicketStatus>;
+  id: Scalars['ID']['output'];
+  imageHashes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Fotos de avance (R2) */
+  imageUrls?: Maybe<Array<Scalars['String']['output']>>;
+  isInternal: Scalars['Boolean']['output'];
+  message?: Maybe<Scalars['String']['output']>;
+  ticket?: Maybe<MaintenanceTicket>;
+  ticketId: Scalars['String']['output'];
+  toStatus?: Maybe<MaintenanceTicketStatus>;
+  type: MaintenanceEventType;
+};
+
+/** Estado del ticket en el tablero de mantenimiento */
+export type MaintenanceTicketStatus =
+  | 'ASSIGNED'
+  | 'CLOSED'
+  | 'DUPLICATE'
+  | 'IN_PROGRESS'
+  | 'NEW'
+  | 'ON_HOLD'
+  | 'REJECTED'
+  | 'RESOLVED'
+  | 'TRIAGED';
+
+/** Proveedor externo de mantenimiento */
+export type MaintenanceVendor = {
+  __typename?: 'MaintenanceVendor';
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  contactName?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  email?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  /** NIT o cédula */
+  legalId?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  notes?: Maybe<Scalars['String']['output']>;
+  phone?: Maybe<Scalars['String']['output']>;
+  specialties?: Maybe<Array<MaintenanceCategory>>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Alcance de lectura del ticket dentro del complejo */
+export type MaintenanceVisibility =
+  | 'PRIVATE'
+  | 'PUBLIC';
+
+/** Categoría de publicaciones del complejo */
+export type MarketplaceCategory = {
+  __typename?: 'MarketplaceCategory';
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Ícono sugerido para la web y la app */
+  icon?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  kind: MarketplaceCategoryKind;
+  /** Nombre visible */
+  name: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+  /** Orden en la vitrina */
+  sortOrder: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Vitrina a la que pertenece la categoría */
+export type MarketplaceCategoryKind =
+  /** Clasificados y comercio interno */
+  | 'CLASSIFIED'
+  /** Directorio de servicios */
+  | 'SERVICE';
+
+/** Canal por el que el publicador quiere recibir interesados */
+export type MarketplaceContactPreference =
+  /** Aviso dentro de la app, sin exponer el teléfono */
+  | 'IN_APP'
+  /** Llamada al teléfono del publicador */
+  | 'PHONE'
+  /** WhatsApp al teléfono del publicador */
+  | 'WHATSAPP';
+
+/** Estado de conservación del artículo */
+export type MarketplaceItemCondition =
+  /** Para repuestos o reparar */
+  | 'FOR_PARTS'
+  /** Como nuevo */
+  | 'LIKE_NEW'
+  /** Nuevo, sin usar */
+  | 'NEW'
+  /** Usado, en buen estado */
+  | 'USED';
+
+/** Publicación de clasificados del complejo */
+export type MarketplaceListing = {
+  __typename?: 'MarketplaceListing';
+  acceptedTermsAt?: Maybe<Scalars['DateTime']['output']>;
+  category?: Maybe<MarketplaceCategory>;
+  /** Categoría de la vitrina */
+  categoryId: Scalars['String']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  /** Complejo (multi-tenant) */
+  complexId: Scalars['String']['output'];
+  /** Estado de conservación. Solo aplica a artículos */
+  condition?: Maybe<MarketplaceItemCondition>;
+  /** Cómo contactar al publicador */
+  contact: ListingContactResponse;
+  contactPreference: MarketplaceContactPreference;
+  contactsCount: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  currency: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  description: Scalars['String']['output'];
+  expiresAt?: Maybe<Scalars['DateTime']['output']>;
+  expiryNotifiedAt?: Maybe<Scalars['DateTime']['output']>;
+  favoritesCount: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  imageUrls: Array<Scalars['String']['output']>;
+  moderatedAt?: Maybe<Scalars['DateTime']['output']>;
+  moderatedByUserId?: Maybe<Scalars['String']['output']>;
+  owner?: Maybe<User>;
+  /** Usuario que publicó */
+  ownerUserId: Scalars['String']['output'];
+  pendingReportsCount: Scalars['Int']['output'];
+  priceAmount?: Maybe<Scalars['Float']['output']>;
+  priceType: MarketplacePriceType;
+  publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Motivo del rechazo o del retiro */
+  rejectionReason?: Maybe<Scalars['String']['output']>;
+  renewedAt?: Maybe<Scalars['DateTime']['output']>;
+  resident?: Maybe<Resident>;
+  residentId?: Maybe<Scalars['String']['output']>;
+  showPhone: Scalars['Boolean']['output'];
+  soldAt?: Maybe<Scalars['DateTime']['output']>;
+  status: MarketplaceListingStatus;
+  title: Scalars['String']['output'];
+  type: MarketplaceListingType;
+  unit?: Maybe<Unit>;
+  /** Unidad del publicador */
+  unitId: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  updatedByUserId?: Maybe<Scalars['String']['output']>;
+  /** Quien consulta ya registró interés */
+  viewerHasContacted: Scalars['Boolean']['output'];
+  /** Quien consulta la tiene guardada como favorita */
+  viewerHasFavorited: Scalars['Boolean']['output'];
+  /** La publicación es de quien consulta */
+  viewerIsOwner: Scalars['Boolean']['output'];
+  viewsCount: Scalars['Int']['output'];
+};
+
+/** Reporte de abuso sobre una publicación */
+export type MarketplaceListingReport = {
+  __typename?: 'MarketplaceListingReport';
+  comment?: Maybe<Scalars['String']['output']>;
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  listing?: Maybe<MarketplaceListing>;
+  listingId: Scalars['String']['output'];
+  reason: MarketplaceReportReason;
+  reporterUnitId?: Maybe<Scalars['String']['output']>;
+  reporterUserId?: Maybe<Scalars['String']['output']>;
+  resolutionNote?: Maybe<Scalars['String']['output']>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  resolvedByUserId?: Maybe<Scalars['String']['output']>;
+  status: MarketplaceReportStatus;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Estado de la publicación */
+export type MarketplaceListingStatus =
+  /** Borrador: solo la ve quien la escribió */
+  | 'DRAFT'
+  /** Venció la vigencia y nadie la renovó */
+  | 'EXPIRED'
+  /** Oculta temporalmente (por el dueño o por reportes) */
+  | 'PAUSED'
+  /** Esperando aprobación de la administración */
+  | 'PENDING_REVIEW'
+  /** Visible para el conjunto */
+  | 'PUBLISHED'
+  /** La administración la rechazó, con motivo */
+  | 'REJECTED'
+  /** Retirada definitivamente */
+  | 'REMOVED'
+  /** Ya se vendió o se entregó */
+  | 'SOLD';
+
+/** Naturaleza de la publicación del clasificado */
+export type MarketplaceListingType =
+  /** Se regala o se dona */
+  | 'GIVEAWAY'
+  /** Venta de un artículo */
+  | 'PRODUCT'
+  /** Arriendo o préstamo temporal */
+  | 'RENTAL'
+  /** Servicio ofrecido por un vecino */
+  | 'SERVICE'
+  /** Busco / necesito. El complejo puede apagarlo desde los ajustes */
+  | 'WANTED';
+
+/** Política de moderación de publicaciones */
+export type MarketplaceModerationMode =
+  /** Se publica de inmediato; se modera si alguien reporta */
+  | 'AUTO'
+  /** La administración aprueba antes de publicar */
+  | 'PREVIA';
+
+/** Forma en que se expresa el precio */
+export type MarketplacePriceType =
+  /** Permuta o intercambio */
+  | 'EXCHANGE'
+  /** Precio fijo */
+  | 'FIXED'
+  /** Gratis */
+  | 'FREE'
+  /** Precio negociable */
+  | 'NEGOTIABLE'
+  /** A convenir: se pregunta al publicador */
+  | 'ON_REQUEST';
+
+/** Motivo del reporte sobre una publicación */
+export type MarketplaceReportReason =
+  /** Ya se vendió y sigue publicada */
+  | 'ALREADY_SOLD'
+  /** Publicación repetida */
+  | 'DUPLICATE'
+  /** Contenido ofensivo o inapropiado */
+  | 'OFFENSIVE'
+  /** Otro motivo */
+  | 'OTHER'
+  /** Artículo o actividad prohibida por el reglamento */
+  | 'PROHIBITED_ITEM'
+  /** Estafa o engaño */
+  | 'SCAM'
+  /** Categoría equivocada */
+  | 'WRONG_CATEGORY';
+
+/** Estado de un reporte de publicación */
+export type MarketplaceReportStatus =
+  /** Procede: la publicación se retira */
+  | 'ACCEPTED'
+  /** No procede: la publicación vuelve */
+  | 'DISMISSED'
+  /** Sin revisar */
+  | 'PENDING';
+
+/** Ajustes del módulo de clasificados del complejo */
+export type MarketplaceSettings = {
+  __typename?: 'MarketplaceSettings';
+  allowPhoneContact: Scalars['Boolean']['output'];
+  allowWantedListings: Scalars['Boolean']['output'];
+  /** Reportes que pausan el aviso solo */
+  autoPauseAfterReports: Scalars['Int']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  /** Días que dura publicado un aviso */
+  listingDurationDays: Scalars['Int']['output'];
+  /** Avisos activos que puede tener una unidad */
+  maxActiveListingsPerUnit: Scalars['Int']['output'];
+  /** Fotos por publicación */
+  maxImagesPerListing: Scalars['Int']['output'];
+  moderationMode: MarketplaceModerationMode;
+  termsText?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  updatedByUserId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Resumen del módulo de clasificados */
+export type MarketplaceStatsResponse = {
+  __typename?: 'MarketplaceStatsResponse';
+  /** Vencen en los próximos 7 días */
+  expiringSoon: Scalars['Int']['output'];
+  /** Pausadas, por su dueño o por reportes */
+  paused: Scalars['Int']['output'];
+  /** Reportes sin resolver */
+  pendingReports: Scalars['Int']['output'];
+  /** Esperando aprobación */
+  pendingReview: Scalars['Int']['output'];
+  /** Publicadas y vigentes */
+  published: Scalars['Int']['output'];
+};
+
 export type MeResponse = ResidentialComplex | User;
 
 /** Canal por el que se envió el mensaje */
@@ -1995,6 +2765,11 @@ export type MessageType =
   | 'INFORMATIVO'
   | 'RECORDATORIO'
   | 'URGENTE';
+
+export type ModerateListingInput = {
+  listingId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+};
 
 export type MoraApplicationResult = {
   __typename?: 'MoraApplicationResult';
@@ -2038,6 +2813,8 @@ export type MoveSubtreeResponse = {
 export type Mutation = {
   __typename?: 'Mutation';
   acknowledgePanicAlert: Notification;
+  addMaintenanceComment: MaintenanceTicket;
+  addPetIncidentStatement: PetIncident;
   /** Permite al administrador del complejo (o SUPER_ADMIN) restablecer directamente la contraseña de un miembro de su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP. */
   adminResetUserPassword: SetPasswordResponse;
   applyMoraAllPeriods: MoraApplicationResult;
@@ -2049,13 +2826,17 @@ export type Mutation = {
   approveAmenityBooking: AmenityBooking;
   /** Autoriza el ingreso. Antes de llamarla, la interfaz DEBE hacer que el residente compare el código de esta pantalla con el del dispositivo que pide entrar. */
   approveDeviceApproval: Scalars['Boolean']['output'];
+  approveListing: MarketplaceListing;
+  approvePet: Pet;
   approveResident: Resident;
   approveVisitEntry: Visit;
+  assignMaintenanceTicket: MaintenanceTicket;
   assignMultipleChildren: AssignChildrenResponse;
   /** Asigna un rol a un usuario */
   assignRoleToUser: AssignedUserRolResponse;
   blacklistVisitor: Visitor;
   bulkMoveOutResidents: Array<Resident>;
+  bulkNotificationAction: BulkNotificationActionResult;
   cancelAmenityBooking: AmenityBooking;
   cancelChargeEmission: ChargeEmission;
   cancelVisit: Visit;
@@ -2065,12 +2846,14 @@ export type Mutation = {
   causeRecurringCharges: RecurringCausationResult;
   causeRecurringChargesRange: RecurringCausationResult;
   changeComplexStatus: ResidentialComplex;
+  changeMaintenanceTicketStatus: MaintenanceTicket;
   /** Cambiar la contraseña del usuario autenticado */
   changePassword: ChangePasswordResponse;
   changeRoleParent: ChangeParentResponse;
   chargeAmenityDamage: AmenityBooking;
   checkInAmenityBooking: AmenityBooking;
   checkOutAmenityBooking: AmenityBooking;
+  closeMaintenanceTicket: MaintenanceTicket;
   closeVotingQuestion: VotingQuestion;
   configureRotation: ParkingRotationConfig;
   confirmChargeEmission: ChargeEmission;
@@ -2089,6 +2872,8 @@ export type Mutation = {
   createFeeConfig: FeeConfig;
   /** Crea un documento legal. Solo SUPER_ADMIN. */
   createLegalDocument: LegalDocument;
+  createMaintenanceLocationTag: MaintenanceLocationTag;
+  createMaintenanceVendor: MaintenanceVendor;
   createPermission: CreatePermissionResponse;
   /** Radica un PQRF */
   createPqrf: Pqrf;
@@ -2103,6 +2888,8 @@ export type Mutation = {
   createVotingMeeting: VotingMeeting;
   createVotingQuestion: VotingQuestion;
   createWalletCredit: WalletEntryObject;
+  deactivateMaintenanceLocationTag: MaintenanceLocationTag;
+  deactivateMaintenanceVendor: MaintenanceVendor;
   deactivateMobileToken: PushSubscriptionResult;
   deleteAmenity: Scalars['Boolean']['output'];
   deleteAmenityBlackout: Scalars['Boolean']['output'];
@@ -2122,6 +2909,9 @@ export type Mutation = {
   /** Rechaza el ingreso. Es terminal: el solicitante debe pedir una nueva autorización. */
   denyDeviceApproval: Scalars['Boolean']['output'];
   denyVisitEntry: Visit;
+  dismissPetIncident: PetIncident;
+  endorseMaintenanceTicket: MaintenanceTicket;
+  executeNotificationAction: NotificationEntitySnapshot;
   executeRotation: RotationStatusResponse;
   generateCharges: GenerateChargesResponse;
   /** Genera un token QR de un solo uso (72 h de vigencia) para que un usuario inicie sesión sin contraseña. Solo accesible por SUPER_ADMIN. */
@@ -2138,6 +2928,8 @@ export type Mutation = {
   /** Cierra la sesión actual e invalida los tokens. */
   logout: Scalars['Boolean']['output'];
   markAllNotificationsAsRead: Scalars['Int']['output'];
+  markListingAsSold: MarketplaceListing;
+  markMaintenanceTicketDuplicate: MaintenanceTicket;
   markNotificationAsRead: Notification;
   markPackageAsLost: Package;
   markPackageAsNotified: Package;
@@ -2148,6 +2940,9 @@ export type Mutation = {
   /** Marca el radicado como abierto por quien lo atiende */
   openPqrf: Pqrf;
   openVotingQuestion: VotingQuestion;
+  pauseListing: MarketplaceListing;
+  rateMaintenanceTicket: MaintenanceTicket;
+  reactivatePet: Pet;
   reactivateResident: Resident;
   /** Reactiva un usuario suspendido */
   reactivateUser: User;
@@ -2163,6 +2958,7 @@ export type Mutation = {
   registerBulkPayment: RegisterBulkPaymentResponse;
   registerDirectIncome: DirectIncome;
   registerExpense: ComplexExpense;
+  registerListingInterest: MarketplaceListing;
   registerPackage: Package;
   registerPayment: Payment;
   /** Registra un nuevo residente en el complejo. Requiere rol COMPLEX_ROL. El residente recibirá su código de acceso. */
@@ -2178,11 +2974,18 @@ export type Mutation = {
   /** Rechaza la solicitud de acceso de un supervisor con un motivo opcional. */
   rejectAccessRequest: SupervisorAccessRequest;
   rejectAmenityBooking: AmenityBooking;
+  rejectListing: MarketplaceListing;
+  rejectMaintenanceTicket: MaintenanceTicket;
+  rejectPet: Pet;
   rejectResident: Resident;
   removeBuilding: Scalars['Boolean']['output'];
   removeComplex: Scalars['Boolean']['output'];
+  removeListing: Scalars['Boolean']['output'];
+  removeMaintenanceSla: Scalars['Boolean']['output'];
+  removeMarketplaceCategory: Scalars['Boolean']['output'];
   /** Soft delete a permission by setting status to false */
   removePermission: RemovePermissionResponse;
+  removePet: Scalars['Boolean']['output'];
   removeResident: Scalars['Boolean']['output'];
   /** Soft delete a role by setting status to false */
   removeRole: RemoveRoleResponse;
@@ -2192,10 +2995,13 @@ export type Mutation = {
   removeUnit: Scalars['Boolean']['output'];
   removeVehicle: Scalars['Boolean']['output'];
   removeVisitorFromBlacklist: Visitor;
+  renewListing: MarketplaceListing;
+  reopenMaintenanceTicket: MaintenanceTicket;
   /** Reordena los números especiales globales. Solo SUPER_ADMIN. */
   reorderGlobalSpecialNumbers: Array<SpecialNumber>;
   reorderSpecialNumbers: Array<SpecialNumber>;
   reportDevicePermissions: DevicePushHealthStatus;
+  reportListing: MarketplaceListingReport;
   /** El supervisor solicita acceso a un complejo al que no está asignado. El administrador del complejo recibe la solicitud y puede aprobarla o rechazarla remotamente. */
   requestComplexAccess: SupervisorAccessRequest;
   /** Pide autorización de ingreso y avisa por push a los dispositivos vinculados del residente. No consume mensajes de WhatsApp. Responde igual exista o no la identidad, y no revela cuántos dispositivos se notificaron. */
@@ -2213,6 +3019,7 @@ export type Mutation = {
   resendSupervisorVerification: RegisterSupervisorResponse;
   /** Establece nueva contraseña usando el token recibido por email. Token de un solo uso, válido 1 hora. */
   resetPassword: SetPasswordResponse;
+  resolveListingReport: MarketplaceListingReport;
   resolvePanicAlert: PanicAlert;
   /** Marca el radicado como resuelto por quien lo atiende */
   resolvePqrf: Pqrf;
@@ -2223,6 +3030,7 @@ export type Mutation = {
   restoreRole: RestoreRoleResponse;
   /** Restaura un usuario previamente eliminado (soft delete), dejándolo activo */
   restoreUser: User;
+  resumeListing: MarketplaceListing;
   returnPackage: Package;
   reverseDirectIncome: DirectIncome;
   reverseExpense: ComplexExpense;
@@ -2235,6 +3043,7 @@ export type Mutation = {
   /** Desvincula un dispositivo (ej. celular perdido) y cierra su sesión. Las sesiones de los demás dispositivos del residente no se ven afectadas. */
   revokeResidentDevice: Scalars['Boolean']['output'];
   runPushHealthCheck: PushHealthCheckResult;
+  sanctionPetIncident: PetIncident;
   saveMobileToken: PushSubscriptionResult;
   savePushSubscription: PushSubscriptionResult;
   saveSentMessage: SentMessage;
@@ -2244,22 +3053,28 @@ export type Mutation = {
   setAmenitySchedules: Amenity;
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
+  setNotificationStarred: Notification;
   setParkingRate: VisitorParkingConfig;
   /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido. */
   setResidentAccessCode: ResidentDevice;
   setVotingEnabled: Scalars['Boolean']['output'];
+  submitListing: MarketplaceListing;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
   /** Registra el check-out del supervisor. Cierra la visita activa (status: CLOSED). */
   supervisorCheckOut: SupervisorVisit;
+  suspendPet: Pet;
   suspendResident: Resident;
   /** Suspende la cuenta de un usuario */
   suspendUser: User;
   suspendVehicle: Vehicle;
   toggleBuildingStatus: Building;
   toggleFeeConfig: FeeConfig;
+  /** Devuelve true si quedó guardada como favorita */
+  toggleListingFavorite: Scalars['Boolean']['output'];
   toggleParkingRate: VisitorParkingConfig;
   togglePucAccount: PucAccount;
+  triageMaintenanceTicket: MaintenanceTicket;
   triggerPanicAlert: TriggerPanicAlertResult;
   undoMoveOutResident: Resident;
   updateAmenity: Amenity;
@@ -2270,8 +3085,13 @@ export type Mutation = {
   updateFeeConfig: FeeConfig;
   /** Actualiza metadatos/contenido/publicación de un documento legal. Solo SUPER_ADMIN. */
   updateLegalDocument: LegalDocument;
+  updateListing: MarketplaceListing;
+  updateMaintenanceLocationTag: MaintenanceLocationTag;
+  updateMaintenanceVendor: MaintenanceVendor;
+  updateMarketplaceSettings: MarketplaceSettings;
   /** Update an existing permission */
   updatePermission: UpdatePermissionResponse;
+  updatePet: Pet;
   updatePqrfCouncilResolvers: Array<PqrfCouncilMember>;
   updatePucAccount: PucAccount;
   updateRecurringCharge: RecurringCharge;
@@ -2290,8 +3110,11 @@ export type Mutation = {
   upsertAmenityScheduleException: AmenityScheduleException;
   upsertCoefficientWeighting: CoefficientWeighting;
   upsertComplexFinanceConfig: ComplexFinanceConfig;
+  upsertMaintenanceSla: MaintenanceSlaConfig;
+  upsertMarketplaceCategory: MarketplaceCategory;
   /** Asigna un rol a un usuario */
   userHasRole: AssignedUserRolResponse;
+  validatePetIncident: PetIncident;
   validateQrAccess: QrValidationResponse;
   /** Verifica el código OTP del residente y devuelve los tokens JWT de acceso. */
   verifyOtp: AuthResponse;
@@ -2303,6 +3126,16 @@ export type Mutation = {
 
 export type MutationAcknowledgePanicAlertArgs = {
   notificationId: Scalars['String']['input'];
+};
+
+
+export type MutationAddMaintenanceCommentArgs = {
+  input: AddMaintenanceCommentInput;
+};
+
+
+export type MutationAddPetIncidentStatementArgs = {
+  input: CreatePetIncidentStatementInput;
 };
 
 
@@ -2346,6 +3179,16 @@ export type MutationApproveDeviceApprovalArgs = {
 };
 
 
+export type MutationApproveListingArgs = {
+  input: ModerateListingInput;
+};
+
+
+export type MutationApprovePetArgs = {
+  input: ApprovePetInput;
+};
+
+
 export type MutationApproveResidentArgs = {
   input: ApproveResidentInput;
 };
@@ -2353,6 +3196,11 @@ export type MutationApproveResidentArgs = {
 
 export type MutationApproveVisitEntryArgs = {
   visitId: Scalars['String']['input'];
+};
+
+
+export type MutationAssignMaintenanceTicketArgs = {
+  input: AssignMaintenanceTicketInput;
 };
 
 
@@ -2375,6 +3223,11 @@ export type MutationBlacklistVisitorArgs = {
 
 export type MutationBulkMoveOutResidentsArgs = {
   input: BulkMoveOutResidentsInput;
+};
+
+
+export type MutationBulkNotificationActionArgs = {
+  input: BulkNotificationActionInput;
 };
 
 
@@ -2426,6 +3279,11 @@ export type MutationChangeComplexStatusArgs = {
 };
 
 
+export type MutationChangeMaintenanceTicketStatusArgs = {
+  input: ChangeMaintenanceStatusInput;
+};
+
+
 export type MutationChangePasswordArgs = {
   input: ChangePasswordInput;
 };
@@ -2450,6 +3308,11 @@ export type MutationCheckInAmenityBookingArgs = {
 
 export type MutationCheckOutAmenityBookingArgs = {
   bookingId: Scalars['String']['input'];
+};
+
+
+export type MutationCloseMaintenanceTicketArgs = {
+  ticketId: Scalars['String']['input'];
 };
 
 
@@ -2533,6 +3396,16 @@ export type MutationCreateLegalDocumentArgs = {
 };
 
 
+export type MutationCreateMaintenanceLocationTagArgs = {
+  input: CreateMaintenanceLocationTagInput;
+};
+
+
+export type MutationCreateMaintenanceVendorArgs = {
+  input: CreateMaintenanceVendorInput;
+};
+
+
 export type MutationCreatePermissionArgs = {
   input: CreatePermissionInput;
 };
@@ -2590,6 +3463,16 @@ export type MutationCreateVotingQuestionArgs = {
 
 export type MutationCreateWalletCreditArgs = {
   input: CreateWalletCreditInput;
+};
+
+
+export type MutationDeactivateMaintenanceLocationTagArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationDeactivateMaintenanceVendorArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -2676,6 +3559,23 @@ export type MutationDenyVisitEntryArgs = {
 };
 
 
+export type MutationDismissPetIncidentArgs = {
+  incidentId: Scalars['String']['input'];
+  reason: Scalars['String']['input'];
+};
+
+
+export type MutationEndorseMaintenanceTicketArgs = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  ticketId: Scalars['String']['input'];
+};
+
+
+export type MutationExecuteNotificationActionArgs = {
+  input: ExecuteNotificationActionInput;
+};
+
+
 export type MutationExecuteRotationArgs = {
   complexId: Scalars['String']['input'];
 };
@@ -2718,6 +3618,17 @@ export type MutationLoginWithIdentityNumArgs = {
 
 export type MutationMarkAllNotificationsAsReadArgs = {
   complexId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationMarkListingAsSoldArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
+export type MutationMarkMaintenanceTicketDuplicateArgs = {
+  originalTicketId: Scalars['String']['input'];
+  ticketId: Scalars['String']['input'];
 };
 
 
@@ -2765,6 +3676,21 @@ export type MutationOpenPqrfArgs = {
 
 export type MutationOpenVotingQuestionArgs = {
   questionId: Scalars['String']['input'];
+};
+
+
+export type MutationPauseListingArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
+export type MutationRateMaintenanceTicketArgs = {
+  input: RateMaintenanceTicketInput;
+};
+
+
+export type MutationReactivatePetArgs = {
+  petId: Scalars['String']['input'];
 };
 
 
@@ -2818,6 +3744,11 @@ export type MutationRegisterDirectIncomeArgs = {
 
 export type MutationRegisterExpenseArgs = {
   input: RegisterExpenseInput;
+};
+
+
+export type MutationRegisterListingInterestArgs = {
+  input: RegisterListingInterestInput;
 };
 
 
@@ -2883,6 +3814,23 @@ export type MutationRejectAmenityBookingArgs = {
 };
 
 
+export type MutationRejectListingArgs = {
+  input: ModerateListingInput;
+};
+
+
+export type MutationRejectMaintenanceTicketArgs = {
+  reason: Scalars['String']['input'];
+  ticketId: Scalars['String']['input'];
+};
+
+
+export type MutationRejectPetArgs = {
+  petId: Scalars['String']['input'];
+  reason: Scalars['String']['input'];
+};
+
+
 export type MutationRejectResidentArgs = {
   input: RejectResidentInput;
 };
@@ -2898,8 +3846,30 @@ export type MutationRemoveComplexArgs = {
 };
 
 
+export type MutationRemoveListingArgs = {
+  listingId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationRemoveMaintenanceSlaArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationRemoveMarketplaceCategoryArgs = {
+  categoryId: Scalars['String']['input'];
+};
+
+
 export type MutationRemovePermissionArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationRemovePetArgs = {
+  petId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2938,6 +3908,17 @@ export type MutationRemoveVisitorFromBlacklistArgs = {
 };
 
 
+export type MutationRenewListingArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
+export type MutationReopenMaintenanceTicketArgs = {
+  reason: Scalars['String']['input'];
+  ticketId: Scalars['String']['input'];
+};
+
+
 export type MutationReorderGlobalSpecialNumbersArgs = {
   ids: Array<Scalars['String']['input']>;
 };
@@ -2955,6 +3936,11 @@ export type MutationReportDevicePermissionsArgs = {
   hasFullScreenIntentPermission?: InputMaybe<Scalars['Boolean']['input']>;
   hasNotificationPermission?: InputMaybe<Scalars['Boolean']['input']>;
   onboardingCompleted?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type MutationReportListingArgs = {
+  input: ReportListingInput;
 };
 
 
@@ -3003,6 +3989,11 @@ export type MutationResetPasswordArgs = {
 };
 
 
+export type MutationResolveListingReportArgs = {
+  input: ResolveListingReportInput;
+};
+
+
 export type MutationResolvePanicAlertArgs = {
   falseAlarm?: InputMaybe<Scalars['Boolean']['input']>;
   panicAlertId: Scalars['String']['input'];
@@ -3032,6 +4023,11 @@ export type MutationRestoreRoleArgs = {
 
 export type MutationRestoreUserArgs = {
   userId: Scalars['String']['input'];
+};
+
+
+export type MutationResumeListingArgs = {
+  listingId: Scalars['String']['input'];
 };
 
 
@@ -3081,6 +4077,11 @@ export type MutationRunPushHealthCheckArgs = {
 };
 
 
+export type MutationSanctionPetIncidentArgs = {
+  input: SanctionPetIncidentInput;
+};
+
+
 export type MutationSaveMobileTokenArgs = {
   input: SaveMobileTokenInput;
 };
@@ -3121,6 +4122,12 @@ export type MutationSetInitialPasswordArgs = {
 };
 
 
+export type MutationSetNotificationStarredArgs = {
+  notificationId: Scalars['String']['input'];
+  starred: Scalars['Boolean']['input'];
+};
+
+
 export type MutationSetParkingRateArgs = {
   input: SetParkingRateInput;
 };
@@ -3138,6 +4145,11 @@ export type MutationSetVotingEnabledArgs = {
 };
 
 
+export type MutationSubmitListingArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
 export type MutationSupervisorCheckInArgs = {
   input: SupervisorCheckInInput;
 };
@@ -3145,6 +4157,12 @@ export type MutationSupervisorCheckInArgs = {
 
 export type MutationSupervisorCheckOutArgs = {
   input: SupervisorCheckOutInput;
+};
+
+
+export type MutationSuspendPetArgs = {
+  petId: Scalars['String']['input'];
+  reason: Scalars['String']['input'];
 };
 
 
@@ -3176,6 +4194,11 @@ export type MutationToggleFeeConfigArgs = {
 };
 
 
+export type MutationToggleListingFavoriteArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
 export type MutationToggleParkingRateArgs = {
   rateId: Scalars['String']['input'];
 };
@@ -3184,6 +4207,11 @@ export type MutationToggleParkingRateArgs = {
 export type MutationTogglePucAccountArgs = {
   complexId: Scalars['String']['input'];
   id: Scalars['String']['input'];
+};
+
+
+export type MutationTriageMaintenanceTicketArgs = {
+  input: TriageMaintenanceTicketInput;
 };
 
 
@@ -3234,9 +4262,34 @@ export type MutationUpdateLegalDocumentArgs = {
 };
 
 
+export type MutationUpdateListingArgs = {
+  input: UpdateListingInput;
+};
+
+
+export type MutationUpdateMaintenanceLocationTagArgs = {
+  input: UpdateMaintenanceLocationTagInput;
+};
+
+
+export type MutationUpdateMaintenanceVendorArgs = {
+  input: UpdateMaintenanceVendorInput;
+};
+
+
+export type MutationUpdateMarketplaceSettingsArgs = {
+  input: UpdateMarketplaceSettingsInput;
+};
+
+
 export type MutationUpdatePermissionArgs = {
   id: Scalars['String']['input'];
   updatePermissionInput: UpdatePermissionInput;
+};
+
+
+export type MutationUpdatePetArgs = {
+  input: UpdatePetInput;
 };
 
 
@@ -3329,9 +4382,24 @@ export type MutationUpsertComplexFinanceConfigArgs = {
 };
 
 
+export type MutationUpsertMaintenanceSlaArgs = {
+  input: UpsertMaintenanceSlaInput;
+};
+
+
+export type MutationUpsertMarketplaceCategoryArgs = {
+  input: UpsertMarketplaceCategoryInput;
+};
+
+
 export type MutationUserHasRoleArgs = {
   roleName: Scalars['String']['input'];
   userId: Scalars['String']['input'];
+};
+
+
+export type MutationValidatePetIncidentArgs = {
+  input: ValidatePetIncidentInput;
 };
 
 
@@ -3408,6 +4476,7 @@ export type Notification = {
   isActionable: Scalars['Boolean']['output'];
   isBroadcast: Scalars['Boolean']['output'];
   isRead: Scalars['Boolean']['output'];
+  isStarred: Scalars['Boolean']['output'];
   metadata?: Maybe<Scalars['JSON']['output']>;
   panicAlertId?: Maybe<Scalars['String']['output']>;
   priority: NotificationPriority;
@@ -3419,6 +4488,42 @@ export type Notification = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+/** Dato que la acción pide antes de ejecutarse */
+export type NotificationActionField = {
+  __typename?: 'NotificationActionField';
+  defaultLabel?: Maybe<Scalars['String']['output']>;
+  defaultValue?: Maybe<Scalars['String']['output']>;
+  helpText?: Maybe<Scalars['String']['output']>;
+  kind: NotificationActionFieldKind;
+  label: Scalars['String']['output'];
+  max?: Maybe<Scalars['Float']['output']>;
+  min?: Maybe<Scalars['Float']['output']>;
+  minLength?: Maybe<Scalars['Int']['output']>;
+  name: Scalars['String']['output'];
+  options?: Maybe<Array<NotificationActionOption>>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required: Scalars['Boolean']['output'];
+};
+
+/** Tipo de dato que pide una acción antes de ejecutarse */
+export type NotificationActionFieldKind =
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'MONEY'
+  | 'NUMBER'
+  | 'SELECT'
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'UNIT';
+
+/** Opción de una lista cerrada */
+export type NotificationActionOption = {
+  __typename?: 'NotificationActionOption';
+  hint?: Maybe<Scalars['String']['output']>;
+  label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
 /** Resultado de la acción tomada sobre la notificación */
 export type NotificationActionResult =
   /** Alerta reconocida */
@@ -3428,12 +4533,21 @@ export type NotificationActionResult =
   /** Acción rechazada */
   | 'REJECTED';
 
+/** Peso visual del botón de la acción */
+export type NotificationActionTone =
+  | 'DANGER'
+  | 'NEUTRAL'
+  | 'PRIMARY'
+  | 'WARNING';
+
 /** Escenario de acción requerida. El frontend usa este valor para determinar qué botones mostrar. */
 export type NotificationActionType =
   /** Solicitud de acceso de supervisor — [Aprobar acceso] [Rechazar] */
   | 'ACCESS_REQUEST'
   /** Alerta que requiere confirmación — [Reconocer] */
   | 'ACKNOWLEDGE'
+  /** Publicación de clasificados por revisar — [Aprobar] [Rechazar] */
+  | 'LISTING_APPROVAL'
   /** Nueva solicitud de residencia — [Aprobar] [Rechazar] */
   | 'RESIDENT_APPROVAL'
   /** Nuevo vehículo pendiente — [Aprobar] [Rechazar] */
@@ -3454,12 +4568,14 @@ export type NotificationDetailResponse = {
   createdAt: Scalars['DateTime']['output'];
   createdByUser?: Maybe<NotificationUserInfo>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
+  entity?: Maybe<NotificationEntitySnapshot>;
   entityId?: Maybe<Scalars['String']['output']>;
   entityType?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActionable: Scalars['Boolean']['output'];
   isBroadcast: Scalars['Boolean']['output'];
   isRead: Scalars['Boolean']['output'];
+  isStarred: Scalars['Boolean']['output'];
   metadata?: Maybe<Scalars['JSON']['output']>;
   priority: NotificationPriority;
   readAt?: Maybe<Scalars['DateTime']['output']>;
@@ -3471,12 +4587,96 @@ export type NotificationDetailResponse = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+/** Datos completos de lo que originó la notificación */
+export type NotificationEntitySnapshot = {
+  __typename?: 'NotificationEntitySnapshot';
+  actions: Array<NotificationSnapshotAction>;
+  entityId?: Maybe<Scalars['String']['output']>;
+  entityType?: Maybe<Scalars['String']['output']>;
+  files: Array<NotificationSnapshotFile>;
+  headline?: Maybe<Scalars['String']['output']>;
+  images: Array<NotificationSnapshotImage>;
+  isMissing: Scalars['Boolean']['output'];
+  sections: Array<NotificationSnapshotSection>;
+  source: NotificationSnapshotSource;
+  statusCode?: Maybe<Scalars['String']['output']>;
+  statusLabel?: Maybe<Scalars['String']['output']>;
+  statusTone: NotificationSnapshotTone;
+};
+
+/** Formato de lectura de un campo del expediente */
+export type NotificationFieldKind =
+  | 'BADGE'
+  | 'DATE'
+  | 'LINK'
+  | 'LOCATION'
+  | 'MONEY'
+  | 'MULTILINE'
+  | 'PHONE'
+  | 'TEXT';
+
 /** Prioridad de entrega de la notificación */
 export type NotificationPriority =
   | 'HIGH'
   | 'LOW'
   | 'NORMAL'
   | 'URGENT';
+
+/** Acción disponible sobre lo que originó el aviso */
+export type NotificationSnapshotAction = {
+  __typename?: 'NotificationSnapshotAction';
+  code: Scalars['String']['output'];
+  confirmText?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  disabledReason?: Maybe<Scalars['String']['output']>;
+  fields: Array<NotificationActionField>;
+  isEnabled: Scalars['Boolean']['output'];
+  label: Scalars['String']['output'];
+  tone: NotificationActionTone;
+};
+
+/** Un dato del expediente, ya con nombre legible */
+export type NotificationSnapshotField = {
+  __typename?: 'NotificationSnapshotField';
+  href?: Maybe<Scalars['String']['output']>;
+  kind: NotificationFieldKind;
+  label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+/** Archivo adjunto del expediente (PDF, carné…) */
+export type NotificationSnapshotFile = {
+  __typename?: 'NotificationSnapshotFile';
+  label: Scalars['String']['output'];
+  url: Scalars['String']['output'];
+};
+
+/** Imagen del expediente */
+export type NotificationSnapshotImage = {
+  __typename?: 'NotificationSnapshotImage';
+  caption?: Maybe<Scalars['String']['output']>;
+  sealHash?: Maybe<Scalars['String']['output']>;
+  url: Scalars['String']['output'];
+};
+
+/** Bloque de datos del expediente */
+export type NotificationSnapshotSection = {
+  __typename?: 'NotificationSnapshotSection';
+  fields: Array<NotificationSnapshotField>;
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+/** Origen de los datos del expediente */
+export type NotificationSnapshotSource =
+  | 'LIVE'
+  | 'METADATA';
+
+/** Tono con el que se muestra el estado del expediente */
+export type NotificationSnapshotTone =
+  | 'DANGER'
+  | 'NEUTRAL'
+  | 'POSITIVE'
+  | 'WARNING';
 
 /** Tipo de evento que originó la notificación */
 export type NotificationType =
@@ -3497,7 +4697,23 @@ export type NotificationType =
   | 'DPA_APPROVED'
   | 'DPA_REJECTED'
   | 'DPA_SIGNED'
+  | 'LISTING_APPROVED'
+  | 'LISTING_EXPIRED'
+  | 'LISTING_EXPIRING'
+  | 'LISTING_INTEREST'
+  | 'LISTING_PAUSED_BY_REPORTS'
+  | 'LISTING_PENDING_REVIEW'
+  | 'LISTING_REJECTED'
+  | 'LISTING_REPORTED'
   | 'LOGIN_APPROVAL_REQUEST'
+  | 'MAINTENANCE_RATING_REQUESTED'
+  | 'MAINTENANCE_SLA_BREACHED'
+  | 'MAINTENANCE_TICKET_ASSIGNED'
+  | 'MAINTENANCE_TICKET_REJECTED'
+  | 'MAINTENANCE_TICKET_REOPENED'
+  | 'MAINTENANCE_TICKET_REPORTED'
+  | 'MAINTENANCE_TICKET_RESOLVED'
+  | 'MAINTENANCE_TICKET_UPDATED'
   | 'MORA_APPLIED'
   | 'NEW_DEVICE_LINKED'
   | 'PACKAGE_DELIVERED'
@@ -3512,6 +4728,19 @@ export type NotificationType =
   | 'PAYMENT_OVERDUE'
   | 'PAYMENT_RECEIVED'
   | 'PAYMENT_REVERSED'
+  | 'PET_APPROVED'
+  | 'PET_DOCUMENT_EXPIRING'
+  | 'PET_FINE_CHARGED'
+  | 'PET_INCIDENT_DISMISSED'
+  | 'PET_INCIDENT_REPORTED'
+  | 'PET_INCIDENT_VALIDATED'
+  | 'PET_REACTIVATED'
+  | 'PET_REGISTERED'
+  | 'PET_REJECTED'
+  | 'PET_REMOVED'
+  | 'PET_STATEMENT_RECEIVED'
+  | 'PET_SUSPENDED'
+  | 'PET_WARNING_ISSUED'
   | 'PQRF_RECEIVED'
   | 'PQRF_REMINDER'
   | 'PQRF_RESOLVED'
@@ -3669,6 +4898,24 @@ export type PaginatedIncomesResponse = {
   totalAmount: Scalars['Float']['output'];
 };
 
+export type PaginatedListingReportsResponse = {
+  __typename?: 'PaginatedListingReportsResponse';
+  items: Array<MarketplaceListingReport>;
+  pagination: PaginationReponse;
+};
+
+export type PaginatedListingsResponse = {
+  __typename?: 'PaginatedListingsResponse';
+  items: Array<MarketplaceListing>;
+  pagination: PaginationReponse;
+};
+
+export type PaginatedMaintenanceTicketsResponse = {
+  __typename?: 'PaginatedMaintenanceTicketsResponse';
+  items: Array<MaintenanceTicket>;
+  pagination: PaginationReponse;
+};
+
 export type PaginatedNotesResponse = {
   __typename?: 'PaginatedNotesResponse';
   items: Array<Note>;
@@ -3691,6 +4938,18 @@ export type PaginatedPermissionsResponse = {
   __typename?: 'PaginatedPermissionsResponse';
   items: Array<Permission>;
   meta: PaginationReponse;
+};
+
+export type PaginatedPetIncidentsResponse = {
+  __typename?: 'PaginatedPetIncidentsResponse';
+  items: Array<PetIncident>;
+  pagination: PaginationReponse;
+};
+
+export type PaginatedPetsResponse = {
+  __typename?: 'PaginatedPetsResponse';
+  items: Array<Pet>;
+  pagination: PaginationReponse;
 };
 
 /** Radicados PQRF paginados */
@@ -3990,6 +5249,233 @@ export type PermissionWithSource = {
   source: Scalars['String']['output'];
 };
 
+/** Mascota registrada por un residente */
+export type Pet = {
+  __typename?: 'Pet';
+  /** Fecha de aprobación */
+  approvedAt?: Maybe<Scalars['DateTime']['output']>;
+  approvedByUser?: Maybe<User>;
+  /** Usuario que aprobó o rechazó la ficha */
+  approvedByUserId?: Maybe<Scalars['String']['output']>;
+  /** Fecha de nacimiento (aproximada si no se conoce) */
+  birthDate?: Maybe<Scalars['String']['output']>;
+  /** Raza */
+  breed?: Maybe<Scalars['String']['output']>;
+  /** Color predominante */
+  color?: Maybe<Scalars['String']['output']>;
+  complex?: Maybe<ResidentialComplex>;
+  /** Complejo (multi-tenant) */
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId?: Maybe<Scalars['String']['output']>;
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Señas particulares (manchas, collar, cicatrices) */
+  distinguishingMarks?: Maybe<Scalars['String']['output']>;
+  /** Tiene microchip implantado */
+  hasMicrochip: Scalars['Boolean']['output'];
+  id: Scalars['String']['output'];
+  /** Aseguradora de la póliza de RC extracontractual */
+  insuranceCompany?: Maybe<Scalars['String']['output']>;
+  /** Vencimiento de la póliza */
+  insuranceExpiresAt?: Maybe<Scalars['String']['output']>;
+  /** Número de la póliza de RC extracontractual */
+  insurancePolicyNumber?: Maybe<Scalars['String']['output']>;
+  /** Pertenece a una raza de manejo especial */
+  isSpecialBreed: Scalars['Boolean']['output'];
+  /** Número del microchip */
+  microchipCode?: Maybe<Scalars['String']['output']>;
+  /** Nombre de la mascota */
+  name: Scalars['String']['output'];
+  /** Notas internas de la administración */
+  notes?: Maybe<Scalars['String']['output']>;
+  /** URL de la foto (R2) */
+  photoUrl?: Maybe<Scalars['String']['output']>;
+  /** Fecha de la última vacuna antirrábica */
+  rabiesVaccineAt?: Maybe<Scalars['String']['output']>;
+  /** Razón del rechazo o la suspensión */
+  rejectionReason?: Maybe<Scalars['String']['output']>;
+  resident?: Maybe<Resident>;
+  /** Residente responsable de la mascota */
+  residentId?: Maybe<Scalars['String']['output']>;
+  /** Sexo */
+  sex?: Maybe<PetSex>;
+  /** Porte */
+  size?: Maybe<PetSize>;
+  /** Especie */
+  species: PetSpecies;
+  /** Estado dentro del complejo */
+  status: PetStatus;
+  /** Esterilizada */
+  sterilized?: Maybe<Scalars['Boolean']['output']>;
+  unit?: Maybe<Unit>;
+  /** Unidad donde vive la mascota */
+  unitId: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  /** URL del carné de vacunación (R2) */
+  vaccinationCardUrl?: Maybe<Scalars['String']['output']>;
+};
+
+/** Reporte de convivencia asociado a una mascota */
+export type PetIncident = {
+  __typename?: 'PetIncident';
+  /** Número del reporte, consecutivo */
+  code: Scalars['String']['output'];
+  complex?: Maybe<ResidentialComplex>;
+  complexId: Scalars['String']['output'];
+  consecutive: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Relato de lo ocurrido */
+  description: Scalars['String']['output'];
+  /** Valor de la multa cargada a la unidad */
+  fineAmount?: Maybe<Scalars['Float']['output']>;
+  fineChargeId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  lat?: Maybe<Scalars['Float']['output']>;
+  lng?: Maybe<Scalars['Float']['output']>;
+  /** Lugar del hecho (pasillo, zona verde, ascensor…) */
+  location?: Maybe<Scalars['String']['output']>;
+  /** Momento del hecho, según quien reporta */
+  occurredAt: Scalars['DateTime']['output'];
+  pet?: Maybe<Pet>;
+  /** Mascota señalada. Null mientras no se identifique */
+  petId?: Maybe<Scalars['String']['output']>;
+  /** SHA-256 de cada foto, en el orden de photoUrls */
+  photoHashes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Fotos de evidencia (R2) */
+  photoUrls?: Maybe<Array<Scalars['String']['output']>>;
+  reportedByName?: Maybe<Scalars['String']['output']>;
+  /** Rol de quien reportó, congelado al radicar */
+  reportedByRole?: Maybe<Scalars['String']['output']>;
+  /** Unidad desde la que se reportó */
+  reportedByUnitId?: Maybe<Scalars['String']['output']>;
+  reportedByUserId?: Maybe<Scalars['String']['output']>;
+  /** Decisión de la administración */
+  resolutionNotes?: Maybe<Scalars['String']['output']>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
+  reviewedAt?: Maybe<Scalars['DateTime']['output']>;
+  reviewedByUserId?: Maybe<Scalars['String']['output']>;
+  severity: PetIncidentSeverity;
+  /** Vencimiento del plazo de descargos */
+  statementDueAt?: Maybe<Scalars['DateTime']['output']>;
+  statements?: Maybe<Array<PetIncidentStatement>>;
+  status: PetIncidentStatus;
+  type: PetIncidentType;
+  unit?: Maybe<Unit>;
+  /** Unidad señalada. Null mientras no se identifique */
+  unitId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Gravedad del incidente reportado */
+export type PetIncidentSeverity =
+  /** Riesgo para personas o animales */
+  | 'HIGH'
+  /** Falta leve */
+  | 'LOW'
+  /** Falta reiterada o con molestia a terceros */
+  | 'MEDIUM';
+
+/** Descargo de la unidad ante un reporte */
+export type PetIncidentStatement = {
+  __typename?: 'PetIncidentStatement';
+  author?: Maybe<User>;
+  authorName?: Maybe<Scalars['String']['output']>;
+  /** Rol de quien responde, congelado al momento del descargo */
+  authorRole?: Maybe<Scalars['String']['output']>;
+  authorUserId?: Maybe<Scalars['String']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  /** Soportes adjuntos (R2) */
+  imageUrls?: Maybe<Array<Scalars['String']['output']>>;
+  incident?: Maybe<PetIncident>;
+  incidentId: Scalars['String']['output'];
+  /** Texto del descargo */
+  text: Scalars['String']['output'];
+};
+
+/** Estado del reporte de convivencia */
+export type PetIncidentStatus =
+  /** Desestimado */
+  | 'DISMISSED'
+  /** Resuelto con multa */
+  | 'FINED'
+  /** Pendiente de revisión */
+  | 'REPORTED'
+  /** Notificado, en plazo de descargos */
+  | 'UNDER_DEFENSE'
+  /** Resuelto con llamado de atención */
+  | 'WARNED';
+
+/** Motivo del reporte de convivencia */
+export type PetIncidentType =
+  /** Agresión o mordedura */
+  | 'AGGRESSION'
+  /** Maltrato o abandono del animal */
+  | 'ANIMAL_ABUSE'
+  /** Ruido o ladridos persistentes */
+  | 'NOISE'
+  /** Sin correa o sin bozal */
+  | 'NO_LEASH_OR_MUZZLE'
+  /** Otro motivo */
+  | 'OTHER'
+  /** Mascota suelta o sin acompañante */
+  | 'UNATTENDED'
+  /** Uso de zonas no autorizadas */
+  | 'UNAUTHORIZED_AREA'
+  /** Deposiciones no recogidas */
+  | 'WASTE_NOT_PICKED_UP';
+
+/** Sanción con la que se cierra un reporte validado */
+export type PetSanction =
+  /** Multa cargada a la unidad */
+  | 'FINE'
+  /** Llamado de atención */
+  | 'WARNING';
+
+/** Sexo de la mascota */
+export type PetSex =
+  /** Hembra */
+  | 'FEMALE'
+  /** Macho */
+  | 'MALE'
+  /** Sin determinar */
+  | 'UNKNOWN';
+
+/** Porte de la mascota */
+export type PetSize =
+  /** Grande (más de ~25 kg) */
+  | 'LARGE'
+  /** Mediano (~10 a 25 kg) */
+  | 'MEDIUM'
+  /** Pequeño (hasta ~10 kg) */
+  | 'SMALL';
+
+/** Especie de la mascota */
+export type PetSpecies =
+  /** Gato */
+  | 'CAT'
+  /** Perro */
+  | 'DOG'
+  /** Otra especie (ave, roedor, reptil…) */
+  | 'OTHER';
+
+/** Estado de la mascota dentro del complejo */
+export type PetStatus =
+  /** Censada y autorizada */
+  | 'ACTIVE'
+  /** Fallecida */
+  | 'DECEASED'
+  /** Esperando validación de la ficha */
+  | 'PENDING_APPROVAL'
+  /** Ficha rechazada */
+  | 'REJECTED'
+  /** Retirada del complejo */
+  | 'REMOVED'
+  /** Autorización suspendida */
+  | 'SUSPENDED';
+
 export type PlateCheckResponse = {
   __typename?: 'PlateCheckResponse';
   /** Vehículo autorizado para ingresar */
@@ -4229,6 +5715,24 @@ export type Query = {
   getRoleHierarchy: RoleHierarchyResponse;
   /** Todos los documentos legales (incluidos no publicados). Solo SUPER_ADMIN. */
   legalDocumentsAdmin: Array<LegalDocument>;
+  listingReports: PaginatedListingReportsResponse;
+  maintenanceBoard: MaintenanceBoardResponse;
+  maintenanceDuplicateCandidates: Array<MaintenanceTicket>;
+  maintenanceHeatmap: Array<MaintenanceHeatmapCell>;
+  maintenanceLocationTagByCode: MaintenanceLocationTag;
+  maintenanceLocationTags: Array<MaintenanceLocationTag>;
+  maintenanceMapPins: Array<MaintenanceMapPinResponse>;
+  maintenanceReportOptions: MaintenanceReportOptionsResponse;
+  maintenanceSlaConfigs: Array<MaintenanceSlaConfig>;
+  maintenanceStats: MaintenanceStatsResponse;
+  maintenanceTicket: MaintenanceTicket;
+  maintenanceTickets: PaginatedMaintenanceTicketsResponse;
+  maintenanceVendors: Array<MaintenanceVendor>;
+  marketplaceCategories: Array<MarketplaceCategory>;
+  marketplaceListing: MarketplaceListing;
+  marketplaceListings: PaginatedListingsResponse;
+  marketplaceSettings: MarketplaceSettings;
+  marketplaceStats: MarketplaceStatsResponse;
   /** Perfil completo del usuario autenticado (usuario o complejo residencial) */
   me: MeResponse;
   /** Retorna el historial de solicitudes de acceso del supervisor (últimas 50). */
@@ -4237,6 +5741,7 @@ export type Query = {
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
   myNotifications: PaginatedNotificationsResponse;
+  myPets: Array<Pet>;
   myPqrfRequests: PaginatedPqrfResponse;
   /** Lista los dispositivos vinculados del residente autenticado. */
   myResidentDevices: Array<ResidentDevice>;
@@ -4266,6 +5771,12 @@ export type Query = {
   pendingResidents: PaginatedResidentsResponse;
   permission: Permission;
   permissions: PaginatedPermissionsResponse;
+  pet: Pet;
+  petIncident: PetIncident;
+  petIncidents: PaginatedPetIncidentsResponse;
+  petIncidentsByPet: Array<PetIncident>;
+  pets: PaginatedPetsResponse;
+  petsByUnit: Array<Pet>;
   /** Verifica conectividad con el backend. Siempre retorna "pong". */
   ping: Scalars['String']['output'];
   pqrfCouncilMembers: Array<PqrfCouncilMember>;
@@ -4531,6 +6042,111 @@ export type QueryGetRoleHierarchyArgs = {
 };
 
 
+export type QueryListingReportsArgs = {
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  status?: InputMaybe<MarketplaceReportStatus>;
+};
+
+
+export type QueryMaintenanceBoardArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterMaintenanceTicketsInput>;
+};
+
+
+export type QueryMaintenanceDuplicateCandidatesArgs = {
+  input: CheckMaintenanceDuplicateInput;
+};
+
+
+export type QueryMaintenanceHeatmapArgs = {
+  complexId: Scalars['String']['input'];
+  days?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryMaintenanceLocationTagByCodeArgs = {
+  code: Scalars['String']['input'];
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryMaintenanceLocationTagsArgs = {
+  complexId: Scalars['String']['input'];
+  onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryMaintenanceMapPinsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterMaintenanceTicketsInput>;
+};
+
+
+export type QueryMaintenanceReportOptionsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryMaintenanceSlaConfigsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryMaintenanceStatsArgs = {
+  complexId: Scalars['String']['input'];
+  days?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryMaintenanceTicketArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryMaintenanceTicketsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterMaintenanceTicketsInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMaintenanceVendorsArgs = {
+  complexId: Scalars['String']['input'];
+  onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryMarketplaceCategoriesArgs = {
+  complexId: Scalars['String']['input'];
+  includeInactive?: InputMaybe<Scalars['Boolean']['input']>;
+  kind?: InputMaybe<MarketplaceCategoryKind>;
+};
+
+
+export type QueryMarketplaceListingArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
+export type QueryMarketplaceListingsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterListingsInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMarketplaceSettingsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryMarketplaceStatsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
 export type QueryMyAmenityCouncilQuotaArgs = {
   amenityId: Scalars['String']['input'];
 };
@@ -4540,6 +6156,11 @@ export type QueryMyNotificationsArgs = {
   complexId?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<FilterNotificationsInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMyPetsArgs = {
+  complexId: Scalars['String']['input'];
 };
 
 
@@ -4653,6 +6274,40 @@ export type QueryPermissionArgs = {
 
 export type QueryPermissionsArgs = {
   input: SearchPermissionsInput;
+};
+
+
+export type QueryPetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryPetIncidentArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryPetIncidentsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterPetIncidentsInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryPetIncidentsByPetArgs = {
+  petId: Scalars['String']['input'];
+};
+
+
+export type QueryPetsArgs = {
+  complexId: Scalars['String']['input'];
+  filters?: InputMaybe<FilterPetsInput>;
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryPetsByUnitArgs = {
+  unitId: Scalars['String']['input'];
 };
 
 
@@ -4915,6 +6570,13 @@ export type QueryWhatsAppLoginChallengeStatusArgs = {
   challengeId: Scalars['ID']['input'];
 };
 
+export type RateMaintenanceTicketInput = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  /** De 1 a 5 */
+  rating: Scalars['Int']['input'];
+  ticketId: Scalars['String']['input'];
+};
+
 export type RecurringCausationResult = {
   __typename?: 'RecurringCausationResult';
   caused: Scalars['Int']['output'];
@@ -5003,6 +6665,12 @@ export type RegisterExpenseInput = {
   notes?: InputMaybe<Scalars['String']['input']>;
   period: Scalars['String']['input'];
   receiptUrl?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type RegisterListingInterestInput = {
+  listingId: Scalars['String']['input'];
+  /** Mensaje corto para el publicador */
+  message?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type RegisterPackageInput = {
@@ -5222,6 +6890,12 @@ export type RemoveStaffMemberResponse = {
   success: Scalars['Boolean']['output'];
 };
 
+export type ReportListingInput = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  listingId: Scalars['String']['input'];
+  reason: MarketplaceReportReason;
+};
+
 export type RequestComplexAccessInput = {
   /** ID del complejo al que el supervisor solicita acceso */
   complexId: Scalars['String']['input'];
@@ -5434,6 +7108,16 @@ export type ResidentialComplex = {
   logoUrl?: Maybe<Scalars['String']['output']>;
   /** Longitud GPS del complejo para validación de presencia */
   longitude?: Maybe<Scalars['Float']['output']>;
+  /** Días para el autocierre de un reparado */
+  maintenanceAutoCloseDays: Scalars['Int']['output'];
+  /** Horas para detectar reportes duplicados */
+  maintenanceDuplicateWindowHours: Scalars['Int']['output'];
+  /** Precisión mínima del GPS para pintar el pin (metros) */
+  maintenanceGpsAccuracyMeters: Scalars['Int']['output'];
+  /** Días para reabrir un ticket cerrado */
+  maintenanceReopenWindowDays: Scalars['Int']['output'];
+  /** Los residentes pueden radicar tickets de mantenimiento */
+  maintenanceResidentReportingEnabled: Scalars['Boolean']['output'];
   /** Máximo de unidades permitidas por el plan */
   maxUnits: Scalars['Int']['output'];
   /** Nombre del complejo */
@@ -5450,6 +7134,14 @@ export type ResidentialComplex = {
   password?: Maybe<Scalars['String']['output']>;
   /** Indica si el usuario tiene contraseña establecida */
   passwordSet: Scalars['Boolean']['output'];
+  /** Días de anticipación del aviso de vencimiento */
+  petsExpiryReminderDays: Scalars['Int']['output'];
+  /** Máximo de mascotas por unidad. 0 = sin límite */
+  petsMaxPerUnit: Scalars['Int']['output'];
+  /** Los residentes pueden reportar incumplimientos */
+  petsResidentReportingEnabled: Scalars['Boolean']['output'];
+  /** Días de plazo para presentar descargos */
+  petsStatementDays: Scalars['Int']['output'];
   /** Teléfono de administración */
   phoneNumber?: Maybe<Scalars['String']['output']>;
   /** Plan de suscripción activo */
@@ -5503,6 +7195,12 @@ export type ResidentialComplex = {
   website?: Maybe<Scalars['String']['output']>;
   /** Código postal */
   zipCode?: Maybe<Scalars['String']['output']>;
+};
+
+export type ResolveListingReportInput = {
+  accept: Scalars['Boolean']['input'];
+  note?: InputMaybe<Scalars['String']['input']>;
+  reportId: Scalars['String']['input'];
 };
 
 export type RestorePermissionResponse = {
@@ -5670,6 +7368,16 @@ export type RotationTypeStatus = {
   vehicleType: Scalars['String']['output'];
   /** Vehículos actualmente fuera por rotación */
   vehiclesSuspendedByRotation: Array<Vehicle>;
+};
+
+export type SanctionPetIncidentInput = {
+  /** Valor de la multa. Requerido si sanction = FINE */
+  fineAmount?: InputMaybe<Scalars['Float']['input']>;
+  incidentId: Scalars['String']['input'];
+  /** Motivación de la decisión */
+  resolutionNotes: Scalars['String']['input'];
+  /** Llamado de atención o multa */
+  sanction: PetSanction;
 };
 
 export type SaveMobileTokenInput = {
@@ -6008,6 +7716,16 @@ export type SupervisorVisitStatus =
   | 'ACTIVE'
   | 'CLOSED';
 
+export type TriageMaintenanceTicketInput = {
+  category?: InputMaybe<MaintenanceCategory>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  priority?: InputMaybe<MaintenancePriority>;
+  /** Horas de SLA para este ticket. Si no llega, la política del complejo */
+  slaHours?: InputMaybe<Scalars['Int']['input']>;
+  ticketId: Scalars['String']['input'];
+  visibility?: InputMaybe<MaintenanceVisibility>;
+};
+
 export type TriggerPanicAlertResult = {
   __typename?: 'TriggerPanicAlertResult';
   success: Scalars['Boolean']['output'];
@@ -6265,6 +7983,60 @@ export type UpdateLegalDocumentInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdateListingInput = {
+  categoryId?: InputMaybe<Scalars['String']['input']>;
+  condition?: InputMaybe<MarketplaceItemCondition>;
+  contactPreference?: InputMaybe<MarketplaceContactPreference>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  imageUrls?: InputMaybe<Array<Scalars['String']['input']>>;
+  listingId: Scalars['String']['input'];
+  priceAmount?: InputMaybe<Scalars['Float']['input']>;
+  priceType?: InputMaybe<MarketplacePriceType>;
+  showPhone?: InputMaybe<Scalars['Boolean']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<MarketplaceListingType>;
+};
+
+export type UpdateMaintenanceLocationTagInput = {
+  amenityId?: InputMaybe<Scalars['String']['input']>;
+  buildingId?: InputMaybe<Scalars['String']['input']>;
+  defaultCategory?: InputMaybe<MaintenanceCategory>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  /** Negativo para sótanos */
+  floor?: InputMaybe<Scalars['Int']['input']>;
+  id: Scalars['String']['input'];
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  kind?: InputMaybe<MaintenanceTagKind>;
+  lat?: InputMaybe<Scalars['Float']['input']>;
+  lng?: InputMaybe<Scalars['Float']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateMaintenanceVendorInput = {
+  contactName?: InputMaybe<Scalars['String']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  /** NIT o cédula */
+  legalId?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+  specialties?: InputMaybe<Array<MaintenanceCategory>>;
+};
+
+export type UpdateMarketplaceSettingsInput = {
+  allowPhoneContact?: InputMaybe<Scalars['Boolean']['input']>;
+  allowWantedListings?: InputMaybe<Scalars['Boolean']['input']>;
+  autoPauseAfterReports?: InputMaybe<Scalars['Int']['input']>;
+  complexId: Scalars['String']['input'];
+  listingDurationDays?: InputMaybe<Scalars['Int']['input']>;
+  maxActiveListingsPerUnit?: InputMaybe<Scalars['Int']['input']>;
+  maxImagesPerListing?: InputMaybe<Scalars['Int']['input']>;
+  moderationMode?: InputMaybe<MarketplaceModerationMode>;
+  termsText?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type UpdatePermissionInput = {
   /** Obliges to have a previous permission to assign another (e.g., need "user:read" to get "user:edit"). */
   dependsOn?: InputMaybe<Array<PermissionDependencyInput>>;
@@ -6309,6 +8081,28 @@ export type UpdatePermissionResponse = {
   status?: Maybe<Scalars['Boolean']['output']>;
   /** Creation timestamp */
   updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type UpdatePetInput = {
+  birthDate?: InputMaybe<Scalars['String']['input']>;
+  breed?: InputMaybe<Scalars['String']['input']>;
+  color?: InputMaybe<Scalars['String']['input']>;
+  /** Señas particulares */
+  distinguishingMarks?: InputMaybe<Scalars['String']['input']>;
+  hasMicrochip?: InputMaybe<Scalars['Boolean']['input']>;
+  insuranceCompany?: InputMaybe<Scalars['String']['input']>;
+  insuranceExpiresAt?: InputMaybe<Scalars['String']['input']>;
+  insurancePolicyNumber?: InputMaybe<Scalars['String']['input']>;
+  isSpecialBreed?: InputMaybe<Scalars['Boolean']['input']>;
+  microchipCode?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  petId: Scalars['String']['input'];
+  rabiesVaccineAt?: InputMaybe<Scalars['String']['input']>;
+  sex?: InputMaybe<PetSex>;
+  size?: InputMaybe<PetSize>;
+  species?: InputMaybe<PetSpecies>;
+  sterilized?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type UpdatePucAccountInput = {
@@ -6511,6 +8305,26 @@ export type UpsertComplexFinanceConfigInput = {
   earlyDiscountPct?: InputMaybe<Scalars['Float']['input']>;
   moraGraceDays?: InputMaybe<Scalars['Int']['input']>;
   moraRate?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type UpsertMaintenanceSlaInput = {
+  category: MaintenanceCategory;
+  complexId: Scalars['String']['input'];
+  priority: MaintenancePriority;
+  /** Horas para dejarlo reparado */
+  resolutionHours: Scalars['Int']['input'];
+  /** Horas para asignar responsable */
+  responseHours: Scalars['Int']['input'];
+};
+
+export type UpsertMarketplaceCategoryInput = {
+  categoryId?: InputMaybe<Scalars['String']['input']>;
+  complexId: Scalars['String']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  kind?: InputMaybe<MarketplaceCategoryKind>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpsertScheduleExceptionInput = {
@@ -6741,6 +8555,7 @@ export type UsersListResponse = {
 
 export type ValidPermissions =
   | 'APPROVE_AMENITY_BOOKING'
+  | 'APPROVE_PET'
   | 'APPROVE_RESIDENT'
   | 'APPROVE_VEHICLE'
   | 'APPROVE_VISIT'
@@ -6750,6 +8565,7 @@ export type ValidPermissions =
   | 'BLOCK_USER'
   | 'CHECK_IN_AMENITY_BOOKING'
   | 'CHECK_PLATE'
+  | 'CLOSE_MAINTENANCE_TICKET'
   | 'CONFIGURE_ROTATION'
   | 'CREATE_AMENITY_BOOKING'
   | 'CREATE_NOTE'
@@ -6767,6 +8583,7 @@ export type ValidPermissions =
   | 'DELETE_SPECIAL_NUMBER'
   | 'DELETE_USER'
   | 'EDIT_PACKAGE'
+  | 'EDIT_PET'
   | 'EDIT_RESIDENCE'
   | 'EDIT_RESIDENTS'
   | 'EDIT_ROLE'
@@ -6782,19 +8599,32 @@ export type ValidPermissions =
   | 'MANAGE_AMENITIES'
   | 'MANAGE_EXPENSES'
   | 'MANAGE_FEE_CONFIGS'
+  | 'MANAGE_LISTING_REPORTS'
+  | 'MANAGE_MAINTENANCE_LOCATIONS'
+  | 'MANAGE_MAINTENANCE_SLA'
+  | 'MANAGE_MAINTENANCE_TICKETS'
+  | 'MANAGE_MAINTENANCE_VENDORS'
+  | 'MANAGE_MARKETPLACE_SETTINGS'
   | 'MANAGE_PACKAGES'
   | 'MANAGE_PARKING_ROTATION'
+  | 'MANAGE_PET_INCIDENTS'
   | 'MANAGE_PRODUCTS'
   | 'MANAGE_RESIDENCES'
   | 'MANAGE_RESIDENTS'
   | 'MANAGE_ROLES'
   | 'MANAGE_USERS'
+  | 'MODERATE_LISTINGS'
+  | 'PUBLISH_LISTING'
   | 'REGISTER_PAYMENT'
+  | 'REGISTER_PET'
   | 'REGISTER_VEHICLE'
   | 'REGISTER_VISITOR_ENTRY'
   | 'REGISTER_VISITOR_EXIT'
   | 'REJECT_RESIDENT'
+  | 'REMOVE_PET'
   | 'REMOVE_VEHICLE'
+  | 'REPORT_MAINTENANCE_TICKET'
+  | 'REPORT_PET_INCIDENT'
   | 'REVERSE_PAYMENT'
   | 'SCHEDULE_VISIT'
   | 'SEND_MESSAGE'
@@ -6809,10 +8639,14 @@ export type ValidPermissions =
   | 'VIEW_EXPENSES'
   | 'VIEW_FEE_CONFIGS'
   | 'VIEW_FINANCIAL_REPORTS'
+  | 'VIEW_MAINTENANCE_TICKETS'
+  | 'VIEW_MARKETPLACE'
   | 'VIEW_NOTES'
   | 'VIEW_NOTIFICATIONS'
   | 'VIEW_PACKAGES'
   | 'VIEW_PAYMENTS'
+  | 'VIEW_PETS'
+  | 'VIEW_PET_INCIDENTS'
   | 'VIEW_PQRF'
   | 'VIEW_PRODUCTS'
   | 'VIEW_RECIDENTS_LOCATION'
@@ -6841,6 +8675,17 @@ export type ValidRoles =
   | 'SECURITY_ROL'
   | 'SUPERVISOR_ROL'
   | 'SUPER_ADMIN_ROL';
+
+export type ValidatePetIncidentInput = {
+  incidentId: Scalars['String']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  /** Mascota a la que se le atribuye el hecho */
+  petId?: InputMaybe<Scalars['String']['input']>;
+  /** Permite corregir la gravedad que puso quien reportó */
+  severity?: InputMaybe<PetIncidentSeverity>;
+  /** Unidad responsable. Se deduce de la mascota si se envía */
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
 
 /** Vehículo de un residente registrado en el complejo */
 export type Vehicle = {
@@ -7626,6 +9471,95 @@ export type GetUnitWalletQueryVariables = Exact<{
 
 export type GetUnitWalletQuery = { __typename?: 'Query', unitWallet: { __typename?: 'UnitWalletResponse', unitId: string, unitNumber: string, building?: string | null, currentBalance: number, totalCredits: number, totalDebits: number, entries: Array<{ __typename?: 'WalletEntryObject', id: string, type: string, amount: number, description: string, chargeId?: string | null, createdAt: string }> } };
 
+export type ListingFieldsFragment = { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } };
+
+export type MarketplaceListingsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filters?: InputMaybe<FilterListingsInput>;
+}>;
+
+
+export type MarketplaceListingsQuery = { __typename?: 'Query', marketplaceListings: { __typename?: 'PaginatedListingsResponse', items: Array<{ __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } }>, pagination: { __typename?: 'PaginationReponse', currentPage: number, totalPages: number, hasNextPage: boolean } } };
+
+export type MarketplaceListingQueryVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type MarketplaceListingQuery = { __typename?: 'Query', marketplaceListing: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type MarketplaceCategoriesAppQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type MarketplaceCategoriesAppQuery = { __typename?: 'Query', marketplaceCategories: Array<{ __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null }> };
+
+export type MarketplaceSettingsAppQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type MarketplaceSettingsAppQuery = { __typename?: 'Query', marketplaceSettings: { __typename?: 'MarketplaceSettings', complexId: string, moderationMode: MarketplaceModerationMode, listingDurationDays: number, maxActiveListingsPerUnit: number, maxImagesPerListing: number, allowPhoneContact: boolean, allowWantedListings: boolean, termsText?: string | null } };
+
+export type RegisterListingInterestMutationVariables = Exact<{
+  input: RegisterListingInterestInput;
+}>;
+
+
+export type RegisterListingInterestMutation = { __typename?: 'Mutation', registerListingInterest: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type ToggleListingFavoriteMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type ToggleListingFavoriteMutation = { __typename?: 'Mutation', toggleListingFavorite: boolean };
+
+export type ReportListingMutationVariables = Exact<{
+  input: ReportListingInput;
+}>;
+
+
+export type ReportListingMutation = { __typename?: 'Mutation', reportListing: { __typename?: 'MarketplaceListingReport', id: string, status: MarketplaceReportStatus } };
+
+export type PauseListingAppMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type PauseListingAppMutation = { __typename?: 'Mutation', pauseListing: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type ResumeListingAppMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type ResumeListingAppMutation = { __typename?: 'Mutation', resumeListing: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type MarkListingAsSoldMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type MarkListingAsSoldMutation = { __typename?: 'Mutation', markListingAsSold: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type RenewListingMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+}>;
+
+
+export type RenewListingMutation = { __typename?: 'Mutation', renewListing: { __typename?: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename?: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename?: 'Unit', id: string, number: string, building?: { __typename?: 'Building', id: string, name: string } | null } | null, contact: { __typename?: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } } };
+
+export type RemoveListingAppMutationVariables = Exact<{
+  listingId: Scalars['String']['input'];
+  reason?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type RemoveListingAppMutation = { __typename?: 'Mutation', removeListing: boolean };
+
 export type SaveMobileTokenMutationVariables = Exact<{
   input: SaveMobileTokenInput;
 }>;
@@ -7889,6 +9823,7 @@ export type CastVoteMutationVariables = Exact<{
 
 export type CastVoteMutation = { __typename?: 'Mutation', castVote: { __typename?: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, meeting?: { __typename?: 'VotingMeeting', id: string, kind: VotingMeetingKind, title: string, scheduledAt: any } | null, options?: Array<{ __typename?: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename?: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename?: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null } };
 
+export const ListingFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<ListingFieldsFragment, unknown>;
 export const PqrfFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PqrfFieldsFragment, unknown>;
 export const VotingResultsFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}}]} as unknown as DocumentNode<VotingResultsFieldsFragment, unknown>;
 export const VotingQuestionFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}}]} as unknown as DocumentNode<VotingQuestionFieldsFragment, unknown>;
@@ -7925,6 +9860,18 @@ export const GetUnitBalanceDocument = {"__meta__":{"hash":"7d58b3d0f873b1068f730
 export const GetUnitAccountStatementDocument = {"__meta__":{"hash":"c40f8bdbe4a7b5b7065c60e8e41b278286303c937e75d9d77a15ed717224962e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitAccountStatement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"period"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitAccountStatement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"period"},"value":{"kind":"Variable","name":{"kind":"Name","value":"period"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"walletBalance"}},{"kind":"Field","name":{"kind":"Name","value":"movements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"debit"}},{"kind":"Field","name":{"kind":"Name","value":"credit"}},{"kind":"Field","name":{"kind":"Name","value":"balance"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitAccountStatementQuery, GetUnitAccountStatementQueryVariables>;
 export const GetPaymentsByChargeDocument = {"__meta__":{"hash":"62c06367bdd4e33a9ee9e09ab28d408e4707c2c4a558929280fc240ea2436d39"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPaymentsByCharge"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"paymentsByCharge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"chargeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"method"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}},{"kind":"Field","name":{"kind":"Name","value":"receiptUrl"}},{"kind":"Field","name":{"kind":"Name","value":"paidAt"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"isReversed"}},{"kind":"Field","name":{"kind":"Name","value":"reversalReason"}},{"kind":"Field","name":{"kind":"Name","value":"reversedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<GetPaymentsByChargeQuery, GetPaymentsByChargeQueryVariables>;
 export const GetUnitWalletDocument = {"__meta__":{"hash":"525599788b133c3c25df716da20f0adeb08224a307502519f430791b6d024203"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitWallet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitWallet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"chargeId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitWalletQuery, GetUnitWalletQueryVariables>;
+export const MarketplaceListingsDocument = {"__meta__":{"hash":"15397a40be15b3e6bbea14ba5c4a063df0b98f5bee7952cfd01020315014f67d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceListings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterListingsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"marketplaceListings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<MarketplaceListingsQuery, MarketplaceListingsQueryVariables>;
+export const MarketplaceListingDocument = {"__meta__":{"hash":"f17569443cd8ef36ba1ea4a0f20966a4a318171ba47163dd44c6decd0d433a71"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceListing"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"marketplaceListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<MarketplaceListingQuery, MarketplaceListingQueryVariables>;
+export const MarketplaceCategoriesAppDocument = {"__meta__":{"hash":"cdef4529b84d3b563dd5e792000e4cebcdc7b226d3ae6dfce0317a1b41a3bd38"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceCategoriesApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"marketplaceCategories"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}}]}}]} as unknown as DocumentNode<MarketplaceCategoriesAppQuery, MarketplaceCategoriesAppQueryVariables>;
+export const MarketplaceSettingsAppDocument = {"__meta__":{"hash":"c6171a461f1f8abb318b6b4f77471267e00fe0c44ba9437e435c021443ab99d0"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceSettingsApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"marketplaceSettings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"moderationMode"}},{"kind":"Field","name":{"kind":"Name","value":"listingDurationDays"}},{"kind":"Field","name":{"kind":"Name","value":"maxActiveListingsPerUnit"}},{"kind":"Field","name":{"kind":"Name","value":"maxImagesPerListing"}},{"kind":"Field","name":{"kind":"Name","value":"allowPhoneContact"}},{"kind":"Field","name":{"kind":"Name","value":"allowWantedListings"}},{"kind":"Field","name":{"kind":"Name","value":"termsText"}}]}}]}}]} as unknown as DocumentNode<MarketplaceSettingsAppQuery, MarketplaceSettingsAppQueryVariables>;
+export const RegisterListingInterestDocument = {"__meta__":{"hash":"881df4a116ea9bae894f9900662ca245885eeb9fb7208c8e5618532b200776db"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterListingInterest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterListingInterestInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerListingInterest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<RegisterListingInterestMutation, RegisterListingInterestMutationVariables>;
+export const ToggleListingFavoriteDocument = {"__meta__":{"hash":"38a57251fb9d8ae9c56f2f7f010efdf457aa8f504777baf2594763224f94c6a3"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ToggleListingFavorite"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toggleListingFavorite"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}]}]}}]} as unknown as DocumentNode<ToggleListingFavoriteMutation, ToggleListingFavoriteMutationVariables>;
+export const ReportListingDocument = {"__meta__":{"hash":"f83947efddd19578fbb69a34d055f003124cf64b2f23ef47b46444c703960815"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReportListing"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ReportListingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reportListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}}]} as unknown as DocumentNode<ReportListingMutation, ReportListingMutationVariables>;
+export const PauseListingAppDocument = {"__meta__":{"hash":"a7cfe56098cceb778cda0c2307554c7048a9c0aff8281007be5ce7185a9e750d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PauseListingApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pauseListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<PauseListingAppMutation, PauseListingAppMutationVariables>;
+export const ResumeListingAppDocument = {"__meta__":{"hash":"028270e691950f0e0e74ef9e64025ac18dbfd01ae3fb16241fa2a020b307216b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResumeListingApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resumeListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<ResumeListingAppMutation, ResumeListingAppMutationVariables>;
+export const MarkListingAsSoldDocument = {"__meta__":{"hash":"d285170cb4be1b2d82b01a5488d1f0a2f2ab5c384a6a039feb7401e0c51b2e5c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkListingAsSold"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markListingAsSold"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<MarkListingAsSoldMutation, MarkListingAsSoldMutationVariables>;
+export const RenewListingDocument = {"__meta__":{"hash":"44c99a549c921f611080cb60ed2dbc61499dacc94884bf85a59c24315a371e1b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RenewListing"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"renewListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<RenewListingMutation, RenewListingMutationVariables>;
+export const RemoveListingAppDocument = {"__meta__":{"hash":"58dc52414f945223a5de15d81107ccc6f3531268e1042a6ca27321f96da8e08c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveListingApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reason"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}},{"kind":"Argument","name":{"kind":"Name","value":"reason"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reason"}}}]}]}}]} as unknown as DocumentNode<RemoveListingAppMutation, RemoveListingAppMutationVariables>;
 export const SaveMobileTokenDocument = {"__meta__":{"hash":"7498a591e1665a241b9d7c569cbfcbf9e5bab7018e38e3e447966c151cefb8d8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SaveMobileToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SaveMobileTokenInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"saveMobileToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}}]}}]}}]} as unknown as DocumentNode<SaveMobileTokenMutation, SaveMobileTokenMutationVariables>;
 export const DeactivateMobileTokenDocument = {"__meta__":{"hash":"139284ea6b3a9dbfbf8bbcd24c3ba33bf74f640e8de47510c4abb8609cbcceb1"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeactivateMobileToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"deviceToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deactivateMobileToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"deviceToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"deviceToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}}]}}]}}]} as unknown as DocumentNode<DeactivateMobileTokenMutation, DeactivateMobileTokenMutationVariables>;
 export const MarkNotificationAsReadDocument = {"__meta__":{"hash":"cd666286e0536c5eaffd96c3b7881cdbda935029cf45b46328a0a3d5ab0f4dbc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkNotificationAsRead"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markNotificationAsRead"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"notificationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"notificationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"isRead"}},{"kind":"Field","name":{"kind":"Name","value":"readAt"}}]}}]}}]} as unknown as DocumentNode<MarkNotificationAsReadMutation, MarkNotificationAsReadMutationVariables>;

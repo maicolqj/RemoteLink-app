@@ -22,6 +22,7 @@ import { usePackagesStore } from '../../store/packages.store';
 import { useFinancesStore } from '../../store/finances.store';
 import { fetchVotingEnabled } from '../../../infraestructure/services/voting.service';
 import { useVotingStore } from '../../store/voting.store';
+import { useMarketplaceStore } from '../../store/marketplace.store';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
@@ -81,6 +82,10 @@ export default function HomeScreen() {
   // en un store porque también cambia por socket, sin que el Home recargue.
   const votingEnabled = useVotingStore(s => s.enabled) === true;
   const setVotingEnabled = useVotingStore(s => s.setEnabled);
+
+  // Igual que votaciones: el módulo puede estar apagado para este conjunto.
+  const marketplaceEnabled = useMarketplaceStore(s => s.enabled) === true;
+  const initMarketplace = useMarketplaceStore(s => s.init);
 
   // First-run walkthrough targets + trigger.
   const { startTour } = useCoachmark();
@@ -162,6 +167,19 @@ export default function HomeScreen() {
     }, [complexId, setVotingEnabled]),
   );
 
+  /**
+   * Lo mismo para clasificados: el conjunto puede tenerlo apagado, y quien lo
+   * dice es el backend —con el módulo apagado rechaza la consulta de ajustes—.
+   * Se pregunta al enfocar el Home porque el SUPER_ADMIN puede encenderlo
+   * mientras la app está abierta.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!complexId) return;
+      initMarketplace(complexId);
+    }, [complexId, initMarketplace]),
+  );
+
   const recentNotifications = notifications.slice(0, 3);
   const pendingVisits = visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
   // The store already holds only pending packages (resident endpoint), but keep
@@ -179,10 +197,14 @@ export default function HomeScreen() {
     ...(votingEnabled
       ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary }]
       : []),
-    // Comentado temporalmente — pendiente para actualizaciones futuras.
-    // { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
+    // La vitrina de clasificados solo aparece si el conjunto la tiene
+    // encendida. Lo que lo dice es el propio backend: con el módulo apagado
+    // rechaza la consulta de ajustes, y el store lo traduce a `enabled`.
+    ...(marketplaceEnabled
+      ? [{ id: 'marketplace', icon: 'storefront', label: 'Clasificados', screen: 'Marketplace', color: colors.accent }]
+      : []),
     // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
-  ], [colors, votingEnabled]);
+  ], [colors, votingEnabled, marketplaceEnabled]);
 
   const handleQuickAction = useCallback((action: { tab?: string; screen?: string }) => {
     if (action.screen) {

@@ -56,7 +56,9 @@ import { loadErrorMessages, loadDevMessages } from '@apollo/client/dev';
 
 // ==================== CONFIGURACIÓN ====================
 
-const API_BASE_URL = (
+// Lo exporta para las subidas por multipart: GraphQL no recibe archivos, así
+// que las fotos de un aviso van por REST contra esta misma base.
+export const API_BASE_URL = (
   STAGE === 'production'
     ? PATH_SERVER
     : Platform.OS === 'android'

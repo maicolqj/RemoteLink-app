@@ -3,7 +3,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import { launchCamera, launchImageLibrary, type Asset } from 'react-native-image-picker';
 
 import { useAlert } from '../providers/context/AlertContext';
-import type { PhotoUpload } from '../../infraestructure/services/pets.service';
+import type { PhotoUpload } from '../../domain/interfaces/PhotoUpload';
 
 /**
  * Foto para mascotas: la ficha exige una y el reporte de convivencia exige

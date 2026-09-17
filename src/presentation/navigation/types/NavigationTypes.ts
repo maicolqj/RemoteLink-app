@@ -36,6 +36,11 @@ export type HomeStackParamList = {
   // Finance notifications route here; the screen self-loads the resident's unit.
   Finances: undefined;
   PaymentDetail: { movementId: string };
+  // Clasificados: la vitrina, la ficha de un aviso, los propios y el alta.
+  Marketplace: undefined;
+  ListingDetail: { listingId: string };
+  MyListings: undefined;
+  ListingForm: undefined;
 };
 
 export type FinancesStackParamList = {
@@ -55,12 +60,6 @@ export type VisitsStackParamList = {
     visitorIdentityType?: string;
     expectedArrivalAt?: string;
   };
-};
-
-export type MarketplaceStackParamList = {
-  Marketplace: undefined;
-  ProductDetail: { productId: string };
-  Cart: undefined;
 };
 
 export type ProfileStackParamList = {
