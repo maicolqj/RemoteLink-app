@@ -13,6 +13,8 @@ import { usePanicStore } from '../store/panic.store';
 import { useSettingsStore } from '../store/settings.store';
 import { useNotificationsStore } from '../store/notifications.store';
 import { usePqrfStore } from '../store/pqrf.store';
+import { useMaintenanceStore } from '../store/maintenance.store';
+import { usePetsStore } from '../store/pets.store';
 import { useVotingStore } from '../store/voting.store';
 import { fetchVotingEnabled } from '../../infraestructure/services/voting.service';
 import {
@@ -144,6 +146,48 @@ export function SocketProvider({ children }: Props) {
       if (__DEV__) console.log('[Socket] pqrf:updated', payload);
       if (payload.complexId !== cid) return;
       usePqrfStore.getState().applyUpdate(payload);
+    });
+
+    /**
+     * Estado de un reporte de convivencia.
+     *
+     * Le llega al residente por el canal de su unidad, no por la sala del
+     * complejo —donde solo están la administración y la portería—. Importa que
+     * llegue rápido: cuando el reporte pasa a UNDER_DEFENSE empieza a correr el
+     * plazo de descargos, y enterarse tarde le cuesta la oportunidad de
+     * responder.
+     */
+    socket.on('pet:incident:updated', (payload: { incidentId: string; status: string }) => {
+      if (__DEV__) console.log('[Socket] pet:incident:updated', payload);
+      usePetsStore.getState().applyIncidentUpdate(payload);
+    });
+
+    /**
+     * El SUPER_ADMIN prendió o apagó módulos del conjunto.
+     *
+     * Llega por la sala del complejo, donde está todo el mundo. Los accesos del
+     * inicio se arman con esta lista, así que la pantalla se reacomoda sola: si
+     * apagan finanzas, la tarjeta de saldo y el acceso desaparecen sin que el
+     * residente tenga que cerrar sesión —y sin que toque una pantalla que el
+     * servidor ya no le va a responder—.
+     */
+    socket.on('complex:modules:updated', (payload: { complexId: string; enabledModules: string[] }) => {
+      if (__DEV__) console.log('[Socket] complex:modules:updated', payload);
+      if (payload.complexId !== cid) return;
+      useAuthStore.getState().setEnabledModules(payload.enabledModules ?? []);
+    });
+
+    /**
+     * Estado de un ticket de mantenimiento.
+     *
+     * Llega por la sala del complejo y por el canal de la unidad de quien
+     * reportó. Importa en caliente sobre todo al pasar a "reparado": ahí
+     * empieza la ventana en la que el residente puede decir que el arreglo no
+     * sirvió, y a los pocos días el sistema cierra el ticket solo.
+     */
+    socket.on('maintenance:ticket:updated', (payload: { ticketId: string; status: string }) => {
+      if (__DEV__) console.log('[Socket] maintenance:ticket:updated', payload);
+      useMaintenanceStore.getState().applyUpdate(payload);
     });
 
     /**

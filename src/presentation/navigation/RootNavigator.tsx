@@ -14,6 +14,7 @@ import LegalScreen from '../screens/generals/LegalScreen';
 import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
 import { BiometricEnrollmentPrompt } from '../components/BiometricEnrollmentPrompt';
+import { ModuleRouteGuard } from '../components/ModuleRouteGuard';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
 import { useAuthStore } from '../store/auth.store';
@@ -497,6 +498,9 @@ function ThemedNavigator() {
         <NotificationBootstrap navigationRef={navigationRef} />
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
         <BiometricEnrollmentPrompt />
+        {/* Apagar un módulo tiene que sacar de sus pantallas a quien ya estaba
+            adentro, no solo esconder el acceso del inicio. */}
+        <ModuleRouteGuard navigationRef={navigationRef} />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
             <>

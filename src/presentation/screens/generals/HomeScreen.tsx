@@ -15,7 +15,7 @@ import { useAlert } from '../../providers/context/AlertContext';
 import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
-import { useAuthStore } from '../../store/auth.store';
+import { useAuthStore, moduleEnabledIn } from '../../store/auth.store';
 import { useNotificationsStore } from '../../store/notifications.store';
 import { useVisitsStore } from '../../store/visits.store';
 import { usePackagesStore } from '../../store/packages.store';
@@ -28,6 +28,14 @@ import { firstName } from '../../utils/names';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
+
+/**
+ * Máximo de acciones rápidas por fila. Al pasarse, se abre otra fila en vez de
+ * angostar los tiles: cada módulo nuevo encogía a todos los demás, y con seis
+ * las etiquetas ya se partían. La última fila reparte el ancho entre las que
+ * le queden, así que una sola acción ocupa todo el contenedor.
+ */
+const QUICK_ACTIONS_PER_ROW = 4;
 
 // First-run walkthrough. Bump the persistKey suffix to re-show it to everyone.
 const HOME_TOUR_STEPS: CoachStep[] = [
@@ -70,6 +78,20 @@ export default function HomeScreen() {
   const gs = useGlobalStyles();
 
   const resident = useAuthStore(s => s.resident);
+  /**
+   * La LISTA, no la función.
+   *
+   * `isModuleEnabled` se crea una sola vez con el store, así que su referencia
+   * no cambia nunca: suscribirse a ella no vuelve a pintar el Home cuando llega
+   * el socket, y ponerla de dependencia del `useMemo` de abajo congela los
+   * accesos en la lista que había al montar la pantalla. Ese era el motivo de
+   * que apagar un módulo no se notara hasta reinstalar la app.
+   */
+  const enabledModules = useAuthStore(s => s.resident?.complex?.enabledModules);
+  // Todo lo demás de la pantalla se resuelve sobre esa misma lista.
+  const visitsEnabled   = moduleEnabledIn(enabledModules, 'VISITAS');
+  const packagesEnabled = moduleEnabledIn(enabledModules, 'PAQUETES');
+  const financesEnabled = moduleEnabledIn(enabledModules, 'FINANZAS');
   const { notifications, unreadCount, fetchNotifications } = useNotificationsStore();
   const { visits, fetchVisits } = useVisitsStore();
   const { packages, fetchPackages } = usePackagesStore();
@@ -131,12 +153,16 @@ export default function HomeScreen() {
   const unitId = resident?.unit?.id;
   const complexId = resident?.complex?.id;
 
+  // Cada consulta va condicionada a su módulo. No es solo estética: con el
+  // módulo apagado el servidor responde `COMPLEX_MODULE_DISABLED`, así que
+  // pedirlo igual llena la consola de errores y el Home arranca mostrando un
+  // fallo por algo que el conjunto simplemente no contrató.
   useEffect(() => {
-    fetchPackages();
-    fetchVisits();
+    if (packagesEnabled) fetchPackages();
+    if (visitsEnabled) fetchVisits();
     fetchNotifications();
-    if (unitId && complexId) fetchBalance(unitId, complexId);
-  }, [unitId, complexId, fetchPackages, fetchVisits, fetchNotifications, fetchBalance]);
+    if (financesEnabled && unitId && complexId) fetchBalance(unitId, complexId);
+  }, [unitId, complexId, packagesEnabled, visitsEnabled, financesEnabled, fetchPackages, fetchVisits, fetchNotifications, fetchBalance]);
 
   // Kick off the walkthrough when Home gains focus. startTour self-guards on the
   // persistKey, so it shows only on the first open — unless "Ver tutorial" in
@@ -164,26 +190,59 @@ export default function HomeScreen() {
   );
 
   const recentNotifications = notifications.slice(0, 3);
-  const pendingVisits = visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
+  // El filtro por módulo va acá y no solo en el render: lo que el store trajo
+  // antes de que apagaran el módulo sigue en memoria hasta el próximo arranque,
+  // y seguiría pintando la sección con datos de un módulo que ya no existe.
+  const pendingVisits = !visitsEnabled ? [] : visits.filter(v => v.status === 'PENDING_APPROVAL').slice(0, 3);
   // The store already holds only pending packages (resident endpoint), but keep
   // the status guard so a future "all packages" source still surfaces pending.
-  const pendingPackages = packages.filter(p => p.status === 'RECEIVED' || p.status === 'NOTIFIED' || p.status === 'READY_FOR_PICKUP').slice(0, 3);
+  const pendingPackages = !packagesEnabled ? [] : packages.filter(p => p.status === 'RECEIVED' || p.status === 'NOTIFIED' || p.status === 'READY_FOR_PICKUP').slice(0, 3);
 
+  /**
+   * Los accesos del inicio, recortados a lo que el conjunto tiene encendido.
+   *
+   * `module` es la llave: la misma lista que el SUPER_ADMIN prende y apaga
+   * manda aquí y en el menú de la web. Si apagan finanzas, el acceso se va de
+   * los dos lados y no queda una pantalla que el servidor va a rechazar.
+   *
+   * Votaciones lleva además su propio interruptor —la administración decide
+   * cuándo se lo muestra a los residentes—, así que se piden las dos cosas.
+   */
   const QUICK_ACTIONS = useMemo(() => [
     // Packages tab/flow lives in HomeStack; navigate to the local 'Packages' screen.
-    { id: 'packages', icon: 'inventory-2', label: 'Paquetes', screen: 'Packages',     color: colors.primary },
+    { id: 'packages', icon: 'inventory-2', label: 'Paquetes', screen: 'Packages',     color: colors.primary, module: 'PAQUETES' },
     // Visits tab is disabled; the flow lives in HomeStack, so navigate to the
     // local 'Visits' screen instead of a tab.
-    { id: 'visits',  icon: 'people',    label: 'Visitas', screen: 'Visits',      color: colors.success },
-    { id: 'amenities', icon: 'deck',    label: 'Zonas',   screen: 'Amenities',   color: colors.accent },
-    { id: 'pqrf',    icon: 'forum',     label: 'PQRF',    screen: 'Pqrf',        color: colors.info },
+    { id: 'visits',  icon: 'people',    label: 'Visitas', screen: 'Visits',      color: colors.success, module: 'VISITAS' },
+    { id: 'amenities', icon: 'deck',    label: 'Zonas',   screen: 'Amenities',   color: colors.accent, module: 'ZONAS_COMUNES' },
+    { id: 'pqrf',    icon: 'forum',     label: 'PQRF',    screen: 'Pqrf',        color: colors.info, module: 'PQRF' },
+    { id: 'pets',    icon: 'pets',      label: 'Mascotas', screen: 'Pets',       color: colors.warning, module: 'MASCOTAS' },
+    { id: 'maintenance', icon: 'build', label: 'Daños',   screen: 'Maintenance', color: colors.error, module: 'MANTENIMIENTO' },
     ...(votingEnabled
-      ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary }]
+      ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary, module: 'VOTACIONES' }]
       : []),
     // Comentado temporalmente — pendiente para actualizaciones futuras.
     // { id: 'store',   icon: 'store',     label: 'Tienda',  tab: 'MarketplaceTab', color: colors.accent },
     // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
-  ], [colors, votingEnabled]);
+  ].filter(action => !action.module || moduleEnabledIn(enabledModules, action.module)),
+  [colors, votingEnabled, enabledModules]);
+
+  /**
+   * Las acciones se parten en filas de 4 como máximo.
+   *
+   * Antes iban todas en una sola fila con `flex: 1`, así que cada módulo nuevo
+   * angostaba a los demás: con seis, los íconos quedaban apretados y las
+   * etiquetas partidas. Repartir por filas mantiene el tamaño estable y hace
+   * que la última fila reparta el ancho entre las que le queden —una sola
+   * ocupa todo, dos van a mitades—.
+   */
+  const QUICK_ACTION_ROWS = useMemo(() => {
+    const rows: (typeof QUICK_ACTIONS)[] = [];
+    for (let i = 0; i < QUICK_ACTIONS.length; i += QUICK_ACTIONS_PER_ROW) {
+      rows.push(QUICK_ACTIONS.slice(i, i + QUICK_ACTIONS_PER_ROW));
+    }
+    return rows;
+  }, [QUICK_ACTIONS]);
 
   const handleQuickAction = useCallback((action: { tab?: string; screen?: string }) => {
     if (action.screen) {
@@ -264,6 +323,9 @@ export default function HomeScreen() {
             {resident.complex.name.toUpperCase()}
           </CustomTextComponent>
         )}
+        {/* El saldo solo existe si el conjunto lleva finanzas en la plataforma:
+            con el módulo apagado, mostrar "$0" sería afirmar que no debe nada. */}
+        {financesEnabled && (
         <Card elevated style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
           <View style={gs.rowBetween}>
             <View>
@@ -282,24 +344,29 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </Card>
+        )}
 
         {/* Quick Actions */}
         <View style={styles.section}>
           <SectionHeader title="Acciones rápidas" />
           <View ref={quickActionsRef} collapsable={false} style={styles.quickActions}>
-            {QUICK_ACTIONS.map(action => (
-              <TouchableOpacity
-                key={action.id}
-                style={[styles.quickAction, { backgroundColor: colors.surface }]}
-                onPress={() => handleQuickAction(action)}
-                activeOpacity={0.75}>
-                <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
-                  <Icon name={action.icon} size={26} color={action.color} />
-                </View>
-                <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
-                  {action.label}
-                </CustomTextComponent>
-              </TouchableOpacity>
+            {QUICK_ACTION_ROWS.map((row, rowIndex) => (
+              <View key={`quick-row-${rowIndex}`} style={styles.quickActionsRow}>
+                {row.map(action => (
+                  <TouchableOpacity
+                    key={action.id}
+                    style={[styles.quickAction, { backgroundColor: colors.surface }]}
+                    onPress={() => handleQuickAction(action)}
+                    activeOpacity={0.75}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
+                      <Icon name={action.icon} size={26} color={action.color} />
+                    </View>
+                    <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                      {action.label}
+                    </CustomTextComponent>
+                  </TouchableOpacity>
+                ))}
+              </View>
             ))}
           </View>
         </View>
@@ -457,6 +524,9 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   quickActions: {
+    gap: SPACING.sm,
+  },
+  quickActionsRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
   },
