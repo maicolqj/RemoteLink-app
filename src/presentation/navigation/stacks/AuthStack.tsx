@@ -4,6 +4,7 @@ import type { AuthStackParamList } from '../types/NavigationTypes';
 import LoginScreen from '../../screens/auth/LoginScreen';
 import WhatsAppLoginScreen from '../../screens/auth/WhatsAppLoginScreen';
 import DeviceApprovalLoginScreen from '../../screens/auth/DeviceApprovalLoginScreen';
+import { ForcedLightTheme } from '../../providers/context/ThemeContext';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -15,12 +16,16 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
  */
 export default function AuthStack() {
   return (
-    <Stack.Navigator
-      screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-      initialRouteName="LoginIdentity">
-      <Stack.Screen name="LoginIdentity" component={LoginScreen} />
-      <Stack.Screen name="LoginWhatsApp" component={WhatsAppLoginScreen} />
-      <Stack.Screen name="LoginApproval" component={DeviceApprovalLoginScreen} />
-    </Stack.Navigator>
+    // Ingreso siempre en claro, pase lo que pase con el tema del sistema: el
+    // diseño de estas pantallas está calibrado sobre fondo blanco.
+    <ForcedLightTheme>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+        initialRouteName="LoginIdentity">
+        <Stack.Screen name="LoginIdentity" component={LoginScreen} />
+        <Stack.Screen name="LoginWhatsApp" component={WhatsAppLoginScreen} />
+        <Stack.Screen name="LoginApproval" component={DeviceApprovalLoginScreen} />
+      </Stack.Navigator>
+    </ForcedLightTheme>
   );
 }

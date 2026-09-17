@@ -24,6 +24,7 @@ import { fetchVotingEnabled } from '../../../infraestructure/services/voting.ser
 import { useVotingStore } from '../../store/voting.store';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+import { firstName } from '../../utils/names';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
@@ -210,8 +211,15 @@ export default function HomeScreen() {
             <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary}>
               {greeting()},
             </CustomTextComponent>
-            <CustomTextComponent fontSize={FONT_SIZE.xxl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary}>
-              {resident?.user.name ?? ''}
+            {/* Solo el primer nombre: "LILIBETH DE LOS ANGELES" → "Lilibeth".
+                El nombre completo desbordaba el encabezado, y saludar con los
+                cuatro nombres del registro no suena a saludo. */}
+            <CustomTextComponent
+              fontSize={FONT_SIZE.xxl}
+              fontWeight={FONT_WEIGHT.bold as any}
+              color={colors.textPrimary}
+              numberOfLines={1}>
+              {firstName(resident?.user.name)}
             </CustomTextComponent>
           </View>
           <View style={gs.row}>

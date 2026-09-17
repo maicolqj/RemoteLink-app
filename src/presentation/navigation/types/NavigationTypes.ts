@@ -74,6 +74,9 @@ export type ProfileStackParamList = {
   // salida es cerrar sesión, para no dejar vinculado un dispositivo prestado.
   SetAccessCode: { firstTime?: boolean; mandatory?: boolean } | undefined;
   MyDevices: undefined;
+  // Permisos que concede Android (notificaciones, No molestar, inicio
+  // automático). Separados de Ajustes: no son preferencias de la app.
+  SystemPermissions: undefined;
 };
 
 // Stack de autenticación: tres formas de entrar, todas sin costo por mensaje.
