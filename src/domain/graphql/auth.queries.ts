@@ -62,6 +62,10 @@ export const GET_MY_RESIDENT_PROFILE = gql`
       complex {
         id
         name
+        # Con qué módulos cuenta el conjunto: es lo que decide qué accesos se
+        # pintan en el inicio. Lista vacía o nula = todos habilitados, la misma
+        # regla que usa el servidor.
+        enabledModules
       }
     }
   }
