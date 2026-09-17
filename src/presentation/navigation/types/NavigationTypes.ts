@@ -28,6 +28,20 @@ export type HomeStackParamList = {
   Pqrf: undefined;
   PqrfCreate: undefined;
   PqrfDetail: { pqrfId: string };
+  // Mascotas: el censo de la unidad y los reportes de convivencia. Reportar
+  // admite llegar con la mascota ya señalada (desde su ficha) o sin señalar.
+  Pets: undefined;
+  /** Con `petId` la pantalla edita esa ficha en vez de crear una nueva. */
+  PetRegister: { petId?: string } | undefined;
+  PetDetail: { petId: string };
+  PetIncidentReport: { petId?: string } | undefined;
+  PetIncidentDetail: { incidentId: string };
+  // Mantenimiento: daños en zonas comunes. La lista arranca en los del
+  // conjunto —ver que el ascensor ya está reportado evita el reporte 31— y el
+  // detalle es el seguimiento de lo propio.
+  Maintenance: undefined;
+  MaintenanceReport: undefined;
+  MaintenanceDetail: { ticketId: string };
   // Votaciones: solo aparecen si la administración las habilitó.
   Voting: undefined;
   VotingQuestion: { questionId: string };
@@ -73,6 +87,9 @@ export type ProfileStackParamList = {
   // salida es cerrar sesión, para no dejar vinculado un dispositivo prestado.
   SetAccessCode: { firstTime?: boolean; mandatory?: boolean } | undefined;
   MyDevices: undefined;
+  // Permisos que concede Android (notificaciones, No molestar, inicio
+  // automático). Separados de Ajustes: no son preferencias de la app.
+  SystemPermissions: undefined;
 };
 
 // Stack de autenticación: tres formas de entrar, todas sin costo por mensaje.

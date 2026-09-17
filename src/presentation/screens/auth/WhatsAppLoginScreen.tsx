@@ -1,22 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Linking,
-  Text,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, TouchableOpacity, Linking, Text } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import Share from 'react-native-share';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
-import AppHeader from '../../components/AppHeader';
+import AuthScreen from '../../components/auth/AuthScreen';
+import AuthBanner from '../../components/auth/AuthBanner';
+import AuthButton from '../../components/auth/AuthButton';
+import AuthMethodRow from '../../components/auth/AuthMethodRow';
+import AuthSection from '../../components/auth/AuthSection';
 import { useTheme } from '../../providers/context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import {
@@ -40,8 +34,9 @@ const CHALLENGE_SECONDS = 120;
 
 const isValidIdentity = (v: string) => v.trim().length >= 6;
 
+const WHATSAPP_GREEN = '#25D366';
+
 export default function WhatsAppLoginScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const { colors } = useTheme();
@@ -161,7 +156,7 @@ export default function WhatsAppLoginScreen() {
 
   const handleRequest = useCallback(async () => {
     if (!isValidIdentity(identity)) {
-      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
+      setIdentityError('Escribe tu número de documento (mínimo 6 dígitos)');
       return;
     }
     setIsRequesting(true);
@@ -216,232 +211,178 @@ export default function WhatsAppLoginScreen() {
   }, [challenge]);
 
   const goToApproval = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     () => (navigation as any).navigate('LoginApproval', { identity: identity.trim() || undefined }),
     [navigation, identity],
   );
 
+  /** Descarta el intento vencido y vuelve al formulario para pedir otro. */
+  const restart = useCallback(() => {
+    challengeIdRef.current = null;
+    setChallenge(null);
+    setError('');
+    setExpired(false);
+  }, []);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Cada estado del flujo trae su propio encabezado: el usuario siempre sabe en
+  // qué punto está sin tener que deducirlo del contenido.
+  const heading = unavailable
+    ? { title: 'Canal no disponible', subtitle: 'Tu conjunto todavía no tiene habilitado el ingreso por WhatsApp.' }
+    : needsAccessCode
+      ? { title: 'Confirma tu clave', subtitle: 'Recibimos tu mensaje. Solo falta que confirmes que la cuenta es tuya.' }
+      : challenge
+        ? { title: 'Envía el mensaje', subtitle: 'Abre WhatsApp con el mensaje ya escrito y envíalo sin modificarlo.' }
+        : { title: 'Verifica tu número', subtitle: 'Tú nos envías un WhatsApp desde tu celular: no esperas ningún código. No tiene costo y el ingreso se confirma solo en este dispositivo.' };
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Ingresar por WhatsApp" showBack onBack={() => navigation.goBack()} />
+    <AuthScreen
+      title={heading.title}
+      subtitle={heading.subtitle}
+      showBack
+      onBack={() => navigation.goBack()}>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+      {!challenge ? (
+        <>
+          <CustomInputComponent
+            nameInput="Número de documento"
+            placeholder="Ej. 1234567890"
+            value={identity}
+            onChangeText={v => { setIdentity(v); setIdentityError(''); if (!unavailable) setError(''); }}
+            keyboardType="numeric"
+            leftIcon={{ name: 'badge', color: colors.primary }}
+            error={identityError}
+            touched={!!identityError}
+            maxLength={20}
+            editable={!isRequesting}
+          />
 
-        <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={styles.lede}>
-          En lugar de recibir un código, tú envías un mensaje desde tu WhatsApp. No tiene costo
-          y el ingreso se confirma solo en este dispositivo.
-        </CustomTextComponent>
+          {error ? <AuthBanner tone="error">{error}</AuthBanner> : null}
 
-        {!challenge ? (
-          <>
-            <CustomInputComponent
-              nameInput="Número de identidad"
-              placeholder="Ej. 1234567890"
-              value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); if (!unavailable) setError(''); }}
-              keyboardType="numeric"
-              leftIcon={{ name: 'badge', color: colors.primary }}
-              error={identityError}
-              touched={!!identityError}
-              maxLength={20}
-              editable={!isRequesting}
-            />
-
-            {error ? (
-              <View style={[styles.banner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}>
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-                  {error}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {unavailable ? (
-              <>
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={styles.lede}>
-                  Tu conjunto todavía no tiene habilitado este canal. Usa tu documento y código de
-                  residente, o pide la aprobación desde otro dispositivo con tu sesión abierta.
-                </CustomTextComponent>
-                <CustomButtonComponent
-                  text="Aprobar desde otro dispositivo"
-                  onPress={goToApproval}
-                  style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-                  textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-                />
-              </>
-            ) : (
-              <CustomButtonComponent
-                text="Continuar"
-                onPress={handleRequest}
-                isLoading={isRequesting}
-                disabled={!isValidIdentity(identity) || isRequesting}
-                loaderColor="#FFFFFF"
-                style={[styles.primaryBtn, { backgroundColor: isValidIdentity(identity) ? colors.primary : colors.border }]}
-                textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
+          {unavailable ? (
+            <AuthSection label="CÓMO CONTINUAR">
+              <AuthMethodRow
+                icon="phonelink-lock"
+                title="Aprobar desde otro equipo"
+                description="Si tienes RemoteLink abierto en otro teléfono, apruebas el ingreso desde allí."
+                onPress={goToApproval}
               />
-            )}
-          </>
-        ) : needsAccessCode ? (
-          <>
-            {/* El mensaje ya llegó y el intento quedó confirmado: solo falta el
-                segundo factor. Se pide aquí para no gastar otro mensaje ni
-                reiniciar el flujo. */}
-            <View style={[styles.warning, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}>
-              <View style={styles.warningHead}>
-                <Icon name="lock" size={ICON_SIZE.sm} color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.bold} color={colors.primary}>
-                  Confirma tu clave
-                </CustomTextComponent>
-              </View>
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                Recibimos tu mensaje. Tu cuenta ya tiene una clave asignada: ingrésala para autorizar este dispositivo.
-              </CustomTextComponent>
-            </View>
-
-            <CodeSegmentInput
-              value={accessCode}
-              onChange={v => { setAccessCode(v); if (error) setError(''); }}
-              length={6}
-              prefix={null}
-              hint="Toca para ingresar tu clave"
-              secure
-              error={error}
-              editable={!isRedeeming}
+              <AuthBanner tone="info" icon="support-agent">
+                También puedes pedir tu clave de acceso a la administración de tu conjunto.
+              </AuthBanner>
+            </AuthSection>
+          ) : (
+            <AuthButton
+              text="Continuar"
+              onPress={handleRequest}
+              loading={isRequesting}
+              disabled={!isValidIdentity(identity)}
+              icon="arrow-forward"
             />
+          )}
+        </>
+      ) : needsAccessCode ? (
+        <>
+          {/* El mensaje ya llegó y el intento quedó confirmado: solo falta el
+              segundo factor. Se pide aquí para no gastar otro mensaje ni
+              reiniciar el flujo. */}
+          <AuthBanner tone="success" title="Mensaje recibido">
+            Tu cuenta ya tiene una clave asignada. Ingrésala para autorizar este dispositivo.
+          </AuthBanner>
 
-            <CustomButtonComponent
-              text="Autorizar dispositivo"
-              onPress={() => redeem(accessCode)}
-              isLoading={isRedeeming}
-              disabled={accessCode.length !== 6 || isRedeeming}
-              loaderColor="#FFFFFF"
-              style={[styles.primaryBtn, { backgroundColor: accessCode.length === 6 ? colors.primary : colors.border }]}
-              textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
+          <CodeSegmentInput
+            value={accessCode}
+            onChange={v => { setAccessCode(v); if (error) setError(''); }}
+            length={6}
+            prefix={null}
+            hint="Toca para ingresar tu clave"
+            secure
+            error={error}
+            editable={!isRedeeming}
+          />
+
+          <AuthButton
+            text="Autorizar dispositivo"
+            onPress={() => redeem(accessCode)}
+            loading={isRedeeming}
+            disabled={accessCode.length !== 6}
+            icon="verified-user"
+          />
+
+          <AuthSection label="¿NO RECUERDAS TU CLAVE?">
+            <AuthMethodRow
+              icon="phonelink-lock"
+              title="Aprobar desde otro equipo"
+              description="Si tienes RemoteLink abierto en otro teléfono, apruebas el ingreso desde allí."
+              onPress={goToApproval}
             />
+          </AuthSection>
+        </>
+      ) : (
+        <>
+          {/* El aviso es la mitigación del flujo, no un texto de relleno:
+              va SIEMPRE antes del botón de enviar. */}
+          <AuthBanner tone="warning" title="Antes de enviar, lee esto">
+            {challenge.warning}
+          </AuthBanner>
 
-            <TouchableOpacity onPress={goToApproval} accessibilityRole="button">
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} textAlign="center">
-                No recuerdo mi clave · Aprobar desde otro dispositivo
+          <AuthButton
+            text="Abrir WhatsApp y enviar"
+            onPress={openWhatsApp}
+            disabled={expired || isRedeeming}
+            tint={WHATSAPP_GREEN}
+            icon="logo-whatsapp"
+            iconLibrary="ionicons"
+          />
+
+          {/* Estado de espera: va pegado al botón, que es la acción que lo
+              produce, y no al final de la tarjeta. */}
+          {!expired && !error ? (
+            <AuthBanner tone="progress" loading>
+              {isRedeeming
+                ? 'Mensaje recibido. Iniciando sesión…'
+                : `Esperando tu mensaje… (${remaining}s)`}
+            </AuthBanner>
+          ) : null}
+
+          {error ? <AuthBanner tone="error">{error}</AuthBanner> : null}
+
+          {expired ? (
+            <AuthButton text="Solicitar un intento nuevo" onPress={restart} icon="refresh" />
+          ) : null}
+
+          {/* Salida por si el deep link no abre. Va al final y en tono
+              secundario: es el plan B, no la acción principal. */}
+          <View style={[styles.fallback, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+              ¿No abrió WhatsApp? Envía este mensaje al número de la portería:
+            </CustomTextComponent>
+            <Text selectable style={[styles.mono, { color: colors.textPrimary }]}>
+              {challenge.messageText}
+            </Text>
+            <TouchableOpacity
+              onPress={shareMessage}
+              style={styles.shareRow}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="Compartir el mensaje">
+              <Icon name="ios-share" size={ICON_SIZE.sm} color={colors.primary} />
+              <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium} color={colors.primary}>
+                Compartir mensaje
               </CustomTextComponent>
             </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            {/* El aviso es la mitigación del flujo, no un texto de relleno:
-                va SIEMPRE antes del botón de enviar. */}
-            <View style={[styles.warning, { backgroundColor: colors.errorLight, borderColor: colors.error }]}>
-              <View style={styles.warningHead}>
-                <Icon name="warning-amber" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.bold} color={colors.error}>
-                  Antes de enviar, lee esto
-                </CustomTextComponent>
-              </View>
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.flexText}>
-                {challenge.warning}
-              </CustomTextComponent>
-            </View>
-
-            <CustomButtonComponent
-              text="Abrir WhatsApp y enviar"
-              onPress={openWhatsApp}
-              disabled={expired || isRedeeming}
-              style={[styles.primaryBtn, { backgroundColor: expired ? colors.border : '#25D366' }]}
-              textStyle={{ color: '#FFFFFF', fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-              iconLeft={{ name: 'chat', type: 'material', size: 18, color: '#FFFFFF' }}
-            />
-
-            {/* Fallback visible por si el deep link no abre. */}
-            <View style={[styles.fallback, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-                ¿No abrió WhatsApp? Envía este mensaje al número de la portería:
-              </CustomTextComponent>
-              <Text selectable style={[styles.mono, { color: colors.textPrimary }]}>
-                {challenge.messageText}
-              </Text>
-              <TouchableOpacity
-                onPress={shareMessage}
-                style={styles.shareRow}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button">
-                <Icon name="ios-share" size={ICON_SIZE.sm} color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium} color={colors.primary}>
-                  Compartir mensaje
-                </CustomTextComponent>
-              </TouchableOpacity>
-            </View>
-
-            {/* Estado de espera */}
-            {!expired && !error ? (
-              <View style={[styles.banner, { backgroundColor: colors.primarySurface, borderColor: colors.primary + '40' }]}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.primary} style={styles.flexText}>
-                  {isRedeeming
-                    ? 'Mensaje recibido. Iniciando sesión…'
-                    : `Esperando tu mensaje… (${remaining}s)`}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {error ? (
-              <View style={[styles.banner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}>
-                <Icon name="error-outline" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.flexText}>
-                  {error}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {expired ? (
-              <CustomButtonComponent
-                text="Solicitar un intento nuevo"
-                onPress={() => { challengeIdRef.current = null; setChallenge(null); setError(''); setExpired(false); }}
-                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-                textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold }}
-              />
-            ) : null}
-          </>
-        )}
-      </ScrollView>
-    </View>
+          </View>
+        </>
+      )}
+    </AuthScreen>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: {
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  lede: {
-    lineHeight: FONT_SIZE.sm * 1.5,
-  },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-  },
-  warning: {
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-  },
-  warningHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  flexText: {
-    flex: 1,
-    lineHeight: FONT_SIZE.sm * 1.45,
-  },
   fallback: {
     gap: SPACING.sm,
     padding: SPACING.md,
@@ -450,16 +391,14 @@ const styles = StyleSheet.create({
   },
   mono: {
     fontFamily: 'monospace',
-    fontSize: FONT_SIZE.md,
-    letterSpacing: 1,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: FONT_SIZE.sm * 1.5,
+    letterSpacing: 0.5,
   },
   shareRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-  },
-  primaryBtn: {
-    borderRadius: RADIUS.md,
-    minHeight: 52,
+    minHeight: 44,
   },
 });

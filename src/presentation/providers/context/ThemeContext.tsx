@@ -101,6 +101,36 @@ export function useTheme(): ThemeContextType {
   return ctx;
 }
 
+/**
+ * Fija el tema claro en el subárbol que envuelve, sin tocar la preferencia
+ * guardada del usuario.
+ *
+ * Lo usan las pantallas de ingreso: su diseño (logo sobre fondo blanco, sin
+ * tarjeta) está calibrado solo en claro. Al envolver el navegador completo,
+ * también los componentes compartidos de adentro —inputs, casillas de la
+ * clave— reciben la paleta clara, que es lo que evita el híbrido de campo
+ * oscuro sobre pantalla blanca.
+ *
+ * `setMode` y `toggleTheme` se pasan tal cual del provider de arriba: cambiar
+ * el tema desde aquí sigue afectando al resto de la app.
+ */
+export function ForcedLightTheme({ children }: { children: React.ReactNode }) {
+  const parent = useContext(ThemeContext);
+
+  const value = useMemo<ThemeContextType>(
+    () => ({
+      mode: 'light',
+      isDark: false,
+      colors: lightColors,
+      setMode: parent?.setMode ?? (() => {}),
+      toggleTheme: parent?.toggleTheme ?? (() => {}),
+    }),
+    [parent],
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

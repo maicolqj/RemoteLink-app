@@ -22,21 +22,22 @@ import type {
  * transacción por la que no responde. Este store reemplaza al de la tienda de
  * demostración, que traía productos de mentira y un total a pagar.
  *
- * `enabled` es null mientras no se sepa. Se resuelve pidiendo los ajustes: con
- * el módulo apagado el servidor responde con error, y eso basta para esconder
- * la entrada sin inventar una consulta aparte.
+ * Si el conjunto tiene el módulo encendido NO se decide aquí: eso sale de
+ * `enabledModules` de la sesión, que es lo que recorta los accesos del inicio y
+ * llega por socket cuando el SUPER_ADMIN lo mueve. Este store solo carga lo que
+ * la vitrina necesita para funcionar —ajustes y categorías—; tener dos fuentes
+ * para la misma pregunta es tener dos respuestas distintas.
  */
 interface MarketplaceState {
   listings: Listing[];
   categories: ListingCategory[];
   settings: MarketplaceSettings | null;
-  enabled: boolean | null;
   isLoading: boolean;
   page: number;
   hasNextPage: boolean;
 
-  /** Ajustes + categorías. Devuelve si el módulo quedó habilitado. */
-  init: (complexId: string) => Promise<boolean>;
+  /** Ajustes + categorías de la vitrina. */
+  init: (complexId: string) => Promise<void>;
   load: (complexId: string, filters?: ListingFilters) => Promise<void>;
   loadMore: (complexId: string, filters?: ListingFilters) => Promise<void>;
   toggleFavorite: (listingId: string) => Promise<boolean>;
@@ -50,7 +51,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   listings: [],
   categories: [],
   settings: null,
-  enabled: null,
   isLoading: false,
   page: 1,
   hasNextPage: false,
@@ -61,14 +61,12 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         fetchSettings(complexId),
         fetchCategories(complexId),
       ]);
-      set({ settings, categories, enabled: true });
-      return true;
+      set({ settings, categories });
     } catch {
-      // Módulo apagado, o sin permiso: en los dos casos la vitrina no se
-      // muestra. No es un error que valga la pena ponerle al residente en
-      // pantalla — simplemente no tiene esa función.
-      set({ enabled: false, settings: null, categories: [] });
-      return false;
+      // Sin ajustes la pantalla sigue en pie con los valores por defecto: no
+      // vale la pena tumbarle la vitrina al residente por no saber cuántas
+      // fotos admite el conjunto.
+      set({ settings: null, categories: [] });
     }
   },
 
@@ -148,7 +146,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       listings: [],
       categories: [],
       settings: null,
-      enabled: null,
       page: 1,
       hasNextPage: false,
     }),

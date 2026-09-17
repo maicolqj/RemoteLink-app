@@ -16,6 +16,14 @@ import AmenityBookingDetailScreen from '../../screens/generals/AmenityBookingDet
 import PqrfScreen from '../../screens/generals/PqrfScreen';
 import PqrfCreateScreen from '../../screens/generals/PqrfCreateScreen';
 import PqrfDetailScreen from '../../screens/generals/PqrfDetailScreen';
+import PetsScreen from '../../screens/generals/PetsScreen';
+import PetRegisterScreen from '../../screens/generals/PetRegisterScreen';
+import PetDetailScreen from '../../screens/generals/PetDetailScreen';
+import PetIncidentReportScreen from '../../screens/generals/PetIncidentReportScreen';
+import PetIncidentDetailScreen from '../../screens/generals/PetIncidentDetailScreen';
+import MaintenanceScreen from '../../screens/generals/MaintenanceScreen';
+import MaintenanceReportScreen from '../../screens/generals/MaintenanceReportScreen';
+import MaintenanceDetailScreen from '../../screens/generals/MaintenanceDetailScreen';
 import VotingScreen from '../../screens/generals/VotingScreen';
 import VotingQuestionScreen from '../../screens/generals/VotingQuestionScreen';
 import VehicleDetailScreen from '../../screens/generals/VehicleDetailScreen';
@@ -49,6 +57,14 @@ export default function HomeStack() {
       <Stack.Screen name="Pqrf" component={PqrfScreen} />
       <Stack.Screen name="PqrfCreate" component={PqrfCreateScreen} />
       <Stack.Screen name="PqrfDetail" component={PqrfDetailScreen} />
+      <Stack.Screen name="Pets" component={PetsScreen} />
+      <Stack.Screen name="PetRegister" component={PetRegisterScreen} />
+      <Stack.Screen name="PetDetail" component={PetDetailScreen} />
+      <Stack.Screen name="PetIncidentReport" component={PetIncidentReportScreen} />
+      <Stack.Screen name="PetIncidentDetail" component={PetIncidentDetailScreen} />
+      <Stack.Screen name="Maintenance" component={MaintenanceScreen} />
+      <Stack.Screen name="MaintenanceReport" component={MaintenanceReportScreen} />
+      <Stack.Screen name="MaintenanceDetail" component={MaintenanceDetailScreen} />
       <Stack.Screen name="Voting" component={VotingScreen} />
       <Stack.Screen name="VotingQuestion" component={VotingQuestionScreen} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />

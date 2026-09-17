@@ -28,6 +28,8 @@ export interface ResidentUnit {
 export interface ResidentComplex {
   id: string;
   name: string;
+  /** Módulos encendidos. Null o vacío significa "todos", igual que en el servidor. */
+  enabledModules?: string[] | null;
 }
 
 export interface Resident {
@@ -59,10 +61,35 @@ interface AuthState {
 
   setSession: (accessToken: string, sessionId: string) => void;
   setResident: (resident: Resident) => void;
+  /** Reemplaza la lista cuando el SUPER_ADMIN la cambia (llega por socket). */
+  setEnabledModules: (modules: string[]) => void;
+  /** ¿El conjunto tiene encendido este módulo? */
+  isModuleEnabled: (module: string) => boolean;
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hydrateSession: () => Promise<'authenticated' | 'biometric_required' | 'unauthenticated'>;
 }
+
+/**
+ * La regla de "qué módulo está encendido", suelta del store.
+ *
+ * Existe aparte para que una pantalla pueda aplicarla sobre la lista que ya
+ * tiene suscrita. `isModuleEnabled` lee el store por dentro, así que llamarla
+ * desde un `useMemo` deja el resultado congelado: la función nunca cambia de
+ * referencia y el memo no se entera de que la lista cambió. Con esto la
+ * dependencia es la lista, que es lo que de verdad cambia, y la regla sigue
+ * escrita una sola vez.
+ */
+export const moduleEnabledIn = (
+  modules: string[] | null | undefined,
+  module: string,
+): boolean => {
+  // Lista vacía o nula = todos habilitados. Es la misma regla del servidor, y
+  // no un descuido: un conjunto que nunca tocó la configuración tiene la lista
+  // en blanco, y arrancar escondiéndole todo dejaría la app vacía el primer día.
+  if (!modules || modules.length === 0) return true;
+  return modules.includes(module);
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   resident: null,
@@ -77,6 +104,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setResident: (resident) =>
     set({ resident }),
+
+  setEnabledModules: (modules) =>
+    set(state =>
+      state.resident
+        ? { resident: { ...state.resident, complex: { ...state.resident.complex, enabledModules: modules } } }
+        : state,
+    ),
+
+  /** Ver `moduleEnabledIn`: ahí está la regla y por qué vive suelta. */
+  isModuleEnabled: (module) => moduleEnabledIn(get().resident?.complex?.enabledModules, module),
 
   logout: async () => {
     // Antes de limpiar nada: la mutación exige sesión válida, y sin el

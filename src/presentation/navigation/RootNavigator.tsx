@@ -14,6 +14,7 @@ import LegalScreen from '../screens/generals/LegalScreen';
 import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
 import { BiometricEnrollmentPrompt } from '../components/BiometricEnrollmentPrompt';
+import { ModuleRouteGuard } from '../components/ModuleRouteGuard';
 import { AppProviders } from '../providers/AppProviders';
 import { useTheme } from '../providers/context/ThemeContext';
 import { useAuthStore } from '../store/auth.store';
@@ -56,6 +57,14 @@ import { useAlert } from '../providers/context/AlertContext';
 tokenRefreshService.registerRefreshCallback(refreshSession);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+/**
+ * Cada cuánto se vuelve a ofrecer el inicio automático mientras el residente no
+ * confirme que lo activó. Tres días: lo bastante seguido para que no se olvide
+ * —sin ese permiso no le llegan las alertas de pánico— y lo bastante espaciado
+ * para no recibirlo en cada apertura de la app.
+ */
+const AUTOSTART_NUDGE_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Adapts RemoteLink palettes to React Navigation theme shape
 const navLightTheme = {
@@ -235,7 +244,8 @@ function NotificationBootstrap({
   const userId          = useAuthStore(s => s.resident?.user?.id);
   const setPanicData    = usePanicStore(s => s.setPanicData);
   const settingsHydrated      = useSettingsStore(s => s.hydrated);
-  const autostartPromptShown  = useSettingsStore(s => s.autostartPromptShown);
+  const autostartConfirmed         = useSettingsStore(s => s.autostartConfirmed);
+  const autostartPromptLastShownAt = useSettingsStore(s => s.autostartPromptLastShownAt);
   const { showQuestion } = useAlert();
 
   const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -409,35 +419,61 @@ function NotificationBootstrap({
     })();
   }, [isAuthenticated, complexId, fcmToken]);
 
-  // One-time nudge to the OEM autostart/background-launch whitelist (MIUI, ColorOS,
-  // FuntouchOS, EMUI, …). Without it, killed apps never get to process the FCM
-  // broadcast that would show a notification — see openAutostartSettings() in
-  // PanicSoundModule for why. There's no public API to check current state, so we
-  // only ask once per install and let the user re-open it from Settings later.
-  // Gated on isAutostartRelevant() — Samsung/Pixel/stock-AOSP devices have no such
-  // screen, so nudging them there would just dump them on a useless App Info page.
+  // Recordatorio recurrente de la lista blanca de inicio automático del
+  // fabricante (MIUI, ColorOS, FuntouchOS, EMUI, …). Sin ese permiso, la app
+  // cerrada nunca llega a procesar el broadcast de FCM que mostraría la
+  // notificación — ver openAutostartSettings() en PanicSoundModule.
+  //
+  // Antes se preguntaba UNA sola vez por instalación: quien tocaba "Ahora no"
+  // se quedaba sin alertas de pánico para siempre y sin volver a saberlo. Ahora
+  // se insiste cada AUTOSTART_NUDGE_INTERVAL_MS hasta que el residente
+  // confirme que lo activó.
+  //
+  // Esa confirmación manual es la única señal posible: Android no expone API
+  // para consultar el estado del permiso. Por eso el diálogo ofrece "Ya lo
+  // activé" — sin esa salida, quien sí lo configuró recibiría el aviso
+  // eternamente.
+  //
+  // Gated on isAutostartRelevant(): en Samsung/Pixel/AOSP no existe esa
+  // pantalla, así que ahí se marca como confirmado y no se vuelve a preguntar.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    if (!isAuthenticated || !settingsHydrated || autostartPromptShown) return;
+    if (!isAuthenticated || !settingsHydrated || autostartConfirmed) return;
+    if (Date.now() - autostartPromptLastShownAt < AUTOSTART_NUDGE_INTERVAL_MS) return;
+
     let cancelled = false;
     (async () => {
       const relevant = await PanicSound?.isAutostartRelevant();
       if (cancelled) return;
+
+      if (!relevant) {
+        useSettingsStore.getState().confirmAutostartConfigured();
+        return;
+      }
+
       useSettingsStore.getState().markAutostartPromptShown();
-      if (!relevant) return;
       showQuestion(
-        'Para que las notificaciones y alertas de pánico te lleguen incluso con la app cerrada, tu fabricante requiere activar el permiso de inicio automático. Te llevamos a esa pantalla.',
-        'Activa el inicio automático',
+        'Sin el permiso de inicio automático, tu teléfono impide que RemoteLink se despierte cuando la app está cerrada: no te llegarán las alertas de pánico, las llamadas de citofonía ni los avisos de visitantes.\n\nTu fabricante exige activarlo a mano. Te llevamos a esa pantalla.',
+        'Falta activar el inicio automático',
         {
+          position: 'top',
           buttons: [
-            { text: 'Ahora no', style: 'secondary', onPress: () => {} },
-            { text: 'Activar', style: 'primary', onPress: () => { PanicSound?.openAutostartSettings(); } },
+            {
+              text: 'Ya lo activé',
+              style: 'secondary',
+              onPress: () => { useSettingsStore.getState().confirmAutostartConfigured(); },
+            },
+            {
+              text: 'Ir a ajustes',
+              style: 'primary',
+              onPress: () => { PanicSound?.openAutostartSettings(); },
+            },
           ],
         },
       );
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated, settingsHydrated, autostartPromptShown, showQuestion]);
+  }, [isAuthenticated, settingsHydrated, autostartConfirmed, autostartPromptLastShownAt, showQuestion]);
 
   return null;
 }
@@ -462,6 +498,9 @@ function ThemedNavigator() {
         <NotificationBootstrap navigationRef={navigationRef} />
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
         <BiometricEnrollmentPrompt />
+        {/* Apagar un módulo tiene que sacar de sus pantallas a quien ya estaba
+            adentro, no solo esconder el acceso del inicio. */}
+        <ModuleRouteGuard navigationRef={navigationRef} />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
             <>

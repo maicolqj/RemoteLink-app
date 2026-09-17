@@ -1,28 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Image,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import CustomInputComponent from '../../components/CustomInputComponent';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
 import CodeSegmentInput from '../../components/CodeSegmentInput';
+import AuthScreen from '../../components/auth/AuthScreen';
+import AuthBanner from '../../components/auth/AuthBanner';
+import AuthButton from '../../components/auth/AuthButton';
+import AuthMethodRow from '../../components/auth/AuthMethodRow';
+import AuthSection from '../../components/auth/AuthSection';
 import { useTheme } from '../../providers/context/ThemeContext';
-// import { DEBUG_API_URL } from '../../../data/lib/apollo/client';
+import { useAlert } from '../../providers/context/AlertContext';
 import {
   defaultDeviceLabel,
   getLastIdentity,
+  isDeviceLinked,
   isWhatsAppLoginAvailable,
   loginWithAccessCode,
   markAccessCodeForgotten,
@@ -33,7 +27,6 @@ import {
 import type { AuthStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
-import { LOGO_SF } from '../../constants/ImagesApp';
 import { LEGAL_LINKS, type LegalDocument } from '../../constants/legal';
 import { STAGE } from '@env';
 import { API_URL } from '../../../data/lib/constants';
@@ -42,13 +35,7 @@ import { BuildBadge } from '../../components/BuildBadge';
 // se bumpea con `yarn version` y los tres quedan sincronizados.
 import { version as APP_VERSION } from '../../../../package.json';
 
-/** Solo el host del backend: la URL completa no cabe y el esquema no aporta. */
-const apiHost = API_URL.replace(/^https?:\/\//, '').replace(/\/graphql\/?$/, '');
-
-const { width: wp, height: hp } = Dimensions.get('screen');
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const HERO_HEIGHT = hp * 0.38;
 
 /** El backend bloquea la CUENTA 15 minutos tras 5 intentos fallidos. */
 const LOCK_SECONDS = 15 * 60;
@@ -62,8 +49,37 @@ const formatLock = (secs: number) => {
 /** Mismo criterio que los otros dos flujos de ingreso. */
 const isValidIdentity = (v: string) => v.trim().length >= 6;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+/** Documento enmascarado para el resumen del paso 2. */
+const maskIdentity = (v: string) => {
+  const value = v.trim();
+  if (value.length <= 4) return value;
+  return `${'•'.repeat(Math.min(value.length - 4, 6))}${value.slice(-4)}`;
+};
 
+/**
+ * La pantalla es un asistente de dos pasos: primero "quién eres", después "cómo
+ * entras". El motivo es de comprensión, no estético: pedir una clave de 6
+ * caracteres a alguien que abre la app por primera vez —y que nunca tuvo una—
+ * era el punto donde la gente se quedaba trabada.
+ *
+ * Los flujos de autenticación NO cambian: primer ingreso y recuperación siguen
+ * yendo por WhatsApp, y quien ya tiene clave entra con documento + clave.
+ */
+type Step = 'identity' | 'code';
+
+/**
+ * Errores que significan "por acá no vas a entrar, por más que reintentes".
+ * En vez de un banner pasivo, la pantalla cambia de estado y ofrece el camino
+ * que sí funciona.
+ */
+const DEAD_END_CODES = [
+  'ACCESS_CODE_NOT_SET',
+  'DEVICE_ENROLLMENT_THROTTLED',
+  'DEVICE_NOT_LINKED',
+  'DEVICE_REVOKED',
+];
+
+const WHATSAPP_GREEN = '#25D366';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -71,10 +87,10 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'LoginIdentity'>;
 type Route = RouteProp<AuthStackParamList, 'LoginIdentity'>;
 
 export default function LoginScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { colors } = useTheme();
+  const { showQuestion } = useAlert();
 
   // La pantalla Legal vive en el root stack, así que es alcanzable sin sesión.
   const openLegal = useCallback(
@@ -84,13 +100,8 @@ export default function LoginScreen() {
   );
 
   // ── Form state ─────────────────────────────────────────────────────────────
+  const [step, setStep] = useState<Step>('identity');
   const [identity, setIdentity] = useState('');
-  // Aviso que trae la pantalla de la clave cuando el dispositivo dejó de estar
-  // vinculado (DEVICE_NOT_LINKED / DEVICE_REVOKED).
-  const [notice, setNotice] = useState(route.params?.notice ?? '');
-  // El canal de WhatsApp entrante se oculta si el servidor ya respondió
-  // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
-  const [waAvailable, setWaAvailable] = useState(true);
   const [identityError, setIdentityError] = useState('');
   const [identityTouched, setIdentityTouched] = useState(false);
   const [code, setCode] = useState('');
@@ -99,14 +110,38 @@ export default function LoginScreen() {
   const [lockRemaining, setLockRemaining] = useState(0);
   const lockTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /**
+   * Mensaje que explica por qué la clave no es camino ahora mismo. Puede venir
+   * de la pantalla anterior (el dispositivo dejó de estar vinculado) o de un
+   * error del intento. Mientras esté puesto, el paso 2 esconde el campo de
+   * clave y muestra la salida por WhatsApp.
+   */
+  const [deadEnd, setDeadEnd] = useState(route.params?.notice ?? '');
 
-  // ── Animations ─────────────────────────────────────────────────────────────
-  const heroIconScale = useRef(new Animated.Value(1)).current;
+  // El canal de WhatsApp entrante se oculta si el servidor ya respondió
+  // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
+  const [waAvailable, setWaAvailable] = useState(true);
 
-  // Prefill del último documento usado + si este equipo ya está vinculado.
+  const userTypedRef = useRef(false);
+
+  /**
+   * Atajo para el caso frecuente: mismo teléfono, ya vinculado y con documento
+   * recordado. Ese usuario no vuelve a ver el paso 1 — para él la pantalla
+   * sigue siendo una sola, la de la clave.
+   *
+   * No aplica si venimos con un aviso: ahí justamente el vínculo se rompió.
+   */
   useEffect(() => {
-    getLastIdentity().then(v => v && setIdentity(prev => prev || v));
-  }, []);
+    let alive = true;
+    Promise.all([getLastIdentity(), isDeviceLinked()]).then(([saved, linked]) => {
+      // Si el usuario ya empezó a escribir, el almacenamiento llegó tarde: ni le
+      // pisamos el documento ni le cambiamos la pantalla debajo del dedo.
+      if (!alive || !saved || userTypedRef.current) return;
+      setIdentity(saved);
+      if (linked && !route.params?.notice) setStep('code');
+    });
+    return () => { alive = false; };
+  }, [route.params?.notice]);
 
   // Se reevalúa en cada foco, no solo al montar: la pantalla sigue montada
   // debajo del stack mientras el usuario visita el flujo de WhatsApp, y es ahí
@@ -116,7 +151,6 @@ export default function LoginScreen() {
       isWhatsAppLoginAvailable().then(setWaAvailable);
     }, []),
   );
-
 
   useEffect(() => () => { lockTimer.current && clearInterval(lockTimer.current); }, []);
 
@@ -131,6 +165,42 @@ export default function LoginScreen() {
     }, 1000);
   }, []);
 
+  // ── Navegación entre pasos ─────────────────────────────────────────────────
+
+  const goToWhatsApp = useCallback(
+    () => navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined }),
+    [identity, navigation],
+  );
+
+  const goToApproval = useCallback(
+    () => navigation.navigate('LoginApproval', { identity: identity.trim() || undefined }),
+    [identity, navigation],
+  );
+
+  const continueToCode = useCallback(() => {
+    if (!isValidIdentity(identity)) {
+      setIdentityTouched(true);
+      setIdentityError('Escribe tu número de documento (mínimo 6 dígitos)');
+      return;
+    }
+    setIdentityError('');
+    // El aviso que traía la pantalla anterior ya cumplió su función informando
+    // en el paso 1. No debe bloquear el intento: con documento + clave se puede
+    // entrar desde un equipo que perdió el vínculo, y el servidor lo revincula.
+    // Si de verdad no hay camino, el error del intento lo vuelve a poner.
+    setDeadEnd('');
+    setStep('code');
+  }, [identity]);
+
+  const backToIdentity = useCallback(() => {
+    setStep('identity');
+    setCode('');
+    setCodeError('');
+    setDeadEnd('');
+  }, []);
+
+  // ── Ingreso ────────────────────────────────────────────────────────────────
+
   /**
    * Documento + clave. El documento es lo que permite entrar desde un equipo
    * que todavía no está vinculado: el servidor lo usa para identificar al
@@ -139,15 +209,9 @@ export default function LoginScreen() {
    * vínculo sigue vivo del otro lado.
    */
   const submitCode = useCallback(async () => {
-    if (!isValidIdentity(identity)) {
-      setIdentityTouched(true);
-      setIdentityError('Ingresa tu número de identidad (mínimo 6 dígitos)');
-      return;
-    }
     setIsSubmitting(true);
-    setIdentityError('');
     setCodeError('');
-    setNotice('');
+    setDeadEnd('');
     try {
       const result = await loginWithAccessCode(code, identity, defaultDeviceLabel());
       await persistSession(result);
@@ -156,23 +220,14 @@ export default function LoginScreen() {
       setCode('');
       // La lógica ramifica por `code`; `message` ya viene redactado en español
       // (incluye los intentos restantes en ACCESS_CODE_INVALID).
-      switch (err.code) {
-        case 'ACCESS_CODE_LOCKED':
-          startLock();
-          setCodeError(err.message);
-          break;
-        case 'ACCESS_CODE_NOT_SET':
-        case 'DEVICE_ENROLLMENT_THROTTLED':
-        case 'DEVICE_NOT_LINKED':
-        case 'DEVICE_REVOKED':
-          // No sirve reintentar acá: hay que probar identidad por otro canal.
-          // El aviso queda arriba, junto a los métodos que sí van a funcionar.
-          // DEVICE_ENROLLMENT_THROTTLED no es bloqueo de cuenta —los equipos ya
-          // vinculados siguen entrando—, por eso no usa la cuenta regresiva.
-          setNotice(err.message);
-          break;
-        default:
-          setCodeError(err.message);
+      if (err.code === 'ACCESS_CODE_LOCKED') {
+        startLock();
+        setCodeError(err.message);
+      } else if (err.code && DEAD_END_CODES.includes(err.code)) {
+        // Reintentar la clave no sirve: hay que probar identidad por otro canal.
+        setDeadEnd(err.message);
+      } else {
+        setCodeError(err.message);
       }
     } finally {
       setIsSubmitting(false);
@@ -183,80 +238,110 @@ export default function LoginScreen() {
    * Deja constancia de que la clave ya no sirve antes de mandar al residente al
    * ingreso por WhatsApp. Al volver a entrar, la app le pedirá una nueva de
    * forma obligatoria; sin la marca, la cuenta seguiría con la que no recuerda.
+   *
+   * Va detrás de una confirmación porque es destructivo: quien lo toca por
+   * curiosidad perdía la clave que sí recordaba, sin ningún aviso.
    */
   const forgotCode = useCallback(() => {
-    markAccessCodeForgotten();
-    navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined });
-  }, [identity, navigation]);
+    showQuestion(
+      'Vamos a darte una clave nueva. Para eso necesitamos verificar tu número por WhatsApp, y la clave que tienes ahora dejará de funcionar.',
+      '¿Olvidaste tu clave?',
+      {
+        buttons: [
+          { text: 'Cancelar', style: 'secondary', onPress: () => {} },
+          {
+            text: 'Continuar',
+            style: 'primary',
+            onPress: () => { markAccessCodeForgotten(); goToWhatsApp(); },
+          },
+        ],
+      },
+    );
+  }, [showQuestion, goToWhatsApp]);
 
   const locked = lockRemaining > 0;
-  const canSubmitCode =
-    isValidIdentity(identity) && code.length === ACCESS_CODE_LENGTH && !isSubmitting && !locked;
+  const canContinue = isValidIdentity(identity);
+  const canSubmitCode = code.length === ACCESS_CODE_LENGTH && !isSubmitting && !locked;
+  const isIdentityStep = step === 'identity';
+
+  // ── Piezas reutilizadas entre los dos pasos ────────────────────────────────
+
+  const approvalRow = (
+    <AuthMethodRow
+      icon="phonelink-lock"
+      title="Aprobar desde otro equipo"
+      description="Si tienes RemoteLink abierto en otro teléfono, apruebas el ingreso desde allí."
+      onPress={goToApproval}
+    />
+  );
+
+  const footer = (
+    <View style={styles.footer}>
+      <View style={styles.securityNote}>
+        <Icon name="lock-outline" size={13} color={colors.textTertiary} />
+        <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+          Conexión cifrada · Tus datos están protegidos
+        </CustomTextComponent>
+      </View>
+
+      <View style={styles.legalLinks}>
+        <TouchableOpacity
+          onPress={() => openLegal(LEGAL_LINKS.terms)}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="link"
+          accessibilityLabel="Ver términos y condiciones">
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary} style={styles.legalLinkText}>
+            Términos y condiciones
+          </CustomTextComponent>
+        </TouchableOpacity>
+
+        <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>·</CustomTextComponent>
+
+        <TouchableOpacity
+          onPress={() => openLegal(LEGAL_LINKS.privacy)}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="link"
+          accessibilityLabel="Ver política de privacidad">
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary} style={styles.legalLinkText}>
+            Política de privacidad
+          </CustomTextComponent>
+        </TouchableOpacity>
+      </View>
+
+      <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
+        RemoteLink v{APP_VERSION}
+        {STAGE !== 'production' ? ` · ${STAGE}` : ''}
+      </CustomTextComponent>
+    </View>
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        bounces={false}>
+    <AuthScreen
+      title={isIdentityStep ? 'Bienvenido' : 'Tu clave de acceso'}
+      subtitle={
+        isIdentityStep
+          ? 'Para empezar, dinos quién eres.'
+          : `Los ${ACCESS_CODE_LENGTH} caracteres que creaste la primera vez que entraste.`
+      }
+      step={{ current: isIdentityStep ? 1 : 2, total: 2 }}
+      showBack={!isIdentityStep}
+      onBack={backToIdentity}
+      footer={footer}>
 
-        {/* ── Hero ── */}
-        <View style={[styles.hero, { backgroundColor: '#ffff', paddingTop: insets.top + SPACING.md }]}>
-          <View style={styles.heroContent}>
-            <Animated.View style={{ transform: [{ scale: heroIconScale }] }}>
-              <View style={[styles.heroIconWrap, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
-                <Image source={LOGO_SF} style={{...styles.heroIcon}} />
-              </View>
-            </Animated.View>
+      {isIdentityStep ? (
+        <>
+          {/* El aviso que llega desde otra pantalla (el equipo dejó de estar
+              vinculado) se pinta acá, donde el usuario todavía no escribió
+              nada, y no encima del formulario de la clave. */}
+          {deadEnd ? <AuthBanner tone="warning">{deadEnd}</AuthBanner> : null}
 
-          </View>
-        </View>
-
-        {/* ── Card ── */}
-        <View style={styles.cardOuter}>
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
-
-            <CustomTextComponent
-              fontSize={FONT_SIZE.xl}
-              fontWeight={FONT_WEIGHT.bold}
-              color={colors.textPrimary}
-              textAlign="center">
-              Iniciar sesión
-            </CustomTextComponent>
-
-            <CustomTextComponent
-              fontSize={FONT_SIZE.sm}
-              color={colors.textSecondary}
-              textAlign="center"
-              style={styles.cardSubtitle}>
-              Ingresa tu número de identidad y tu clave de acceso
-            </CustomTextComponent>
-
-            {/* ── Aviso traído desde el login con clave ── */}
-            {notice ? (
-              <View
-                style={[styles.infoBanner, { backgroundColor: colors.warning + '14', borderColor: colors.warning + '40' }]}
-                accessibilityRole="alert">
-                <Icon name="info-outline" size={ICON_SIZE.sm} color={colors.warning} />
-                <CustomTextComponent
-                  fontSize={FONT_SIZE.sm}
-                  color={colors.warning}
-                  style={styles.errorBannerText}>
-                  {notice}
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            {/* ── Identity field ── */}
+          <View style={styles.field}>
             <CustomInputComponent
-              nameInput="Número de identidad"
+              nameInput="Número de documento"
               placeholder="Ej. 1234567890"
               value={identity}
-              onChangeText={v => { setIdentity(v); setIdentityError(''); setNotice(''); }}
+              onChangeText={v => { userTypedRef.current = true; setIdentity(v); setIdentityError(''); }}
               onBlur={() => setIdentityTouched(true)}
               keyboardType="numeric"
               returnKeyType="next"
@@ -264,18 +349,88 @@ export default function LoginScreen() {
               error={identityError}
               touched={identityTouched}
               maxLength={20}
-              editable={!isSubmitting}
             />
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} style={styles.fieldHelp}>
+              El mismo documento que registraste en la administración de tu conjunto.
+            </CustomTextComponent>
+          </View>
 
-            {/* ── Clave de acceso ── */}
-            <View style={styles.codeSection}>
-              <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                fontWeight={FONT_WEIGHT.medium}
-                color={colors.textSecondary}>
-                MI CLAVE DE ACCESO
+          <AuthButton
+            text="Continuar"
+            onPress={continueToCode}
+            disabled={!canContinue}
+            icon="arrow-forward"
+          />
+
+          {/* Primer ingreso: el camino es WhatsApp, y ahora está dicho con todas
+              las letras en vez de esconderse entre las alternativas de "olvidé
+              mi clave". */}
+          <AuthSection label="¿PRIMERA VEZ AQUÍ?">
+            {waAvailable ? (
+              <AuthMethodRow
+                icon="logo-whatsapp"
+                iconLibrary="ionicons"
+                iconColor={WHATSAPP_GREEN}
+                title="Activar mi cuenta mediante WhatsApp" 
+                description="Verificamos tu número y creas tu clave. No necesitas clave para este paso."
+                onPress={goToWhatsApp}
+              />
+            ) : (
+              <AuthBanner tone="info" icon="support-agent">
+                El ingreso por WhatsApp no está habilitado en tu conjunto. Comunícate con la
+                administración para que te entreguen tu clave.
+              </AuthBanner>
+            )}
+          </AuthSection>
+        </>
+      ) : (
+        <>
+          {/* Resumen de lo ya respondido: el usuario ve con qué documento va a
+              entrar y puede corregirlo sin salir de la pantalla. */}
+          <TouchableOpacity
+            style={[styles.identityChip, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={backToIdentity}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Documento ${maskIdentity(identity)}. Tocar para cambiarlo`}>
+            <Icon name="badge" size={ICON_SIZE.sm} color={colors.primary} />
+            <View style={styles.chipText}>
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                Documento
               </CustomTextComponent>
+              <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.semibold} color={colors.textPrimary}>
+                {maskIdentity(identity)}
+              </CustomTextComponent>
+            </View>
+            <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium} color={colors.primary}>
+              Cambiar
+            </CustomTextComponent>
+          </TouchableOpacity>
 
+          {deadEnd ? (
+            /* Sin salida por la clave: en vez de dejar el campo ahí invitando a
+               insistir, se esconde y se ofrece el canal que sí resuelve. */
+            <>
+              <AuthBanner tone="warning">{deadEnd}</AuthBanner>
+
+              <AuthSection label="CÓMO CONTINUAR">
+                {waAvailable ? (
+                  <AuthMethodRow
+                    icon="logo-whatsapp"
+                    iconLibrary="ionicons"
+                    iconColor={WHATSAPP_GREEN}
+                    title="Verificar por WhatsApp"
+                    description="Verificamos tu número y creas una clave nueva."
+                    onPress={goToWhatsApp}
+                  />
+                ) : null}
+                {approvalRow}
+              </AuthSection>
+
+              <AuthButton text="Intentar con mi clave" onPress={() => setDeadEnd('')} variant="text" />
+            </>
+          ) : (
+            <>
               <CodeSegmentInput
                 value={code}
                 onChange={v => { setCode(v); if (codeError) setCodeError(''); }}
@@ -286,280 +441,55 @@ export default function LoginScreen() {
                 error={codeError}
                 editable={!isSubmitting && !locked}
               />
-            </View>
 
-            {locked ? (
-              <View
-                style={[styles.infoBanner, { backgroundColor: colors.error + '14', borderColor: colors.error + '40' }]}
-                accessibilityRole="alert">
-                <Icon name="lock-clock" size={ICON_SIZE.sm} color={colors.error} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error} style={styles.errorBannerText}>
-                  Cuenta bloqueada. Podrás reintentar en {formatLock(lockRemaining)}.
-                </CustomTextComponent>
-              </View>
-            ) : null}
-
-            <CustomButtonComponent
-              text="Ingresar"
-              onPress={submitCode}
-              isLoading={isSubmitting}
-              disabled={!canSubmitCode}
-              loaderColor="#FFFFFF"
-              style={[styles.submitBtn, { backgroundColor: canSubmitCode ? colors.primary : colors.border }]}
-              textStyle={{
-                color: canSubmitCode ? colors.textInverse : colors.textTertiary,
-                fontSize: FONT_SIZE.md,
-                fontWeight: FONT_WEIGHT.semibold,
-              }}
-              iconRight={
-                !isSubmitting
-                  ? { name: 'login', type: 'material', size: 18, color: canSubmitCode ? colors.textInverse : colors.textTertiary }
-                  : undefined
-              }
-            />
-
-            <TouchableOpacity
-              onPress={forgotCode}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button">
-              <CustomTextComponent
-                fontSize={FONT_SIZE.sm}
-                fontWeight={FONT_WEIGHT.medium}
-                color={colors.primary}
-                textAlign="center">
-                Olvidé mi clave
-              </CustomTextComponent>
-            </TouchableOpacity>
-
-            {/* ── Si la clave no alcanza ──
-                 Con documento + clave ya se puede entrar desde un equipo nuevo,
-                 así que estos caminos quedan para quien no recuerda la clave o
-                 todavía no tiene una. */}
-            <View style={styles.altBlock}>
-              {waAvailable ? (
-                <TouchableOpacity
-                  style={[styles.altRow, { borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('LoginWhatsApp', { identity: identity.trim() || undefined })}
-                  activeOpacity={0.7}
-                  accessibilityRole="button">
-                  <Icon name="chat" size={ICON_SIZE.sm} color="#25D366" />
-                  <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                    Enviando un WhatsApp desde mi celular
-                  </CustomTextComponent>
-                  <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
+              {locked ? (
+                <AuthBanner tone="error" icon="lock-clock">
+                  {`Cuenta bloqueada por seguridad. Podrás reintentar en ${formatLock(lockRemaining)}.`}
+                </AuthBanner>
               ) : null}
 
-              <TouchableOpacity
-                style={[styles.altRow, { borderColor: colors.border }]}
-                onPress={() => navigation.navigate('LoginApproval', { identity: identity.trim() || undefined })}
-                activeOpacity={0.7}
-                accessibilityRole="button">
-                <Icon name="phonelink-lock" size={ICON_SIZE.sm} color={colors.primary} />
-                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textPrimary} style={styles.altText}>
-                  Aprobando desde mi otro dispositivo
-                </CustomTextComponent>
-                <Icon name="chevron-right" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-            </View>
+              <AuthButton
+                text="Ingresar"
+                onPress={submitCode}
+                loading={isSubmitting}
+                disabled={!canSubmitCode}
+                icon="login"
+              />
 
-
-
-
-            {/* ── Security note ── */}
-            <View style={[styles.securityNote, { backgroundColor: colors.background }]}>
-              <Icon name="lock-outline" size={14} color={colors.textTertiary} />
-              <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                color={colors.textTertiary}
-                style={styles.securityText}>
-                Conexión cifrada · Tus datos están protegidos
-              </CustomTextComponent>
-            </View>
-
-            {/* ── Legal ── */}
-            <View style={styles.legalBlock}>
-              <CustomTextComponent
-                fontSize={FONT_SIZE.xs}
-                color={colors.textTertiary}
-                textAlign="center"
-                style={styles.legalIntro}>
-                Al ingresar aceptas nuestros
-              </CustomTextComponent>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity
-                  onPress={() => openLegal(LEGAL_LINKS.terms)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="link"
-                  accessibilityLabel="Ver términos y condiciones">
-                  <CustomTextComponent
-                    fontSize={FONT_SIZE.xs}
-                    fontWeight={FONT_WEIGHT.medium}
-                    color={colors.primary}
-                    style={styles.legalLinkText}>
-                    Términos y condiciones
-                  </CustomTextComponent>
-                </TouchableOpacity>
-
-                <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
-                  ·
-                </CustomTextComponent>
-
-                <TouchableOpacity
-                  onPress={() => openLegal(LEGAL_LINKS.privacy)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="link"
-                  accessibilityLabel="Ver política de privacidad">
-                  <CustomTextComponent
-                    fontSize={FONT_SIZE.xs}
-                    fontWeight={FONT_WEIGHT.medium}
-                    color={colors.primary}
-                    style={styles.legalLinkText}>
-                    Política de privacidad
-                  </CustomTextComponent>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Indicador de entorno: solo fuera de producción, para no dejar un
-                punto de color sin explicación en la pantalla de ingreso.
-                Muestra el SERVIDOR y no solo el nombre del stage: saber que dice
-                "development" no sirve si lo que se necesita es confirmar contra
-                qué backend se está hablando. */}
-            {STAGE !== 'production' ? (
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
-                {STAGE} · {apiHost}
-              </CustomTextComponent>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={[styles.buildRow, { marginBottom: insets.bottom + SPACING.md }]}>
-          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary} textAlign="center">
-            RemoteLink v{APP_VERSION}
-          </CustomTextComponent>
-          {/* D = build de desarrollo, A = APK, B = AAB. Es la única pista en un
-              APK instalado, donde el indicador de entorno no se pinta. */}
-          <BuildBadge />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <AuthSection label="¿NO PUEDES INGRESAR?">
+                {waAvailable ? (
+                  <AuthMethodRow
+                    icon="logo-whatsapp"
+                    iconLibrary="ionicons"
+                    iconColor={WHATSAPP_GREEN}
+                    title="No recuerdo mi clave"
+                    description="Verificamos tu número por WhatsApp y creas una clave nueva."
+                    onPress={forgotCode}
+                  />
+                ) : null}
+                {approvalRow}
+              </AuthSection>
+            </>
+          )}
+        </>
+      )}
+    </AuthScreen>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const CARD_OVERLAP = 48;
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: { flexGrow: 1 },
-
-  // Hero
-  hero: {
-    height: HERO_HEIGHT,
-    borderBottomLeftRadius: RADIUS.xl + 8,
-    borderBottomRightRadius: RADIUS.xl + 8,
+  field: {
+    gap: SPACING.xs,
   },
-  heroContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-  },
-  heroIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroTitle: {
-    letterSpacing: 0.5,
-  },
-  heroIcon: {
-    width: wp * 0.5,
-    height: hp * 0.3,
-    resizeMode: 'contain',
-  },
-  // Card
-  cardOuter: {
-    flex: 1,
-    marginTop: -CARD_OVERLAP,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.lg,
-  },
-  card: {
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
-    gap: SPACING.md,
-  },
-  cardSubtitle: {
-    lineHeight: FONT_SIZE.sm * 1.6,
-    marginBottom: SPACING.xs,
+  fieldHelp: {
+    lineHeight: FONT_SIZE.xs * 1.45,
   },
 
-  // Code
-  codeSection: {
-    gap: SPACING.sm,
-  },
-  // Submit
-  submitBtn: {
-    borderRadius: RADIUS.md,
-    minHeight: 52,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: SPACING.xs,
-  },
-
-  // WhatsApp helper
-  // Info banner
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-  },
-
-  // Error banner
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-  },
-  errorBannerText: {
-    flex: 1,
-    lineHeight: FONT_SIZE.sm * 1.4,
-  },
-
-  // Métodos alternativos
-  altBlock: {
-    gap: SPACING.sm,
-  },
-  altDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  altLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-  },
-  altRow: {
+  identityChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
@@ -567,20 +497,22 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    minHeight: 48,
+    minHeight: 56,
   },
-  altText: {
+  chipText: {
     flex: 1,
+    gap: 2,
   },
 
-  // Legal
-  legalBlock: {
+  footer: {
     alignItems: 'center',
-    gap: SPACING.xs / 2,
-    marginTop: -SPACING.xs,
+    gap: SPACING.sm,
+    paddingTop: SPACING.xs,
   },
-  legalIntro: {
-    lineHeight: FONT_SIZE.xs * 1.4,
+  securityNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   legalLinks: {
     flexDirection: 'row',
@@ -591,25 +523,5 @@ const styles = StyleSheet.create({
   },
   legalLinkText: {
     textDecorationLine: 'underline',
-  },
-
-  buildRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-  },
-
-  // Security
-  securityNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.sm,
-  },
-  securityText: {
-    flex: 1,
   },
 });

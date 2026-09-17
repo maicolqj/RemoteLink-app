@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
@@ -11,7 +11,7 @@ import { useTheme } from '../../providers/context/ThemeContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
-import { toEmbedUrl } from '../../constants/legal';
+import { SUPPORT_EMAIL, toEmbedUrl } from '../../constants/legal';
 import type { RootStackParamList } from '../../navigation/types/NavigationTypes';
 
 type LegalRoute = RouteProp<RootStackParamList, 'Legal'>;
@@ -88,6 +88,26 @@ export default function LegalScreen() {
               style={[styles.retryBtn, { backgroundColor: colors.primary }]}
               textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md }}
             />
+
+            {/* Salida cuando el WebView no carga en ningún intento: la dirección
+                queda seleccionable para copiarla a otro equipo, y el correo de
+                soporte como segunda vía. Importa sobre todo en la solicitud de
+                eliminación de cuenta, donde quedarse sin ruta no es aceptable
+                (política de Google Play). */}
+            <View style={[styles.fallback, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                También puedes abrir esta dirección desde un navegador:
+              </CustomTextComponent>
+              <Text selectable style={[styles.selectable, { color: colors.textPrimary }]}>
+                {url}
+              </Text>
+              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+                O escribirnos a este correo:
+              </CustomTextComponent>
+              <Text selectable style={[styles.selectable, { color: colors.textPrimary }]}>
+                {SUPPORT_EMAIL}
+              </Text>
+            </View>
           </View>
         ) : (
           <>
@@ -137,5 +157,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: SPACING.xl,
     marginTop: SPACING.sm,
+  },
+  fallback: {
+    alignSelf: 'stretch',
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm,
+    marginTop: SPACING.md,
+    gap: SPACING.xs,
+  },
+  selectable: {
+    fontSize: FONT_SIZE.sm,
+    lineHeight: FONT_SIZE.sm * 1.4,
   },
 });
