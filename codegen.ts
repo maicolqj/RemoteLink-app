@@ -1,4 +1,5 @@
 import type { CodegenConfig } from '@graphql-codegen/cli';
+import { addTypenameSelectionDocumentTransform } from '@graphql-codegen/client-preset';
 
 const config: CodegenConfig = {
   // schema.gql es un espejo del backend (lo sobrescribe sync-schema.ps1 en cada
@@ -18,6 +19,10 @@ const config: CodegenConfig = {
         persistedDocuments: { hashAlgorithm: 'sha256' },
         fragmentMasking: false,
       },
+      // En producción el backend ejecuta la copia del manifiesto, no la que
+      // arma Apollo. Sin __typename en esa copia, Apollo no puede aplicar los
+      // fragmentos (`...PetFields on Pet`) y los objetos llegan vacíos.
+      documentTransforms: [addTypenameSelectionDocumentTransform],
       config: {
         useTypeImports: true,
         enumsAsTypes: true,
