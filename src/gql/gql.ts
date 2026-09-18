@@ -70,6 +70,7 @@ type Documents = {
     "\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.MarkListingAsSoldDocument,
     "\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": typeof types.RenewListingDocument,
     "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n": typeof types.RemoveListingAppDocument,
+    "\n  \n  mutation UpdateListingApp($input: UpdateListingInput!) {\n    updateListing(input: $input) {\n      ...ListingFields\n    }\n  }\n": typeof types.UpdateListingAppDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": typeof types.SaveMobileTokenDocument,
     "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": typeof types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": typeof types.MarkNotificationAsReadDocument,
@@ -174,6 +175,7 @@ const documents: Documents = {
     "\n  \n  mutation MarkListingAsSold($listingId: String!) {\n    markListingAsSold(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.MarkListingAsSoldDocument,
     "\n  \n  mutation RenewListing($listingId: String!) {\n    renewListing(listingId: $listingId) {\n      ...ListingFields\n    }\n  }\n": types.RenewListingDocument,
     "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n": types.RemoveListingAppDocument,
+    "\n  \n  mutation UpdateListingApp($input: UpdateListingInput!) {\n    updateListing(input: $input) {\n      ...ListingFields\n    }\n  }\n": types.UpdateListingAppDocument,
     "\n  mutation SaveMobileToken($input: SaveMobileTokenInput!) {\n    saveMobileToken(input: $input) {\n      success\n    }\n  }\n": types.SaveMobileTokenDocument,
     "\n  mutation DeactivateMobileToken($deviceToken: String!) {\n    deactivateMobileToken(deviceToken: $deviceToken) {\n      success\n    }\n  }\n": types.DeactivateMobileTokenDocument,
     "\n  mutation MarkNotificationAsRead($notificationId: String!) {\n    markNotificationAsRead(notificationId: $notificationId) {\n      id\n      isRead\n      readAt\n    }\n  }\n": types.MarkNotificationAsReadDocument,
@@ -460,6 +462,10 @@ export function graphql(source: "\n  \n  mutation RenewListing($listingId: Strin
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n"): (typeof documents)["\n  mutation RemoveListingApp($listingId: String!, $reason: String) {\n    removeListing(listingId: $listingId, reason: $reason)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  \n  mutation UpdateListingApp($input: UpdateListingInput!) {\n    updateListing(input: $input) {\n      ...ListingFields\n    }\n  }\n"): (typeof documents)["\n  \n  mutation UpdateListingApp($input: UpdateListingInput!) {\n    updateListing(input: $input) {\n      ...ListingFields\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
