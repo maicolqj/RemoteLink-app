@@ -1,11 +1,5 @@
 // ─── Globals disponibles en RN 0.74+ pero ausentes en los tipos TS base ─────
 declare function atob(data: string): string;
-declare class TextEncoder { encode(input?: string): Uint8Array; }
-declare const crypto: {
-  subtle: {
-    digest(algorithm: string, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
-  };
-};
 
 // ─── Apollo Client v4: habilita errorPolicy:'all' de forma type-safe ─────────
 declare module '@apollo/client' {
@@ -44,8 +38,8 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createPersistedQueryLink } from '@apollo/client/link/persisted-queries';
-import { print } from 'graphql';
-import type { OperationDefinitionNode } from 'graphql';
+import { parse } from 'graphql';
+import type { DocumentNode, OperationDefinitionNode } from 'graphql';
 import SecureStorageService from '../../../infraestructure/services/SecureStorageService';
 import { tokenRefreshService } from '../../../infraestructure/services/TokenRefreshService';
 import { getDeviceId } from '../../../infraestructure/services/DeviceIdService';
@@ -130,23 +124,28 @@ const handleForceLogout = async () => {
 
 // ==================== PERSISTED QUERIES ====================
 
+const findOperation = (document: DocumentNode) => document.definitions.find(
+  (def): def is OperationDefinitionNode => def.kind === 'OperationDefinition',
+);
+
+// Se parsea cada documento en vez de leer su primera palabra: los que usan
+// fragmentos empiezan por `fragment …`, y con una regex anclada al inicio esas
+// operaciones quedaban fuera del mapa.
 const opNameToHash: Record<string, string> = Object.entries(
   persistedDocuments as Record<string, string>,
 ).reduce((acc, [hash, query]) => {
-  const match = query.match(/^\s*(query|mutation|subscription)\s+(\w+)/);
-  if (match) acc[match[2]] = hash;
+  const opName = findOperation(parse(query))?.name?.value;
+  if (opName) acc[opName] = hash;
   return acc;
 }, {} as Record<string, string>);
 
-const generateHash = async (document: import('graphql').DocumentNode): Promise<string> => {
-  const opDef = document.definitions.find(
-    (def): def is OperationDefinitionNode => def.kind === 'OperationDefinition',
-  );
-  const opName = opDef?.name?.value;
+// Producción solo acepta hashes del manifiesto (trusted documents), así que un
+// hash calculado aquí sería rechazado igual. Además Hermes no trae
+// crypto.subtle: el cálculo fallaba con "Property 'crypto' doesn't exist".
+const generateHash = async (document: DocumentNode): Promise<string> => {
+  const opName = findOperation(document)?.name?.value;
   if (opName && opNameToHash[opName]) return opNameToHash[opName];
-  const query  = print(document);
-  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(query));
-  return Array.from(new Uint8Array(buffer)).map((b: number) => b.toString(16).padStart(2, '0')).join('');
+  throw new Error(`La operación ${opName ?? 'anónima'} no está en persisted-documents.json. Corre npm run codegen.`);
 };
 
 const persistedQueryLink = createPersistedQueryLink({ generateHash });
