@@ -54,7 +54,8 @@ export type HomeStackParamList = {
   Marketplace: undefined;
   ListingDetail: { listingId: string };
   MyListings: undefined;
-  ListingForm: undefined;
+  /** Sin id publica; con id corrige un aviso propio que todavía se puede editar. */
+  ListingForm: { listingId?: string } | undefined;
 };
 
 export type FinancesStackParamList = {

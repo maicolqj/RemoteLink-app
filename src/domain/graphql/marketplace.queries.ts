@@ -189,3 +189,19 @@ export const REMOVE_LISTING = gql`
     removeListing(listingId: $listingId, reason: $reason)
   }
 `;
+
+/**
+ * Corregir un aviso propio.
+ *
+ * Las fotos nuevas no viajan por aquí —van por REST, como al publicar—: en
+ * `imageUrls` solo se manda la lista que debe quedar de lo que ya está subido,
+ * y el servidor rechaza cualquier enlace que no venga de él.
+ */
+export const UPDATE_LISTING = gql`
+  ${LISTING_FIELDS}
+  mutation UpdateListingApp($input: UpdateListingInput!) {
+    updateListing(input: $input) {
+      ...ListingFields
+    }
+  }
+`;
