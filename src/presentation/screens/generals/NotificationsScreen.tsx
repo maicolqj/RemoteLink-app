@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,24 +10,12 @@ import { useTheme } from '../../providers/context/ThemeContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useNotificationsStore, type Notification } from '../../store/notifications.store';
-import { useAuthStore } from '../../store/auth.store';
-import { fetchNotificationDetail } from '../../../infraestructure/services/notifications.service';
-import type { NotificationEntityType } from '../../../domain/responses/NotificationResponseModel';
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
-import { SCREEN_MODULE, moduleLabel } from '../../constants/modules';
+import { useOpenNotification } from '../../hooks/useOpenNotification';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'Notifications'>;
-
-// The store id can fall back to the FCM messageId (e.g. "0:1781…%b2b9…") when the
-// payload omits the real notificationId. The backend expects a UUID, so guard the
-// `notificationDetail` call to avoid a Postgres "invalid input syntax for uuid".
-const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
-// Finance notifications carry no entityType — they're identified by their type
-// (PAYMENT_*, CHARGE_*, WALLET_*, MORA_*) and route to the account statement.
-const FINANCE_TYPE_RE = /(PAYMENT|CHARGE|WALLET|MORA)/i;
 
 function NotificationItem({ item, onPress, onDelete, busy }: { item: Notification; onPress: (item: Notification) => void; onDelete: (item: Notification) => void; busy: boolean }) {
   const { colors } = useTheme();
@@ -88,14 +76,14 @@ export default function NotificationsScreen() {
   const navigation = useNavigation<NavProp>();
   const { colors } = useTheme();
   const gs = useGlobalStyles();
-  const { showError, showInfo, showAlert, hideAlert } = useAlert();
+  const { showError, showAlert, hideAlert } = useAlert();
   const {
-    notifications, markAsRead, markAllAsRead, unreadCount, removeNotification,
+    notifications, markAllAsRead, unreadCount, removeNotification,
     removeAllNotifications, isDeletingAll, fetchMoreNotifications, isLoadingMore, hasMore,
   } = useNotificationsStore();
 
-  // id of the notification currently being resolved (shows a spinner on its row)
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  // A dónde lleva cada aviso lo decide el hook compartido con el inicio.
+  const { openNotification: handlePress, resolvingId } = useOpenNotification();
 
   // Tap the trash icon (or long-press the row) to confirm + soft-delete it.
   const handleDelete = useCallback((item: Notification) => {
@@ -131,140 +119,6 @@ export default function NotificationsScreen() {
       ],
     });
   }, [showAlert, hideAlert, removeAllNotifications, isDeletingAll, showError]);
-
-  /**
-   * Navega solo si el conjunto tiene encendido el módulo de esa pantalla.
-   *
-   * Un aviso viejo sobrevive al apagado del módulo: queda en la bandeja y en la
-   * bandeja del sistema. Tocarlo llevaría a una pantalla que el servidor va a
-   * rechazar, así que acá se corta el paso y se dice por qué —desaparecer el
-   * aviso sería peor: el residente recuerda haberlo recibido—.
-   */
-  const go = useCallback((screen: keyof HomeStackParamList, params?: object) => {
-    const module = SCREEN_MODULE[screen as string];
-    if (module && !useAuthStore.getState().isModuleEnabled(module)) {
-      showInfo(
-        `La administración desactivó ${moduleLabel(module)} en tu conjunto, así que este aviso ya no tiene a dónde llevarte.`,
-        'Módulo no disponible',
-      );
-      return;
-    }
-    (navigation.navigate as (s: string, p?: object) => void)(screen as string, params);
-  }, [navigation, showInfo]);
-
-  // Route to the entity screen the notification points at. Visits, packages and
-  // finances have screens today; anything else just surfaces its content.
-  const openEntity = useCallback((args: {
-    entityType?: NotificationEntityType;
-    entityId?: string;
-    type?: string;
-    item: Notification;
-  }) => {
-    const { entityType, entityId, type, item } = args;
-
-    if (entityType === 'visit' && entityId) {
-      go('VisitDetail', { visitId: entityId });
-      return;
-    }
-    // El backend etiqueta las notificaciones de zonas comunes con este
-    // entityType; sin esta rama, tocar el aviso de una reserva no lleva a nada.
-    if (entityType === 'amenityBooking' && entityId) {
-      go('AmenityBookingDetail', { bookingId: entityId });
-      return;
-    }
-    // El aviso de votación abierta lleva directo a la pregunta.
-    if (entityType === 'voting') {
-      if (entityId) go('VotingQuestion', { questionId: entityId });
-      else go('Voting');
-      return;
-    }
-    // Los radicados no tienen ficha propia todavía —la respuesta llega en la
-    // siguiente entrega—, así que el aviso abre la bandeja.
-    if (entityType === 'pqrf') {
-      if (entityId) go('PqrfDetail', { pqrfId: entityId });
-      else go('Pqrf');
-      return;
-    }
-    // Reporte de convivencia: el aviso abre el caso, con su evidencia y el
-    // plazo de descargos. Sin esta rama caía en el cajón de finanzas, porque
-    // el reporte lleva `unitId` en metadata como casi todos los módulos.
-    if (
-      (entityType === 'maintenance_ticket' || entityType === 'maintenanceTicket') &&
-      entityId
-    ) {
-      go('MaintenanceDetail', { ticketId: entityId });
-      return;
-    }
-
-    if ((entityType === 'pet_incident' || entityType === 'petIncident') && entityId) {
-      go('PetIncidentDetail', { incidentId: entityId });
-      return;
-    }
-    if (entityType === 'pet') {
-      if (entityId) go('PetDetail', { petId: entityId });
-      else go('Pets');
-      return;
-    }
-    if (entityType === 'package' && entityId) {
-      go('PackageDetail', { packageId: entityId });
-      return;
-    }
-    if (entityType === 'vehicle' && entityId) {
-      go('VehicleDetail', { vehicleId: entityId });
-      return;
-    }
-    if (entityType === 'ACCESS_REQUEST' && entityId) {
-      go('AccessRequestDetail', { accessRequestId: entityId });
-      return;
-    }
-    // Finance has no entityType — detect by its type token. The Finances screen
-    // self-loads the resident's account statement.
-    //
-    // Antes bastaba con que `metadata` trajera un `unitId` para mandar el aviso
-    // a finanzas, y eso es justo lo que ponen en metadata mascotas, visitas,
-    // vehículos y paquetes: un reporte de convivencia terminaba abriendo el
-    // estado de cuenta. Un aviso que YA dice a qué entidad apunta nunca es de
-    // finanzas, así que este cajón solo recoge lo que no la trae.
-    const isFinance = !entityType && !!type && FINANCE_TYPE_RE.test(type);
-    if (isFinance) {
-      go('Finances');
-      return;
-    }
-    showInfo(item.body || 'Sin contenido adicional.', item.title);
-  }, [go, showInfo]);
-
-  const handlePress = useCallback(async (item: Notification) => {
-    if (resolvingId) return;
-    markAsRead(item.id);
-
-    // The FCM payload sometimes already carries the entity reference; use it to
-    // skip the round-trip, otherwise resolve the full detail from the backend.
-    let entityType = item.data?.entityType as NotificationEntityType | undefined;
-    let entityId = item.data?.entityId;
-    let type = item.data?.type;
-    const complexId = useAuthStore.getState().resident?.complex?.id;
-
-    // Prefer the explicit notificationId from the payload; only fall back to the
-    // store id when it's a real UUID (not an FCM messageId).
-    const notificationId = item.data?.notificationId ?? (UUID_RE.test(item.id) ? item.id : undefined);
-
-    if ((!entityType || !entityId) && complexId && notificationId && UUID_RE.test(notificationId)) {
-      setResolvingId(item.id);
-      try {
-        const detail = await fetchNotificationDetail(notificationId, complexId);
-        entityType = (detail?.entityType ?? entityType) as NotificationEntityType | undefined;
-        entityId = detail?.entityId ?? entityId ?? undefined;
-        type = detail?.type ?? type;
-      } catch {
-        setResolvingId(null);
-        showError('No se pudo abrir la notificación.');
-        return;
-      }
-      setResolvingId(null);
-    }
-
-    openEntity({ entityType, entityId, type, item });
-  }, [resolvingId, markAsRead, openEntity, showError]);
 
   const headerActions = [
     ...(unreadCount > 0
