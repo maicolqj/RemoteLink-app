@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
 import { useAuthStore, moduleEnabledIn } from '../../store/auth.store';
 import { useNotificationsStore } from '../../store/notifications.store';
+import { useOpenNotification } from '../../hooks/useOpenNotification';
 import { useVisitsStore } from '../../store/visits.store';
 import { usePackagesStore } from '../../store/packages.store';
 import { useFinancesStore } from '../../store/finances.store';
@@ -93,6 +94,8 @@ export default function HomeScreen() {
   const packagesEnabled = moduleEnabledIn(enabledModules, 'PAQUETES');
   const financesEnabled = moduleEnabledIn(enabledModules, 'FINANZAS');
   const { notifications, unreadCount, fetchNotifications } = useNotificationsStore();
+  // Tocar un aviso reciente abre su evento, igual que en la bandeja.
+  const { openNotification, resolvingId } = useOpenNotification();
   const { visits, fetchVisits } = useVisitsStore();
   const { packages, fetchPackages } = usePackagesStore();
   const balanceData = useFinancesStore(s => s.balance);
@@ -431,8 +434,11 @@ export default function HomeScreen() {
             <SectionHeader title="Últimas notificaciones" actionLabel="Ver todas" onAction={() => navigation.navigate('Notifications')} />
             <View style={styles.sectionContent}>
               {recentNotifications.map(notif => (
-                <Card key={notif.id} style={styles.notifCard}>
-                  <View style={gs.row}>
+                <Card
+                  key={notif.id}
+                  style={styles.notifCard}
+                  onPress={resolvingId ? undefined : () => openNotification(notif)}>
+                  <View style={gs.row} accessibilityRole="button" accessibilityLabel={`Abrir: ${notif.title}`}>
                     <View style={[styles.notifDot, { backgroundColor: notif.isRead ? colors.border : colors.primary }]} />
                     <View style={gs.flex1}>
                       <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary} style={{ marginBottom: 2 }}>
@@ -442,6 +448,11 @@ export default function HomeScreen() {
                         {notif.body}
                       </CustomTextComponent>
                     </View>
+                    {resolvingId === notif.id ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.notifChevron} />
+                    ) : (
+                      <Icon name="chevron-right" size={20} color={colors.textTertiary} style={styles.notifChevron} />
+                    )}
                   </View>
                 </Card>
               ))}
@@ -568,6 +579,9 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginRight: SPACING.sm,
+  },
+  notifChevron: {
+    marginLeft: SPACING.sm,
   },
   emptyCard: {
     paddingVertical: SPACING.xl,

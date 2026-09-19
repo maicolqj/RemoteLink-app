@@ -1,6 +1,6 @@
 {
   "name": "remotelink",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "scripts": {
     "android": "cross-env NODE_ENV=development react-native run-android",
