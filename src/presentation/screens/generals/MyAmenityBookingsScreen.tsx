@@ -74,6 +74,15 @@ function BookingCard({ booking, onPress }: { booking: AmenityBooking; onPress: (
             Cobro por daños registrado
           </CustomTextComponent>
         )}
+
+        {/* Aprobada pero sin código: falta pagar. Sin esta línea la tarjeta se
+            ve igual que una lista para usar, y el residente se entera en
+            portería. */}
+        {String(booking.status) === 'APPROVED' && !booking.accessCode && (
+          <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.warning} numberOfLines={1} style={{ marginTop: 2 }}>
+            Falta pagar para recibir el código
+          </CustomTextComponent>
+        )}
       </View>
 
       <View style={styles.cardRight}>

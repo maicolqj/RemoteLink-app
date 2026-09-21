@@ -97,6 +97,7 @@ export async function createBooking(input: {
   purpose?: string;
   notes?: string;
   useCouncilFreeQuota?: boolean;
+  cleaningByComplex?: boolean;
 }): Promise<AmenityBooking> {
   const { data, error } = await apolloClient.mutate<{ createAmenityBooking: AmenityBooking }>({
     mutation: CREATE_AMENITY_BOOKING,

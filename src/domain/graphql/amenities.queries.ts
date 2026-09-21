@@ -37,6 +37,10 @@ export const GET_AMENITIES = gql`
         lateCancellationFeePercent
         councilFreeBookingsPerYear
         requiresApproval
+        cleaningServiceAvailable
+        defaultCleaningMinutes
+        cleaningFeeAmount
+        councilQuotaCoversCleaning
         feeType
         feeAmount
         complexId
@@ -85,6 +89,7 @@ export const GET_AMENITY_AVAILABILITY = gql`
         busy {
           startAt
           endAt
+          cleaningFromAt
           bookingsCount
         }
       }
@@ -115,6 +120,15 @@ export const GET_MY_UNIT_AMENITY_BOOKINGS = gql`
         checkOutAt
         feeAmount
         isCouncilFreeBooking
+        cleaningMinutes
+        blockedUntilAt
+        cleaningByComplex
+        cleaningFeeAmount
+        directIncomeId
+        directPaymentAmount
+        refundAmount
+      refundedAt
+        refundedAt
         lateCancellationAmount
         damageAmount
         damageDescription
@@ -128,6 +142,8 @@ export const GET_MY_UNIT_AMENITY_BOOKINGS = gql`
           cancellationDeadlineHours
           lateCancellationFeePercent
           councilFreeBookingsPerYear
+          cleaningServiceAvailable
+          cleaningFeeAmount
         }
       }
       pagination {
@@ -163,6 +179,14 @@ export const GET_AMENITY_BOOKING = gql`
       checkOutAt
       feeAmount
       isCouncilFreeBooking
+      cleaningMinutes
+      blockedUntilAt
+      cleaningByComplex
+      cleaningFeeAmount
+      directIncomeId
+      directPaymentAmount
+      refundAmount
+      refundedAt
       lateCancellationAmount
       damageAmount
       damageDescription
@@ -176,6 +200,8 @@ export const GET_AMENITY_BOOKING = gql`
         cancellationDeadlineHours
         lateCancellationFeePercent
         councilFreeBookingsPerYear
+        cleaningServiceAvailable
+        cleaningFeeAmount
       }
     }
   }
@@ -211,6 +237,14 @@ export const CREATE_AMENITY_BOOKING = gql`
       accessCode
       feeAmount
       isCouncilFreeBooking
+      cleaningMinutes
+      blockedUntilAt
+      cleaningByComplex
+      cleaningFeeAmount
+      directIncomeId
+      directPaymentAmount
+      refundAmount
+      refundedAt
       createdAt
       amenity {
         id
@@ -221,6 +255,8 @@ export const CREATE_AMENITY_BOOKING = gql`
         cancellationDeadlineHours
         lateCancellationFeePercent
         councilFreeBookingsPerYear
+        cleaningServiceAvailable
+        cleaningFeeAmount
       }
     }
   }

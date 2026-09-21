@@ -19,16 +19,35 @@ import type { HomeStackParamList } from '../../navigation/types/NavigationTypes'
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
-  AMENITY_TYPE_LABEL, bookingWhenLabel, cancellationPolicyLabel, freeSegments,
-  localDateKey, mergeWindows, minutesBetween, momentLabel, priceLabel, stepLabel,
-  summarizeClosedReason, timeOf, windowSteps,
+  AMENITY_TYPE_LABEL, bookingWhenLabel, busyLabel, cancellationPolicyLabel,
+  formatMoney, freeSegments, localDateKey, mergeWindows, minutesBetween,
+  minutesLabel, momentLabel, priceLabel, stepLabel, summarizeClosedReason,
+  timeOf, whenLabel, windowSteps,
 } from './amenities.shared';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'AmenityDetail'>;
 type ScreenRoute = RouteProp<HomeStackParamList, 'AmenityDetail'>;
 
-/** Cuántos días adelante se consulta de una vez. El backend tope es 62. */
-const WINDOW_DAYS = 62;
+/**
+ * Cuántos días adelante se consulta de una vez.
+ *
+ * El backend rechaza rangos de más de 62 días CONTANDO los dos extremos, así
+ * que el salto máximo desde hoy es 61: pedir 62 hacía fallar la consulta entera
+ * y el selector quedaba vacío sin explicación en las zonas con mucha
+ * anticipación.
+ */
+const WINDOW_DAYS = 61;
+
+/**
+ * Días que se piden DE MÁS, después del último reservable.
+ *
+ * Una reserva por horas dura como mucho 24 h, así que la que empieza el último
+ * día reservable termina al día siguiente —un día que ya no se puede elegir
+ * como inicio, pero cuyo horario es el que deja continuar la reserva pasada la
+ * medianoche. Sin esos días el periodo continuo se corta a las 12 de la noche
+ * y la duración máxima de la zona se vuelve inalcanzable.
+ */
+const CONTINUATION_DAYS = 2;
 
 const WEEKDAY_SHORT = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 
@@ -63,6 +82,8 @@ export default function AmenityDetailScreen() {
   // una consulta por zona y por persona.
   const [councilQuota, setCouncilQuota] = useState<AmenityCouncilQuota | null>(null);
   const [useCouncilQuota, setUseCouncilQuota] = useState(true);
+  // Nace apagado: pedir el servicio cuesta plata, y eso no se le asume a nadie.
+  const [cleaningByComplex, setCleaningByComplex] = useState(false);
   const [purpose, setPurpose] = useState('');
 
   const isByDays = String(amenity?.durationUnit) === 'DAYS';
@@ -71,9 +92,13 @@ export default function AmenityDetailScreen() {
     if (!amenity) return;
     const today = new Date();
     const until = new Date(today);
-    // No pedir más allá de la anticipación de la zona: días que el backend ya
-    // reporta fuera de ventana solo ensucian el selector.
-    until.setDate(until.getDate() + Math.min(WINDOW_DAYS, amenity.advanceBookingDays));
+    // Hasta la anticipación de la zona más los días de continuación: el
+    // calendario no los ofrece —llegan marcados fuera de ventana— pero sin su
+    // horario la última noche reservable no se puede cruzar.
+    until.setDate(
+      until.getDate() +
+        Math.min(WINDOW_DAYS, amenity.advanceBookingDays + CONTINUATION_DAYS),
+    );
     fetchAvailability(amenity.id, localDateKey(today), localDateKey(until));
   }, [amenity, fetchAvailability]);
 
@@ -208,6 +233,22 @@ export default function AmenityDetailScreen() {
     ? { startAt: rangeStart, endAt: rangeEnd }
     : { startAt: selectedSlot?.startAt ?? null, endAt: selectedSlot?.endAt ?? null };
 
+  /**
+   * Si la zona ofrece que el conjunto asee. La franja de aseo, en cambio, la
+   * fija la administración en cada reserva: acá solo se anticipa la sugerida,
+   * para que el residente sepa que la zona queda apartada un rato más.
+   */
+  const offersCleaning = !!amenity?.cleaningServiceAvailable;
+  const suggestedCleaning = amenity?.defaultCleaningMinutes ?? 0;
+
+  /**
+   * El cupo del consejo cubre el alquiler siempre; el aseo solo si la zona lo
+   * dice. Hay que resolverlo acá para no prometerle "sin costo" a un consejero
+   * al que el backend sí le va a cobrar el servicio.
+   */
+  const cleaningCoveredByQuota =
+    canUseCouncilQuota && useCouncilQuota && !!amenity?.councilQuotaCoversCleaning;
+
   const handleBook = async () => {
     if (!amenity) return;
 
@@ -229,6 +270,7 @@ export default function AmenityDetailScreen() {
         attendees: people,
         purpose: purpose.trim() || undefined,
         useCouncilFreeQuota: canUseCouncilQuota && useCouncilQuota,
+        cleaningByComplex: offersCleaning && cleaningByComplex,
       });
       navigation.replace('AmenityBookingDetail', { bookingId: booking.id });
     } catch (e: any) {
@@ -276,6 +318,25 @@ export default function AmenityDetailScreen() {
               <Fact icon="schedule" text={`Reserva con ${amenity.minAdvanceDays} día(s) de anticipación`} />
             )}
             {!!cancellationNote && <Fact icon="event-busy" text={cancellationNote} />}
+            {/* Que el conjunto pueda asear es una razón para reservar acá y no
+                en otra zona: va en la ficha, no escondido al final del
+                formulario. La decisión se toma abajo, junto al resto. */}
+            {offersCleaning && (
+              <Fact
+                icon="cleaning-services"
+                text={
+                  amenity.cleaningFeeAmount > 0
+                    ? `La administración puede encargarse del aseo por ${formatMoney(amenity.cleaningFeeAmount)}`
+                    : 'La administración puede encargarse del aseo, sin costo'
+                }
+              />
+            )}
+            {suggestedCleaning > 0 && (
+              <Fact
+                icon="schedule"
+                text={`La zona queda apartada cerca de ${minutesLabel(suggestedCleaning)} después de cada reserva para el aseo`}
+              />
+            )}
             {amenity.councilFreeBookingsPerYear > 0 && (
               <Fact
                 icon="volunteer-activism"
@@ -343,6 +404,7 @@ export default function AmenityDetailScreen() {
                 startWindows={currentDay?.openWindows ?? []}
                 spanWindows={rangeSpan.windows}
                 busy={rangeSpan.busy}
+                dayKey={currentDay?.date ?? null}
                 capacity={amenity.maxSimultaneousBookings}
                 unitMinutes={isByDays ? 24 * 60 : 60}
                 minMinutes={amenity.minDurationMinutes}
@@ -358,6 +420,18 @@ export default function AmenityDetailScreen() {
                 const label = isByDays ? 'Día completo' : `${timeOf(slot.startAt)} – ${timeOf(slot.endAt)}`;
                 const left = slot.capacityTotal - slot.capacityUsed;
 
+                // Una franja se cae por dos motivos distintos: otra unidad ya la
+                // tomó, o todavía no cumple la anticipación de la zona. Pintarlas
+                // iguales en gris deja al residente sin saber cuál de las dos es
+                // —y la que importa, la que ya está reservada, es la que hay que
+                // ver sin tener que tocarla.
+                const isTaken = slot.capacityUsed >= slot.capacityTotal;
+                const note = isTaken
+                  ? (slot.capacityTotal > 1 ? 'Sin cupo' : 'Ya reservada')
+                  : slot.capacityTotal > 1
+                    ? `${left} disponible(s)`
+                    : slot.isAvailable ? null : 'No disponible aún';
+
                 return (
                   <TouchableOpacity
                     key={slot.startAt}
@@ -365,22 +439,32 @@ export default function AmenityDetailScreen() {
                     style={[
                       styles.slot,
                       {
-                        backgroundColor: isActive ? colors.primary : colors.surface,
-                        opacity: slot.isAvailable ? 1 : 0.4,
+                        backgroundColor: isActive
+                          ? colors.primary
+                          : isTaken ? colors.errorLight : colors.surface,
+                        // Lo reservado se muestra a plena tinta: atenuarlo lo
+                        // esconde justo cuando es la información más útil.
+                        opacity: slot.isAvailable || isTaken ? 1 : 0.4,
                       },
                     ]}
                     onPress={() => setSelectedSlot(slot)}>
                     <CustomTextComponent
                       fontSize={FONT_SIZE.sm}
                       fontWeight={FONT_WEIGHT.medium as any}
-                      color={isActive ? colors.textInverse : colors.textPrimary}>
+                      color={
+                        isActive ? colors.textInverse
+                          : isTaken ? colors.error : colors.textPrimary
+                      }>
                       {label}
                     </CustomTextComponent>
-                    {slot.capacityTotal > 1 && (
+                    {!!note && (
                       <CustomTextComponent
                         fontSize={11}
-                        color={isActive ? colors.textInverse : colors.textSecondary}>
-                        {slot.isAvailable ? `${left} disponible(s)` : 'Sin cupo'}
+                        color={
+                          isActive ? colors.textInverse
+                            : isTaken ? colors.error : colors.textSecondary
+                        }>
+                        {note}
                       </CustomTextComponent>
                     )}
                   </TouchableOpacity>
@@ -434,6 +518,49 @@ export default function AmenityDetailScreen() {
                     />
                   </View>
                 )}
+
+                {/* El aseo no es un detalle de letra pequeña: decide si le
+                    llega un cargo más y cuánto tiempo queda tomada la zona
+                    después de que él salga. */}
+                {offersCleaning && (
+                  <View style={[styles.notice, { backgroundColor: colors.primarySurface }]}>
+                    <Icon name="cleaning-services" size={16} color={colors.primary} />
+                    <View style={gs.flex1}>
+                      <CustomTextComponent
+                        fontSize={FONT_SIZE.sm}
+                        fontWeight={FONT_WEIGHT.medium as any}
+                        color={colors.textPrimary}>
+                        Que el aseo lo haga la administración
+                      </CustomTextComponent>
+                      <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary}>
+                        {!cleaningByComplex
+                          ? 'Tu unidad entrega la zona aseada.'
+                          : cleaningCoveredByQuota
+                            ? 'Sin costo: tu cupo del consejo cubre también el aseo.'
+                            : amenity.cleaningFeeAmount > 0
+                              ? `Se cargarán ${formatMoney(amenity.cleaningFeeAmount)} aparte de la tarifa.`
+                              : 'Sin costo adicional.'}
+                      </CustomTextComponent>
+                    </View>
+                    <Switch
+                      value={cleaningByComplex}
+                      onValueChange={setCleaningByComplex}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#fff"
+                    />
+                  </View>
+                )}
+
+                {/* La zona no queda libre apenas sales: si se aparta tiempo
+                    para recogerla, hay que decirlo antes, no después. */}
+                {/* {suggestedCleaning > 0 && (
+                  <View style={[styles.notice, { backgroundColor: colors.primarySurface }]}>
+                    <Icon name="schedule" size={16} color={colors.primary} />
+                    <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={gs.flex1}>
+                      {`Después de tu reserva la zona queda apartada cerca de ${minutesLabel(suggestedCleaning)} para el aseo. Ese tiempo no se te cobra, y la administración puede ajustarlo.`}
+                    </CustomTextComponent>
+                  </View>
+                )} */}
 
                 {amenity.capacity > 0 && (
 
@@ -578,8 +705,8 @@ function MonthCalendar({
       {/* Sin leyenda, el color rojo se lee como error y no como "ya reservado". */}
       <View style={styles.calLegend}>
         <Legend color={colors.primarySurface} label="Disponible" />
-        <Legend color={colors.warning} label="Queda poco" dot />
-        <Legend color={colors.errorLight} label="Ya reservado" />
+        <Legend color={colors.warning} label="Con horas reservadas" dot />
+        <Legend color={colors.errorLight} label="Sin cupo" />
       </View>
     </View>
   );
@@ -623,12 +750,14 @@ function durationLabel(minutes: number, unitMinutes: number): string {
  * no cierra en la medianoche.
  */
 function RangePicker({
-  startWindows, spanWindows, busy, capacity, unitMinutes,
+  startWindows, spanWindows, busy, dayKey, capacity, unitMinutes,
   minMinutes, maxMinutes, startAt, endAt, onChange,
 }: {
   startWindows: { startAt: string; endAt: string }[];
   spanWindows: { startAt: string; endAt: string }[];
   busy: AmenityBusyRange[];
+  /** Fecha elegida (YYYY-MM-DD): lo ocupado de OTRO día se anuncia con su fecha. */
+  dayKey: string | null;
   capacity: number;
   /** Escalón de las duraciones: 60 en las zonas por horas, un día en las de jornada. */
   unitMinutes: number;
@@ -641,21 +770,39 @@ function RangePicker({
   const { colors } = useTheme();
   const gs = useGlobalStyles();
 
-  // Solo estorban los tramos que ya agotaron el cupo: con cuatro asadores, la
-  // reserva de otro residente no tapa el de uno.
-  const taken = busy.filter(b => b.bookingsCount >= capacity);
-
   // Todo se compara en milisegundos: las horas de la rejilla se arman en el
   // teléfono y las ocupadas vienen del servidor, y comparar esos dos textos
   // depende de que ambos escriban el ISO igual.
   const ms = (iso: string) => new Date(iso).getTime();
 
+  // Solo estorban los tramos que ya agotaron el cupo: con cuatro asadores, la
+  // reserva de otro residente no tapa el de uno.
+  const taken = busy.filter(b => b.bookingsCount >= capacity);
+
+  // Lo que el residente ve listado: todo lo ocupado que puede ALCANZAR desde
+  // este día, no solo lo de hoy.
+  //
+  // Una reserva de 24 h que arranca a las 4 p. m. termina a las 4 p. m. de
+  // MAÑANA, así que la reserva ajena que la recorta casi siempre es la del día
+  // siguiente. Listar solo las de hoy dejaba el tope sin explicación visible.
+  const horizonStart = startWindows.length ? ms(startWindows[0].startAt) : 0;
+  const horizonEnd = startWindows.length
+    ? ms(startWindows[startWindows.length - 1].endAt) + maxMinutes * 60000
+    : 0;
+
+  const visibleTaken = taken
+    .filter(b => ms(b.endAt) > horizonStart && ms(b.startAt) < horizonEnd)
+    .sort((a, b) => ms(a.startAt) - ms(b.startAt));
+
   const isFree = (iso: string) => !taken.some(b => ms(iso) >= ms(b.startAt) && ms(iso) < ms(b.endAt));
 
+  // Las horas ocupadas se QUEDAN en la rejilla, apagadas. Sacarlas la deja con
+  // huecos mudos: el residente no distingue "a esa hora la zona no abre" de "a
+  // esa hora ya está tomada", y la segunda es justo la que tiene que ver.
   const startOptions = startWindows
     // El último instante de la ventana no sirve como inicio: no cabría nada.
     .flatMap(w => windowSteps(w.startAt, w.endAt).slice(0, -1))
-    .filter(isFree);
+    .map(at => ({ at, free: isFree(at) }));
 
   // El fin se mide sobre el periodo continuo, no sobre el día: ahí es donde la
   // reserva puede seguir hasta la tarde del domingo.
@@ -708,6 +855,24 @@ function RangePicker({
     durationOptions.push(availableMinutes);
   }
 
+  /**
+   * Por qué no se ofrece la duración máxima de la zona.
+   *
+   * Sin esto, una zona configurada para 24 h que solo ofrece dos se lee como un
+   * error del sistema. Casi siempre hay una razón concreta —otra unidad reservó
+   * después, o la zona cierra— y el residente tiene derecho a verla.
+   */
+  const capReason = (() => {
+    if (!startAt || !ceiling || availableMinutes >= maxMinutes) return null;
+    if (nextTaken && ms(ceiling) === ms(nextTaken)) {
+      return `Hasta ${whenLabel(nextTaken, startAt)}: a esa hora empieza otra reserva.`;
+    }
+    if (span && ms(ceiling) === ms(span.endAt)) {
+      return `Hasta ${whenLabel(span.endAt, startAt)}: a esa hora cierra la zona.`;
+    }
+    return null;
+  })();
+
   const endOf = (minutes: number): string =>
     new Date(ms(startAt as string) + minutes * 60000).toISOString();
 
@@ -715,35 +880,83 @@ function RangePicker({
 
   return (
     <View style={{ gap: SPACING.sm }}>
+      {/* Lo que otra unidad ya tomó, antes de la rejilla: es lo primero que hay
+          que saber para entender qué horas faltan y hasta cuándo se puede. */}
+      {visibleTaken.length > 0 && (
+        <View style={[styles.notice, styles.noticeFlush, { backgroundColor: colors.errorLight }]}>
+          <Icon name="event-busy" size={16} color={colors.error} />
+          <View style={gs.flex1}>
+            <CustomTextComponent
+              fontSize={FONT_SIZE.sm}
+              fontWeight={FONT_WEIGHT.medium as any}
+              color={colors.error}>
+              {visibleTaken.length === 1 ? 'Franja ya reservada' : 'Franjas ya reservadas'}
+            </CustomTextComponent>
+            {visibleTaken.map(b => (
+              <CustomTextComponent
+                key={`${b.startAt}-${b.endAt}`}
+                fontSize={FONT_SIZE.sm}
+                color={colors.error}>
+                {busyLabel(b, dayKey)}
+              </CustomTextComponent>
+            ))}
+          </View>
+        </View>
+      )}
+
       <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary}>
         Desde
       </CustomTextComponent>
       <View style={styles.slotGrid}>
-        {startOptions.map(t => {
-          const isActive = t === startAt;
+        {startOptions.map(({ at, free }) => {
+          const isActive = at === startAt;
           return (
             <TouchableOpacity
-              key={t}
-              style={[styles.step, { backgroundColor: isActive ? colors.primary : colors.surface }]}
-              onPress={() => onChange(t, null)}>
+              key={at}
+              disabled={!free}
+              style={[
+                styles.step,
+                {
+                  backgroundColor: isActive
+                    ? colors.primary
+                    : free ? colors.surface : colors.errorLight,
+                },
+              ]}
+              onPress={() => onChange(at, null)}>
               <CustomTextComponent
                 fontSize={FONT_SIZE.sm}
-                color={isActive ? colors.textInverse : colors.textPrimary}>
-                {stepLabel(t, startWindows[0]?.startAt ?? t)}
+                color={
+                  isActive ? colors.textInverse
+                    : free ? colors.textPrimary : colors.error
+                }>
+                {stepLabel(at, startWindows[0]?.startAt ?? at)}
               </CustomTextComponent>
             </TouchableOpacity>
           );
         })}
       </View>
 
+      {visibleTaken.length > 0 && (
+        <CustomTextComponent fontSize={11} color={colors.textSecondary}>
+          Las horas en rojo ya están reservadas.
+        </CustomTextComponent>
+      )}
+
       {!!startAt && (
         <>
           <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary}>
             ¿Por cuánto tiempo?
           </CustomTextComponent>
+          {!!capReason && (
+            <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary}>
+              {capReason}
+            </CustomTextComponent>
+          )}
           {durationOptions.length === 0 ? (
             <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.error}>
-              No cabe una reserva desde esa hora. Elige un inicio más temprano.
+              {nextTaken
+                ? `No cabe una reserva desde esa hora: a ${whenLabel(nextTaken, startAt)} empieza otra reserva.`
+                : 'No cabe una reserva desde esa hora. Elige un inicio más temprano.'}
             </CustomTextComponent>
           ) : (
             <View style={styles.slotGrid}>
@@ -920,5 +1133,9 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     borderRadius: RADIUS.md,
     marginTop: SPACING.sm,
+  },
+  /** El aviso que abre una sección ya viene separado por el `gap` del contenedor. */
+  noticeFlush: {
+    marginTop: 0,
   },
 });

@@ -119,12 +119,20 @@ export type Amenity = {
   /** Se suman a cancellationDeadlineDays para formar el plazo real */
   cancellationDeadlineHours: Scalars['Int']['output'];
   capacity: Scalars['Int']['output'];
+  /** Costo del aseo por parte del conjunto. 0 = sin costo */
+  cleaningFeeAmount: Scalars['Float']['output'];
+  /** La administración ofrece el servicio de aseo en esta zona */
+  cleaningServiceAvailable: Scalars['Boolean']['output'];
   complex?: Maybe<ResidentialComplex>;
   complexId: Scalars['String']['output'];
   /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
   councilFreeBookingsPerYear: Scalars['Int']['output'];
+  /** El cupo del consejo cubre también el costo del aseo */
+  councilQuotaCoversCleaning: Scalars['Boolean']['output'];
   createdAt: Scalars['DateTime']['output'];
   createdByUserId?: Maybe<Scalars['String']['output']>;
+  /** Franja de aseo sugerida, en minutos. 0 = ninguna */
+  defaultCleaningMinutes: Scalars['Int']['output'];
   deletedAt?: Maybe<Scalars['DateTime']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   durationUnit: AmenityDurationUnit;
@@ -206,12 +214,22 @@ export type AmenityBooking = {
   approvedAt?: Maybe<Scalars['DateTime']['output']>;
   approvedByUserId?: Maybe<Scalars['String']['output']>;
   attendees: Scalars['Int']['output'];
+  /** Fin de la ocupación real: endAt más la franja de aseo */
+  blockedUntilAt: Scalars['DateTime']['output'];
   cancellationReason?: Maybe<Scalars['String']['output']>;
   cancelledAt?: Maybe<Scalars['DateTime']['output']>;
   cancelledByUserId?: Maybe<Scalars['String']['output']>;
   checkInAt?: Maybe<Scalars['DateTime']['output']>;
   checkOutAt?: Maybe<Scalars['DateTime']['output']>;
   checkedInByUserId?: Maybe<Scalars['String']['output']>;
+  /** El aseo lo hace el conjunto (se cobra) en vez de la unidad */
+  cleaningByComplex: Scalars['Boolean']['output'];
+  cleaningChargeId?: Maybe<Scalars['String']['output']>;
+  cleaningFeeAmount: Scalars['Float']['output'];
+  /** Franja de aseo tras la reserva, en minutos */
+  cleaningMinutes: Scalars['Int']['output'];
+  cleaningUpdatedAt?: Maybe<Scalars['DateTime']['output']>;
+  cleaningUpdatedByUserId?: Maybe<Scalars['String']['output']>;
   complex?: Maybe<ResidentialComplex>;
   complexId: Scalars['String']['output'];
   createdAt: Scalars['DateTime']['output'];
@@ -221,6 +239,10 @@ export type AmenityBooking = {
   damageChargedByUserId?: Maybe<Scalars['String']['output']>;
   damageDescription?: Maybe<Scalars['String']['output']>;
   deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  directIncomeId?: Maybe<Scalars['String']['output']>;
+  directPaymentAmount: Scalars['Float']['output'];
+  directPaymentAt?: Maybe<Scalars['DateTime']['output']>;
+  directPaymentByUserId?: Maybe<Scalars['String']['output']>;
   endAt: Scalars['DateTime']['output'];
   feeAmount: Scalars['Float']['output'];
   feeChargeId?: Maybe<Scalars['String']['output']>;
@@ -231,6 +253,9 @@ export type AmenityBooking = {
   lateCancellationChargeId?: Maybe<Scalars['String']['output']>;
   notes?: Maybe<Scalars['String']['output']>;
   purpose?: Maybe<Scalars['String']['output']>;
+  refundAmount: Scalars['Float']['output'];
+  refundVoucherId?: Maybe<Scalars['String']['output']>;
+  refundedAt?: Maybe<Scalars['DateTime']['output']>;
   rejectionReason?: Maybe<Scalars['String']['output']>;
   reminderSentAt?: Maybe<Scalars['DateTime']['output']>;
   requestedByName?: Maybe<Scalars['String']['output']>;
@@ -263,6 +288,7 @@ export type AmenityBookingStatus =
 export type AmenityBusyRange = {
   __typename?: 'AmenityBusyRange';
   bookingsCount: Scalars['Int']['output'];
+  cleaningFromAt?: Maybe<Scalars['DateTime']['output']>;
   endAt: Scalars['DateTime']['output'];
   startAt: Scalars['DateTime']['output'];
 };
@@ -472,6 +498,8 @@ export type AuditAction =
   | 'CREATE'
   /** Eliminación (soft o hard delete) */
   | 'DELETE'
+  /** Descarga de datos o reportes del complejo */
+  | 'EXPORT'
   /** Inicio de sesión */
   | 'LOGIN'
   /** Cierre de sesión */
@@ -493,6 +521,7 @@ export type AuditEntityType =
   | 'AmenityBooking'
   | 'Building'
   | 'CallLog'
+  | 'DataExport'
   | 'FeeCharge'
   | 'FeeConfig'
   | 'MaintenanceLocationTag'
@@ -997,6 +1026,24 @@ export type ComplexStatus =
   | 'PENDING_SETUP'
   | 'SUSPENDED';
 
+/** Supervisor con acceso activo a un complejo */
+export type ComplexSupervisor = {
+  __typename?: 'ComplexSupervisor';
+  /** Cuándo se aprobó su acceso */
+  assignedAt: Scalars['DateTime']['output'];
+  /** Desde cuándo el sistema le retira el acceso si no vuelve a hacer check-in */
+  autoRemovalAt: Scalars['DateTime']['output'];
+  email?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  identity?: Maybe<Scalars['String']['output']>;
+  identityType?: Maybe<Scalars['String']['output']>;
+  /** Último check-in en el complejo; nulo si nunca ha venido */
+  lastCheckInAt?: Maybe<Scalars['DateTime']['output']>;
+  lastName?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  phoneNumber?: Maybe<Scalars['String']['output']>;
+};
+
 /** Tipo de complejo residencial */
 export type ComplexType =
   /** Conjunto cerrado de apartamentos */
@@ -1071,6 +1118,8 @@ export type CreateAmenityBlackoutInput = {
 export type CreateAmenityBookingInput = {
   amenityId: Scalars['String']['input'];
   attendees?: Scalars['Int']['input'];
+  /** El aseo lo hace el conjunto (con cobro) en vez de la unidad */
+  cleaningByComplex?: Scalars['Boolean']['input'];
   /** Fin de la reserva (ISO 8601). Exclusivo: 12:00 no choca con una reserva que empieza a las 12:00 */
   endAt: Scalars['String']['input'];
   notes?: InputMaybe<Scalars['String']['input']>;
@@ -1094,9 +1143,17 @@ export type CreateAmenityInput = {
   cancellationDeadlineHours?: Scalars['Int']['input'];
   /** Aforo por reserva. 0 = sin control */
   capacity?: Scalars['Int']['input'];
+  /** Costo del aseo por parte del conjunto. 0 = sin costo */
+  cleaningFeeAmount?: Scalars['Float']['input'];
+  /** La administración ofrece el servicio de aseo en esta zona */
+  cleaningServiceAvailable?: Scalars['Boolean']['input'];
   complexId: Scalars['String']['input'];
   /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
   councilFreeBookingsPerYear?: Scalars['Int']['input'];
+  /** El cupo del consejo cubre también el costo del aseo */
+  councilQuotaCoversCleaning?: Scalars['Boolean']['input'];
+  /** Franja de aseo sugerida en minutos. La definitiva la fija el administrador en cada reserva */
+  defaultCleaningMinutes?: Scalars['Int']['input'];
   description?: InputMaybe<Scalars['String']['input']>;
   durationUnit?: AmenityDurationUnit;
   feeAmount?: Scalars['Float']['input'];
@@ -1190,6 +1247,8 @@ export type CreateComplexInput = {
   pqrfResolutionDays?: InputMaybe<Scalars['Int']['input']>;
   settings?: InputMaybe<Scalars['JSON']['input']>;
   state: Scalars['String']['input'];
+  /** Días sin visita tras los cuales el sistema le retira el acceso a un supervisor */
+  supervisorInactivityDays?: InputMaybe<Scalars['Int']['input']>;
   type?: ComplexType;
   website?: InputMaybe<Scalars['String']['input']>;
   zipCode?: InputMaybe<Scalars['String']['input']>;
@@ -1454,7 +1513,7 @@ export type CreateSpecialNumberInput = {
   phoneNumber: Scalars['String']['input'];
 };
 
-/** Datos para crear un miembro del personal del complejo (guardia o contador) */
+/** Datos para crear un miembro del personal del complejo (guardia, contador o aseo y mantenimiento) */
 export type CreateStaffMemberInput = {
   /** ID del complejo al que se asigna el personal */
   complexId: Scalars['String']['input'];
@@ -1467,7 +1526,7 @@ export type CreateStaffMemberInput = {
   name: Scalars['String']['input'];
   password?: InputMaybe<Scalars['String']['input']>;
   phoneNumber: Scalars['String']['input'];
-  /** Rol a asignar: SECURITY_ROL | ACCOUNTANT_ROL */
+  /** Rol a asignar: SECURITY_ROL | ACCOUNTANT_ROL | MAINTENANCE_ROL */
   role: ValidRoles;
   /** Turno asignado (MAÑANA, TARDE, NOCHE) */
   shift?: InputMaybe<Scalars['String']['input']>;
@@ -1541,6 +1600,28 @@ export type CreateWalletCreditInput = {
   complexId: Scalars['String']['input'];
   description: Scalars['String']['input'];
   unitId: Scalars['String']['input'];
+};
+
+/** Descarga de datos realizada en el complejo */
+export type DataExportHistoryEntry = {
+  __typename?: 'DataExportHistoryEntry';
+  createdAt: Scalars['DateTime']['output'];
+  from?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  /** module | backup */
+  kind: Scalars['String']['output'];
+  modules: Array<Scalars['String']['output']>;
+  performedByName?: Maybe<Scalars['String']['output']>;
+  to?: Maybe<Scalars['String']['output']>;
+};
+
+/** Módulo cuyos datos se pueden descargar */
+export type DataExportModuleInfo = {
+  __typename?: 'DataExportModuleInfo';
+  /** Si el módulo está habilitado en el complejo */
+  enabled: Scalars['Boolean']['output'];
+  label: Scalars['String']['output'];
+  module: ComplexModule;
 };
 
 export type DateRangeInput = {
@@ -2054,7 +2135,7 @@ export type IncomeCategory =
   | 'DONATION'
   /** Multas y sanciones */
   | 'FINES'
-  /** Alquiler de salón / zonas comunes */
+  /** Alquiler de zona social */
   | 'HALL_RENTAL'
   /** Rendimientos financieros */
   | 'INTEREST'
@@ -2332,6 +2413,15 @@ export type MaintenanceSlaConfig = {
   /** Horas para asignar responsable */
   responseHours: Scalars['Int']['output'];
   updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Miembro del personal de aseo y mantenimiento asignable a un ticket */
+export type MaintenanceStaffMember = {
+  __typename?: 'MaintenanceStaffMember';
+  id: Scalars['ID']['output'];
+  lastName?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  phoneNumber?: Maybe<Scalars['String']['output']>;
 };
 
 /** Resumen de mantenimiento del complejo */
@@ -2882,7 +2972,7 @@ export type Mutation = {
   createResident: Resident;
   createRole: SimpleRoleResponse;
   createSpecialNumber: SpecialNumber;
-  /** Crea personal del complejo: guardia (SECURITY_ROL), supervisor (SUPERVISOR_ROL) o contador (ACCOUNTANT_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL. */
+  /** Crea personal del complejo: guardia (SECURITY_ROL), contador (ACCOUNTANT_ROL) o aseo y mantenimiento (MAINTENANCE_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL. */
   createStaffMember: CreateStaffMemberResponse;
   createUnit: Unit;
   createVotingMeeting: VotingMeeting;
@@ -2955,6 +3045,8 @@ export type Mutation = {
   redeemWhatsAppLoginChallenge: AuthResponse;
   /** Renueva el access token usando el refresh token. Implementa rotación de tokens. */
   refreshToken: AuthResponse;
+  registerAmenityBookingPayment: AmenityBooking;
+  registerAmenityBookingRefund: AmenityBooking;
   registerBulkPayment: RegisterBulkPaymentResponse;
   registerDirectIncome: DirectIncome;
   registerExpense: ComplexExpense;
@@ -3078,6 +3170,7 @@ export type Mutation = {
   triggerPanicAlert: TriggerPanicAlertResult;
   undoMoveOutResident: Resident;
   updateAmenity: Amenity;
+  updateAmenityBookingCleaning: AmenityBooking;
   updateBuilding: Building;
   updateChargeCategory: ChargeCategory;
   updateComplex: ResidentialComplex;
@@ -3732,6 +3825,16 @@ export type MutationRefreshTokenArgs = {
 };
 
 
+export type MutationRegisterAmenityBookingPaymentArgs = {
+  input: RegisterAmenityBookingPaymentInput;
+};
+
+
+export type MutationRegisterAmenityBookingRefundArgs = {
+  input: RegisterAmenityBookingRefundInput;
+};
+
+
 export type MutationRegisterBulkPaymentArgs = {
   input: RegisterBulkPaymentInput;
 };
@@ -4230,6 +4333,11 @@ export type MutationUpdateAmenityArgs = {
 };
 
 
+export type MutationUpdateAmenityBookingCleaningArgs = {
+  input: UpdateAmenityBookingCleaningInput;
+};
+
+
 export type MutationUpdateBuildingArgs = {
   input: UpdateBuildingInput;
 };
@@ -4688,7 +4796,10 @@ export type NotificationType =
   | 'AMENITY_BOOKING_NO_SHOW'
   | 'AMENITY_BOOKING_REJECTED'
   | 'AMENITY_BOOKING_REQUESTED'
+  | 'AMENITY_CLEANING_UPDATED'
   | 'AMENITY_DAMAGE_CHARGED'
+  | 'AMENITY_PAYMENT_RECEIVED'
+  | 'AMENITY_REFUND_PAID'
   | 'AMENITY_REMINDER'
   | 'CHARGE_ADDED'
   | 'CHARGE_WAIVED'
@@ -5706,7 +5817,13 @@ export type Query = {
   /** Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). Ej: Anexo B2B / DPA a firmar. Disponible para complejos autenticados. */
   complexLegalDocuments: Array<LegalDocument>;
   complexNotifications: PaginatedNotificationsResponse;
+  /** Supervisores con acceso aprobado y vigente al complejo, con su última visita y la fecha en que el sistema les retira el acceso por inactividad. */
+  complexSupervisors: Array<ComplexSupervisor>;
   complexes: PaginatedComplexesResponse;
+  /** Últimas 20 descargas de datos del complejo */
+  dataExportHistory: Array<DataExportHistoryEntry>;
+  /** Módulos cuyos datos se pueden descargar en el complejo */
+  dataExportModules: Array<DataExportModuleInfo>;
   /** Consulta si el residente ya aprobó. El cliente hace polling hasta APPROVED. Solo responde al mismo dispositivo que pidió la autorización. */
   deviceApprovalStatus: DeviceApprovalStatusResponse;
   devicePushHealth: DevicePushHealthStatus;
@@ -5724,6 +5841,7 @@ export type Query = {
   maintenanceMapPins: Array<MaintenanceMapPinResponse>;
   maintenanceReportOptions: MaintenanceReportOptionsResponse;
   maintenanceSlaConfigs: Array<MaintenanceSlaConfig>;
+  maintenanceStaff: Array<MaintenanceStaffMember>;
   maintenanceStats: MaintenanceStatsResponse;
   maintenanceTicket: MaintenanceTicket;
   maintenanceTickets: PaginatedMaintenanceTicketsResponse;
@@ -6009,9 +6127,24 @@ export type QueryComplexNotificationsArgs = {
 };
 
 
+export type QueryComplexSupervisorsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
 export type QueryComplexesArgs = {
   filters?: InputMaybe<FilterComplexInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryDataExportHistoryArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryDataExportModulesArgs = {
+  complexId: Scalars['String']['input'];
 };
 
 
@@ -6090,6 +6223,11 @@ export type QueryMaintenanceReportOptionsArgs = {
 
 
 export type QueryMaintenanceSlaConfigsArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
+export type QueryMaintenanceStaffArgs = {
   complexId: Scalars['String']['input'];
 };
 
@@ -6628,6 +6766,21 @@ export type RecurringChargeType =
   | 'DEFERRED'
   | 'INDEFINITE'
   | 'ONE_TIME';
+
+export type RegisterAmenityBookingPaymentInput = {
+  amount?: InputMaybe<Scalars['Float']['input']>;
+  bookingId: Scalars['String']['input'];
+  incomeDate?: InputMaybe<Scalars['String']['input']>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  receiptUrl?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type RegisterAmenityBookingRefundInput = {
+  amount?: InputMaybe<Scalars['Float']['input']>;
+  bookingId: Scalars['String']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  paidAt?: InputMaybe<Scalars['String']['input']>;
+};
 
 export type RegisterBulkPaymentInput = {
   amount: Scalars['Float']['input'];
@@ -7178,6 +7331,8 @@ export type ResidentialComplex = {
   state?: Maybe<Scalars['String']['output']>;
   /** Estado operativo del complejo */
   status: ComplexStatus;
+  /** Días sin visita tras los cuales el sistema le retira el acceso a un supervisor */
+  supervisorInactivityDays: Scalars['Int']['output'];
   /** token version */
   tokenVersion?: Maybe<Scalars['String']['output']>;
   /** Total de unidades declaradas al registrar */
@@ -7850,6 +8005,14 @@ export type UnreadCountResponse = {
   count: Scalars['Int']['output'];
 };
 
+export type UpdateAmenityBookingCleaningInput = {
+  bookingId: Scalars['String']['input'];
+  /** true = asea el conjunto y se cobra; false = asea la unidad */
+  cleaningByComplex?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Minutos que la zona queda bloqueada tras la reserva. 0 = sin franja */
+  cleaningMinutes?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type UpdateAmenityInput = {
   advanceBookingDays?: InputMaybe<Scalars['Int']['input']>;
   blockBookingsOnDebt?: InputMaybe<Scalars['Boolean']['input']>;
@@ -7860,8 +8023,16 @@ export type UpdateAmenityInput = {
   cancellationDeadlineHours?: InputMaybe<Scalars['Int']['input']>;
   /** Aforo por reserva. 0 = sin control */
   capacity?: InputMaybe<Scalars['Int']['input']>;
+  /** Costo del aseo por parte del conjunto. 0 = sin costo */
+  cleaningFeeAmount?: InputMaybe<Scalars['Float']['input']>;
+  /** La administración ofrece el servicio de aseo en esta zona */
+  cleaningServiceAvailable?: InputMaybe<Scalars['Boolean']['input']>;
   /** Reservas gratis al año por miembro del consejo. 0 = sin beneficio */
   councilFreeBookingsPerYear?: InputMaybe<Scalars['Int']['input']>;
+  /** El cupo del consejo cubre también el costo del aseo */
+  councilQuotaCoversCleaning?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Franja de aseo sugerida en minutos. La definitiva la fija el administrador en cada reserva */
+  defaultCleaningMinutes?: InputMaybe<Scalars['Int']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   durationUnit?: InputMaybe<AmenityDurationUnit>;
   feeAmount?: InputMaybe<Scalars['Float']['input']>;
@@ -7947,6 +8118,8 @@ export type UpdateComplexInput = {
   pqrfResolutionDays?: InputMaybe<Scalars['Int']['input']>;
   settings?: InputMaybe<Scalars['JSON']['input']>;
   state?: InputMaybe<Scalars['String']['input']>;
+  /** Días sin visita tras los cuales el sistema le retira el acceso a un supervisor */
+  supervisorInactivityDays?: InputMaybe<Scalars['Int']['input']>;
   type?: InputMaybe<ComplexType>;
   website?: InputMaybe<Scalars['String']['input']>;
   zipCode?: InputMaybe<Scalars['String']['input']>;
@@ -8671,6 +8844,7 @@ export type ValidRoles =
   | 'COMPILANCE_OFFICER_ROL'
   | 'COMPLEX_ROL'
   | 'COUNCIL_ROL'
+  | 'MAINTENANCE_ROL'
   | 'RESIDENT_ROL'
   | 'SECURITY_ROL'
   | 'SUPERVISOR_ROL'
@@ -9263,14 +9437,14 @@ export type AmenitiesQueryVariables = Exact<{
 }>;
 
 
-export type AmenitiesQuery = { __typename: 'Query', amenities: { __typename: 'PaginatedAmenitiesResponse', items: Array<{ __typename: 'Amenity', id: string, name: string, description?: string | null, type: AmenityType, status: AmenityStatus, location?: string | null, rules?: string | null, imageUrls?: Array<string> | null, bookingMode: AmenityBookingMode, durationUnit: AmenityDurationUnit, slotDurationMinutes: number, minDurationMinutes: number, maxDurationMinutes: number, capacity: number, maxSimultaneousBookings: number, advanceBookingDays: number, minAdvanceDays: number, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, requiresApproval: boolean, feeType: AmenityFeeType, feeAmount: number, complexId: string, schedules?: Array<{ __typename: 'AmenitySchedule', id: string, dayOfWeek: number, openTime: string, closeTime: string, isActive: boolean }> | null }>, pagination: { __typename: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+export type AmenitiesQuery = { __typename: 'Query', amenities: { __typename: 'PaginatedAmenitiesResponse', items: Array<{ __typename: 'Amenity', id: string, name: string, description?: string | null, type: AmenityType, status: AmenityStatus, location?: string | null, rules?: string | null, imageUrls?: Array<string> | null, bookingMode: AmenityBookingMode, durationUnit: AmenityDurationUnit, slotDurationMinutes: number, minDurationMinutes: number, maxDurationMinutes: number, capacity: number, maxSimultaneousBookings: number, advanceBookingDays: number, minAdvanceDays: number, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, requiresApproval: boolean, cleaningServiceAvailable: boolean, defaultCleaningMinutes: number, cleaningFeeAmount: number, councilQuotaCoversCleaning: boolean, feeType: AmenityFeeType, feeAmount: number, complexId: string, schedules?: Array<{ __typename: 'AmenitySchedule', id: string, dayOfWeek: number, openTime: string, closeTime: string, isActive: boolean }> | null }>, pagination: { __typename: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type AmenityAvailabilityQueryVariables = Exact<{
   input: AmenityAvailabilityInput;
 }>;
 
 
-export type AmenityAvailabilityQuery = { __typename: 'Query', amenityAvailability: { __typename: 'AmenityAvailabilityResponse', amenityId: string, days: Array<{ __typename: 'AmenityAvailabilityDay', date: string, isOpen: boolean, closedReason?: string | null, openWindows: Array<{ __typename: 'AmenityTimeWindow', startAt: any, endAt: any }>, slots: Array<{ __typename: 'AmenitySlot', startAt: any, endAt: any, capacityTotal: number, capacityUsed: number, isAvailable: boolean }>, busy: Array<{ __typename: 'AmenityBusyRange', startAt: any, endAt: any, bookingsCount: number }> }> } };
+export type AmenityAvailabilityQuery = { __typename: 'Query', amenityAvailability: { __typename: 'AmenityAvailabilityResponse', amenityId: string, days: Array<{ __typename: 'AmenityAvailabilityDay', date: string, isOpen: boolean, closedReason?: string | null, openWindows: Array<{ __typename: 'AmenityTimeWindow', startAt: any, endAt: any }>, slots: Array<{ __typename: 'AmenitySlot', startAt: any, endAt: any, capacityTotal: number, capacityUsed: number, isAvailable: boolean }>, busy: Array<{ __typename: 'AmenityBusyRange', startAt: any, endAt: any, cleaningFromAt?: any | null, bookingsCount: number }> }> } };
 
 export type MyUnitAmenityBookingsQueryVariables = Exact<{
   complexId: Scalars['String']['input'];
@@ -9279,14 +9453,14 @@ export type MyUnitAmenityBookingsQueryVariables = Exact<{
 }>;
 
 
-export type MyUnitAmenityBookingsQuery = { __typename: 'Query', myUnitAmenityBookings: { __typename: 'PaginatedAmenityBookingsResponse', items: Array<{ __typename: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null }>, pagination: { __typename: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+export type MyUnitAmenityBookingsQuery = { __typename: 'Query', myUnitAmenityBookings: { __typename: 'PaginatedAmenityBookingsResponse', items: Array<{ __typename: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, cleaningMinutes: number, blockedUntilAt: any, cleaningByComplex: boolean, cleaningFeeAmount: number, directIncomeId?: string | null, directPaymentAmount: number, refundAmount: number, refundedAt?: any | null, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, cleaningServiceAvailable: boolean, cleaningFeeAmount: number } | null }>, pagination: { __typename: 'PaginationReponse', currentPage: number, itemsPerPage: number, totalItems: number, totalPages: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type AmenityBookingQueryVariables = Exact<{
   bookingId: Scalars['String']['input'];
 }>;
 
 
-export type AmenityBookingQuery = { __typename: 'Query', amenityBooking: { __typename: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null } };
+export type AmenityBookingQuery = { __typename: 'Query', amenityBooking: { __typename: 'AmenityBooking', id: string, amenityId: string, complexId: string, unitId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, notes?: string | null, status: AmenityBookingStatus, rejectionReason?: string | null, cancellationReason?: string | null, accessCode?: string | null, checkInAt?: any | null, checkOutAt?: any | null, feeAmount: number, isCouncilFreeBooking: boolean, cleaningMinutes: number, blockedUntilAt: any, cleaningByComplex: boolean, cleaningFeeAmount: number, directIncomeId?: string | null, directPaymentAmount: number, refundAmount: number, refundedAt?: any | null, lateCancellationAmount: number, damageAmount: number, damageDescription?: string | null, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, cleaningServiceAvailable: boolean, cleaningFeeAmount: number } | null } };
 
 export type MyAmenityCouncilQuotaQueryVariables = Exact<{
   amenityId: Scalars['String']['input'];
@@ -9300,7 +9474,7 @@ export type CreateAmenityBookingMutationVariables = Exact<{
 }>;
 
 
-export type CreateAmenityBookingMutation = { __typename: 'Mutation', createAmenityBooking: { __typename: 'AmenityBooking', id: string, amenityId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, status: AmenityBookingStatus, accessCode?: string | null, feeAmount: number, isCouncilFreeBooking: boolean, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number } | null } };
+export type CreateAmenityBookingMutation = { __typename: 'Mutation', createAmenityBooking: { __typename: 'AmenityBooking', id: string, amenityId: string, startAt: any, endAt: any, attendees: number, purpose?: string | null, status: AmenityBookingStatus, accessCode?: string | null, feeAmount: number, isCouncilFreeBooking: boolean, cleaningMinutes: number, blockedUntilAt: any, cleaningByComplex: boolean, cleaningFeeAmount: number, directIncomeId?: string | null, directPaymentAmount: number, refundAmount: number, refundedAt?: any | null, createdAt: any, amenity?: { __typename: 'Amenity', id: string, name: string, type: AmenityType, durationUnit: AmenityDurationUnit, cancellationDeadlineDays: number, cancellationDeadlineHours: number, lateCancellationFeePercent: number, councilFreeBookingsPerYear: number, cleaningServiceAvailable: boolean, cleaningFeeAmount: number } | null } };
 
 export type CancelAmenityBookingMutationVariables = Exact<{
   input: CancelAmenityBookingInput;
@@ -9958,12 +10132,12 @@ export const VotingResultsFieldsFragmentDoc = {"kind":"Document","definitions":[
 export const VotingQuestionFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingQuestionFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingQuestion"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"meetingId"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"secrecy"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"openedAt"}},{"kind":"Field","name":{"kind":"Name","value":"closedAt"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"text"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"VotingResultsFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"myVoteOptionId"}},{"kind":"Field","name":{"kind":"Name","value":"viewerCanVote"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasVoiceOnly"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"VotingResultsFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"VotingResults"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"weighting"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleCount"}},{"kind":"Field","name":{"kind":"Name","value":"eligibleWeight"}},{"kind":"Field","name":{"kind":"Name","value":"votedCount"}},{"kind":"Field","name":{"kind":"Name","value":"votedWeight"}},{"kind":"Field","name":{"kind":"Name","value":"participation"}},{"kind":"Field","name":{"kind":"Name","value":"options"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"optionId"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"votes"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"share"}},{"kind":"Field","name":{"kind":"Name","value":"shareOfEligible"}}]}}]}}]} as unknown as DocumentNode<VotingQuestionFieldsFragment, unknown>;
 export const ApproveAccessRequestDocument = {"__meta__":{"hash":"6bc620dbede54d516cd8506bb266d5c6f3b4ce1b513cceff3095fc1a0aa68f18"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApproveAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"approveAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"requestId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"requestId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<ApproveAccessRequestMutation, ApproveAccessRequestMutationVariables>;
 export const RejectAccessRequestDocument = {"__meta__":{"hash":"621983edc993cd76112319742b8c20d54231113114277373d6b47596f86c4386"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RejectAccessRequest"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RejectAccessRequestInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"rejectAccessRequest"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}}]}}]}}]} as unknown as DocumentNode<RejectAccessRequestMutation, RejectAccessRequestMutationVariables>;
-export const AmenitiesDocument = {"__meta__":{"hash":"ae2a3b59e6d0abd67826f7cb50fe7f46250e9718f73cfa24851ed045fb4ab448"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Amenities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenitiesInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"location"}},{"kind":"Field","name":{"kind":"Name","value":"rules"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"bookingMode"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"slotDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"minDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"maxDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"capacity"}},{"kind":"Field","name":{"kind":"Name","value":"maxSimultaneousBookings"}},{"kind":"Field","name":{"kind":"Name","value":"advanceBookingDays"}},{"kind":"Field","name":{"kind":"Name","value":"minAdvanceDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"requiresApproval"}},{"kind":"Field","name":{"kind":"Name","value":"feeType"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"schedules"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dayOfWeek"}},{"kind":"Field","name":{"kind":"Name","value":"openTime"}},{"kind":"Field","name":{"kind":"Name","value":"closeTime"}},{"kind":"Field","name":{"kind":"Name","value":"isActive"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<AmenitiesQuery, AmenitiesQueryVariables>;
-export const AmenityAvailabilityDocument = {"__meta__":{"hash":"98e32ef14da8a0814580364e4fc269cb9c8efd460325b45686c86614bb1f5172"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityAvailability"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AmenityAvailabilityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityAvailability"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"days"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"isOpen"}},{"kind":"Field","name":{"kind":"Name","value":"closedReason"}},{"kind":"Field","name":{"kind":"Name","value":"openWindows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"slots"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"capacityTotal"}},{"kind":"Field","name":{"kind":"Name","value":"capacityUsed"}},{"kind":"Field","name":{"kind":"Name","value":"isAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"busy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsCount"}}]}}]}}]}}]}}]} as unknown as DocumentNode<AmenityAvailabilityQuery, AmenityAvailabilityQueryVariables>;
-export const MyUnitAmenityBookingsDocument = {"__meta__":{"hash":"e5d6ccc3ab8e9d4d934cca3a6705d623928d2468b96e94f27a754f40ae504126"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyUnitAmenityBookings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenityBookingsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myUnitAmenityBookings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<MyUnitAmenityBookingsQuery, MyUnitAmenityBookingsQueryVariables>;
-export const AmenityBookingDocument = {"__meta__":{"hash":"a93dc0e01b7e3a64261f5aa77f158f2ec2827ce207367ef5528ab5679f8a558f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"bookingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}}]}}]} as unknown as DocumentNode<AmenityBookingQuery, AmenityBookingQueryVariables>;
+export const AmenitiesDocument = {"__meta__":{"hash":"2bc7765223c5ff7c550b0deef499e66a82c9866dbb4d0a13240109cec6f8fe26"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Amenities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenitiesInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"location"}},{"kind":"Field","name":{"kind":"Name","value":"rules"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"bookingMode"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"slotDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"minDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"maxDurationMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"capacity"}},{"kind":"Field","name":{"kind":"Name","value":"maxSimultaneousBookings"}},{"kind":"Field","name":{"kind":"Name","value":"advanceBookingDays"}},{"kind":"Field","name":{"kind":"Name","value":"minAdvanceDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"requiresApproval"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningServiceAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"defaultCleaningMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"councilQuotaCoversCleaning"}},{"kind":"Field","name":{"kind":"Name","value":"feeType"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"schedules"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dayOfWeek"}},{"kind":"Field","name":{"kind":"Name","value":"openTime"}},{"kind":"Field","name":{"kind":"Name","value":"closeTime"}},{"kind":"Field","name":{"kind":"Name","value":"isActive"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<AmenitiesQuery, AmenitiesQueryVariables>;
+export const AmenityAvailabilityDocument = {"__meta__":{"hash":"c6a38fe846523576f228307627d2a6dac0645a6442663f700d718d4c6da9e8ec"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityAvailability"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AmenityAvailabilityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityAvailability"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"days"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"isOpen"}},{"kind":"Field","name":{"kind":"Name","value":"closedReason"}},{"kind":"Field","name":{"kind":"Name","value":"openWindows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"slots"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"capacityTotal"}},{"kind":"Field","name":{"kind":"Name","value":"capacityUsed"}},{"kind":"Field","name":{"kind":"Name","value":"isAvailable"}}]}},{"kind":"Field","name":{"kind":"Name","value":"busy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFromAt"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsCount"}}]}}]}}]}}]}}]} as unknown as DocumentNode<AmenityAvailabilityQuery, AmenityAvailabilityQueryVariables>;
+export const MyUnitAmenityBookingsDocument = {"__meta__":{"hash":"11bbe9c4a9e8685c11751e88f18eeb68862bd64958e47c24b4c4afa7e9b734af"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyUnitAmenityBookings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterAmenityBookingsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myUnitAmenityBookings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"blockedUntilAt"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningByComplex"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"directIncomeId"}},{"kind":"Field","name":{"kind":"Name","value":"directPaymentAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundedAt"}},{"kind":"Field","name":{"kind":"Name","value":"refundedAt"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningServiceAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"itemsPerPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}}]}}]}}]}}]} as unknown as DocumentNode<MyUnitAmenityBookingsQuery, MyUnitAmenityBookingsQueryVariables>;
+export const AmenityBookingDocument = {"__meta__":{"hash":"e984465b6664419e047de1808c329fe3308f30adfdfd0b324b6ae1b6e51f677f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"amenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"bookingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"bookingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"checkInAt"}},{"kind":"Field","name":{"kind":"Name","value":"checkOutAt"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"blockedUntilAt"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningByComplex"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"directIncomeId"}},{"kind":"Field","name":{"kind":"Name","value":"directPaymentAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundedAt"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageAmount"}},{"kind":"Field","name":{"kind":"Name","value":"damageDescription"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningServiceAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}}]}}]}}]}}]} as unknown as DocumentNode<AmenityBookingQuery, AmenityBookingQueryVariables>;
 export const MyAmenityCouncilQuotaDocument = {"__meta__":{"hash":"d2e8c4af47317916fcf4b18d981f20abb7da4c47b23d982f73d475437700eeec"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyAmenityCouncilQuota"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myAmenityCouncilQuota"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"amenityId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilMember"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"used"}},{"kind":"Field","name":{"kind":"Name","value":"remaining"}},{"kind":"Field","name":{"kind":"Name","value":"year"}}]}}]}}]} as unknown as DocumentNode<MyAmenityCouncilQuotaQuery, MyAmenityCouncilQuotaQueryVariables>;
-export const CreateAmenityBookingDocument = {"__meta__":{"hash":"8e2cb4cd0613ebdd665554e84a90441404e6418d06bedf7b298bda49be43ae1c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"createAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAmenityBookingMutation, CreateAmenityBookingMutationVariables>;
+export const CreateAmenityBookingDocument = {"__meta__":{"hash":"1becebb0f68d4fbc58342ddf95b555478f15e77636b752600de213b85e6256d9"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"createAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"blockedUntilAt"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningByComplex"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"directIncomeId"}},{"kind":"Field","name":{"kind":"Name","value":"directPaymentAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningServiceAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAmenityBookingMutation, CreateAmenityBookingMutationVariables>;
 export const CancelAmenityBookingDocument = {"__meta__":{"hash":"68bb76b7f7ae7d20e1cc7fc6dc60fdd5373e900a0a7ae02c1995efa8caf3db5b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CancelAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"cancelAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}}]}}]}}]} as unknown as DocumentNode<CancelAmenityBookingMutation, CancelAmenityBookingMutationVariables>;
 export const LoginResidentDocument = {"__meta__":{"hash":"dfe720230a9f93cc58ff14202b91594297697afd16651f2b954235c0c08e23c3"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginResident"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResidentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"loginResident"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginResidentMutation, LoginResidentMutationVariables>;
 export const ResendResidentSystemCodeDocument = {"__meta__":{"hash":"259772604e7d5b7cf5010f8cbbd14f9be617ad3fea7db7cd03eb75457e6603e8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResendResidentSystemCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"resendResidentSystemCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<ResendResidentSystemCodeMutation, ResendResidentSystemCodeMutationVariables>;

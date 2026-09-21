@@ -339,6 +339,11 @@ type ResidentialComplex {
   """Horas entre recordatorios. 0 = sin recordatorios"""
   pqrfReminderIntervalHours: Int!
 
+  """
+  Días sin visita tras los cuales el sistema le retira el acceso a un supervisor
+  """
+  supervisorInactivityDays: Int!
+
   """Consejeros que responden los PQRF. Vacío = todo el consejo"""
   pqrfCouncilResolverUserIds: [String!]!
 
@@ -533,6 +538,7 @@ enum ValidRoles {
   RESIDENT_ROL
   SECURITY_ROL
   COUNCIL_ROL
+  MAINTENANCE_ROL
 }
 
 """Configuración del parqueadero para vehículos visitantes"""
@@ -1632,6 +1638,7 @@ enum AuditEntityType {
   MaintenanceVendor
   MaintenanceLocationTag
   MarketplaceListing
+  DataExport
 }
 
 """Tipo de acción registrada en el historial de auditoría"""
@@ -1680,6 +1687,9 @@ enum AuditAction {
 
   """Llamada rechazada"""
   CALL_REJECTED
+
+  """Descarga de datos o reportes del complejo"""
+  EXPORT
 }
 
 type Notification {
@@ -1760,6 +1770,9 @@ enum NotificationType {
   AMENITY_BOOKING_CANCELLED
   AMENITY_BOOKING_NO_SHOW
   AMENITY_DAMAGE_CHARGED
+  AMENITY_CLEANING_UPDATED
+  AMENITY_PAYMENT_RECEIVED
+  AMENITY_REFUND_PAID
   PET_REGISTERED
   PET_APPROVED
   PET_REJECTED
@@ -3176,7 +3189,7 @@ enum IncomeCategory {
   """Parqueadero de visitantes"""
   PARKING
 
-  """Alquiler de salón / zonas comunes"""
+  """Alquiler de zona social"""
   HALL_RENTAL
 
   """Multas y sanciones"""
@@ -3861,6 +3874,28 @@ enum AccessRequestStatus {
   REJECTED
 }
 
+"""Supervisor con acceso activo a un complejo"""
+type ComplexSupervisor {
+  id: ID!
+  name: String!
+  lastName: String
+  email: String
+  phoneNumber: String
+  identityType: String
+  identity: String
+
+  """Cuándo se aprobó su acceso"""
+  assignedAt: DateTime!
+
+  """Último check-in en el complejo; nulo si nunca ha venido"""
+  lastCheckInAt: DateTime
+
+  """
+  Desde cuándo el sistema le retira el acceso si no vuelve a hacer check-in
+  """
+  autoRemovalAt: DateTime!
+}
+
 """Mensaje enviado a residentes del complejo"""
 type SentMessage {
   id: String!
@@ -4300,6 +4335,18 @@ type Amenity {
 
   """Si es true, una unidad con saldo vencido no puede reservar"""
   blockBookingsOnDebt: Boolean!
+
+  """La administración ofrece el servicio de aseo en esta zona"""
+  cleaningServiceAvailable: Boolean!
+
+  """Franja de aseo sugerida, en minutos. 0 = ninguna"""
+  defaultCleaningMinutes: Int!
+
+  """El cupo del consejo cubre también el costo del aseo"""
+  councilQuotaCoversCleaning: Boolean!
+
+  """Costo del aseo por parte del conjunto. 0 = sin costo"""
+  cleaningFeeAmount: Float!
   feeType: AmenityFeeType!
   feeAmount: Float!
   complexId: String!
@@ -4425,6 +4472,26 @@ type AmenityBooking {
   isCouncilFreeBooking: Boolean!
   lateCancellationAmount: Float!
   lateCancellationChargeId: String
+  directIncomeId: String
+  directPaymentAmount: Float!
+  directPaymentAt: DateTime
+  directPaymentByUserId: String
+  refundAmount: Float!
+  refundVoucherId: String
+  refundedAt: DateTime
+
+  """Franja de aseo tras la reserva, en minutos"""
+  cleaningMinutes: Int!
+
+  """Fin de la ocupación real: endAt más la franja de aseo"""
+  blockedUntilAt: DateTime!
+
+  """El aseo lo hace el conjunto (se cobra) en vez de la unidad"""
+  cleaningByComplex: Boolean!
+  cleaningFeeAmount: Float!
+  cleaningChargeId: String
+  cleaningUpdatedAt: DateTime
+  cleaningUpdatedByUserId: String
   damageAmount: Float!
   damageDescription: String
   damageChargeId: String
@@ -4474,6 +4541,7 @@ type AmenitySlot {
 type AmenityBusyRange {
   startAt: DateTime!
   endAt: DateTime!
+  cleaningFromAt: DateTime
   bookingsCount: Int!
 }
 
@@ -5172,6 +5240,14 @@ type MaintenanceStatsResponse {
   totalCost: Float
 }
 
+"""Miembro del personal de aseo y mantenimiento asignable a un ticket"""
+type MaintenanceStaffMember {
+  id: ID!
+  name: String!
+  lastName: String
+  phoneNumber: String
+}
+
 """Opciones de ubicación para radicar un ticket"""
 type MaintenanceReportOptionsResponse {
   buildings: [Building!]!
@@ -5505,6 +5581,52 @@ type PaginatedListingReportsResponse {
   pagination: PaginationReponse!
 }
 
+"""Módulo cuyos datos se pueden descargar"""
+type DataExportModuleInfo {
+  module: ComplexModule!
+  label: String!
+
+  """Si el módulo está habilitado en el complejo"""
+  enabled: Boolean!
+}
+
+"""Módulos funcionales disponibles para un complejo residencial"""
+enum ComplexModule {
+  EDIFICIOS
+  UNIDADES
+  RESIDENTES
+  VISITAS
+  VEHICULOS
+  PAQUETES
+  FINANZAS
+  NOTAS
+  PERSONAL
+  MENSAJES
+  MOVIMIENTOS
+  NOTIFICACIONES
+  PARKING_ROTATION
+  PARKING_BILLING
+  ZONAS_COMUNES
+  PQRF
+  VOTACIONES
+  MASCOTAS
+  MANTENIMIENTO
+  CLASIFICADOS
+}
+
+"""Descarga de datos realizada en el complejo"""
+type DataExportHistoryEntry {
+  id: ID!
+  createdAt: DateTime!
+  performedByName: String
+
+  """module | backup"""
+  kind: String!
+  modules: [String!]!
+  from: String
+  to: String
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -5650,6 +5772,11 @@ type Query {
   pendingAccessRequests(complexId: String!): [SupervisorAccessRequest!]!
 
   """
+  Supervisores con acceso aprobado y vigente al complejo, con su última visita y la fecha en que el sistema les retira el acceso por inactividad.
+  """
+  complexSupervisors(complexId: String!): [ComplexSupervisor!]!
+
+  """
   Retorna el número de solicitudes de acceso PENDIENTES para un complejo. Úsalo para mostrar el badge numérico en la sección Supervisores del panel.
   """
   pendingAccessRequestsCount(complexId: String!): Int!
@@ -5711,6 +5838,7 @@ type Query {
   petIncidents(complexId: String!, pagination: PaginationInput, filters: FilterPetIncidentsInput): PaginatedPetIncidentsResponse!
   petIncident(id: String!): PetIncident!
   petIncidentsByPet(petId: String!): [PetIncident!]!
+  maintenanceStaff(complexId: String!): [MaintenanceStaffMember!]!
   maintenanceTickets(complexId: String!, pagination: PaginationInput, filters: FilterMaintenanceTicketsInput): PaginatedMaintenanceTicketsResponse!
   maintenanceTicket(id: String!): MaintenanceTicket!
   maintenanceBoard(complexId: String!, filters: FilterMaintenanceTicketsInput): MaintenanceBoardResponse!
@@ -5729,6 +5857,12 @@ type Query {
   marketplaceCategories(complexId: String!, kind: MarketplaceCategoryKind, includeInactive: Boolean): [MarketplaceCategory!]!
   listingReports(complexId: String!, pagination: PaginationInput, status: MarketplaceReportStatus): PaginatedListingReportsResponse!
   marketplaceSettings(complexId: String!): MarketplaceSettings!
+
+  """Módulos cuyos datos se pueden descargar en el complejo"""
+  dataExportModules(complexId: String!): [DataExportModuleInfo!]!
+
+  """Últimas 20 descargas de datos del complejo"""
+  dataExportHistory(complexId: String!): [DataExportHistoryEntry!]!
 
   """Verifica conectividad con el backend. Siempre retorna "pong"."""
   ping: String!
@@ -5767,30 +5901,6 @@ input FilterResidentsInput {
 
   """Nombre de torre/edificio (ej: "5", "TORRE A"). Búsqueda exacta."""
   buildingName: String
-}
-
-"""Módulos funcionales disponibles para un complejo residencial"""
-enum ComplexModule {
-  EDIFICIOS
-  UNIDADES
-  RESIDENTES
-  VISITAS
-  VEHICULOS
-  PAQUETES
-  FINANZAS
-  NOTAS
-  PERSONAL
-  MENSAJES
-  MOVIMIENTOS
-  NOTIFICACIONES
-  PARKING_ROTATION
-  PARKING_BILLING
-  ZONAS_COMUNES
-  PQRF
-  VOTACIONES
-  MASCOTAS
-  MANTENIMIENTO
-  CLASIFICADOS
 }
 
 input FilterComplexInput {
@@ -6360,7 +6470,7 @@ type Mutation {
   registerResident(input: CreateResidentUserInput!): User!
 
   """
-  Crea personal del complejo: guardia (SECURITY_ROL), supervisor (SUPERVISOR_ROL) o contador (ACCOUNTANT_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL.
+  Crea personal del complejo: guardia (SECURITY_ROL), contador (ACCOUNTANT_ROL) o aseo y mantenimiento (MAINTENANCE_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL.
   """
   createStaffMember(input: CreateStaffMemberInput!): CreateStaffMemberResponse!
 
@@ -6520,6 +6630,9 @@ type Mutation {
   cancelAmenityBooking(input: CancelAmenityBookingInput!): AmenityBooking!
   checkInAmenityBooking(complexId: String!, accessCode: String!): AmenityBooking!
   checkOutAmenityBooking(bookingId: String!): AmenityBooking!
+  registerAmenityBookingPayment(input: RegisterAmenityBookingPaymentInput!): AmenityBooking!
+  registerAmenityBookingRefund(input: RegisterAmenityBookingRefundInput!): AmenityBooking!
+  updateAmenityBookingCleaning(input: UpdateAmenityBookingCleaningInput!): AmenityBooking!
   chargeAmenityDamage(input: ChargeAmenityDamageInput!): AmenityBooking!
 
   """Radica un PQRF"""
@@ -6899,6 +7012,11 @@ input CreateComplexInput {
 
   """Horas entre recordatorios. 0 = sin recordatorios"""
   pqrfReminderIntervalHours: Int
+
+  """
+  Días sin visita tras los cuales el sistema le retira el acceso a un supervisor
+  """
+  supervisorInactivityDays: Int
 }
 
 """Código de país para el número de teléfono"""
@@ -6953,6 +7071,11 @@ input UpdateComplexInput {
 
   """Horas entre recordatorios. 0 = sin recordatorios"""
   pqrfReminderIntervalHours: Int
+
+  """
+  Días sin visita tras los cuales el sistema le retira el acceso a un supervisor
+  """
+  supervisorInactivityDays: Int
 
   """ID del complejo a actualizar"""
   id: String!
@@ -7257,7 +7380,7 @@ input CreateResidentUserInput {
 }
 
 """
-Datos para crear un miembro del personal del complejo (guardia o contador)
+Datos para crear un miembro del personal del complejo (guardia, contador o aseo y mantenimiento)
 """
 input CreateStaffMemberInput {
   name: String!
@@ -7274,7 +7397,7 @@ input CreateStaffMemberInput {
   """ID del complejo al que se asigna el personal"""
   complexId: String!
 
-  """Rol a asignar: SECURITY_ROL | ACCOUNTANT_ROL"""
+  """Rol a asignar: SECURITY_ROL | ACCOUNTANT_ROL | MAINTENANCE_ROL"""
   role: ValidRoles!
 
   """Turno asignado (MAÑANA, TARDE, NOCHE)"""
@@ -8060,6 +8183,20 @@ input CreateAmenityInput {
   maxBookingsPerUnitPerMonth: Int! = 0
   requiresApproval: Boolean! = true
   blockBookingsOnDebt: Boolean! = true
+
+  """La administración ofrece el servicio de aseo en esta zona"""
+  cleaningServiceAvailable: Boolean! = false
+
+  """
+  Franja de aseo sugerida en minutos. La definitiva la fija el administrador en cada reserva
+  """
+  defaultCleaningMinutes: Int! = 0
+
+  """Costo del aseo por parte del conjunto. 0 = sin costo"""
+  cleaningFeeAmount: Float! = 0
+
+  """El cupo del consejo cubre también el costo del aseo"""
+  councilQuotaCoversCleaning: Boolean! = false
   feeType: AmenityFeeType! = FREE
   feeAmount: Float! = 0
   schedules: [AmenityScheduleInput!]
@@ -8135,6 +8272,20 @@ input UpdateAmenityInput {
   maxBookingsPerUnitPerMonth: Int = 0
   requiresApproval: Boolean = true
   blockBookingsOnDebt: Boolean = true
+
+  """La administración ofrece el servicio de aseo en esta zona"""
+  cleaningServiceAvailable: Boolean = false
+
+  """
+  Franja de aseo sugerida en minutos. La definitiva la fija el administrador en cada reserva
+  """
+  defaultCleaningMinutes: Int = 0
+
+  """Costo del aseo por parte del conjunto. 0 = sin costo"""
+  cleaningFeeAmount: Float = 0
+
+  """El cupo del consejo cubre también el costo del aseo"""
+  councilQuotaCoversCleaning: Boolean = false
   feeType: AmenityFeeType = FREE
   feeAmount: Float = 0
 
@@ -8200,6 +8351,9 @@ input CreateAmenityBookingInput {
   """Usar el cupo anual del consejo si aplica"""
   useCouncilFreeQuota: Boolean! = true
 
+  """El aseo lo hace el conjunto (con cobro) en vez de la unidad"""
+  cleaningByComplex: Boolean! = false
+
   """Unidad a nombre de la cual se reserva (solo staff)"""
   unitId: String
 }
@@ -8214,6 +8368,31 @@ input RejectAmenityBookingInput {
 input CancelAmenityBookingInput {
   bookingId: String!
   reason: String
+}
+
+input RegisterAmenityBookingPaymentInput {
+  bookingId: String!
+  amount: Float
+  incomeDate: String
+  notes: String
+  receiptUrl: String
+}
+
+input RegisterAmenityBookingRefundInput {
+  bookingId: String!
+  amount: Float
+  paidAt: String
+  notes: String
+}
+
+input UpdateAmenityBookingCleaningInput {
+  bookingId: String!
+
+  """Minutos que la zona queda bloqueada tras la reserva. 0 = sin franja"""
+  cleaningMinutes: Int
+
+  """true = asea el conjunto y se cobra; false = asea la unidad"""
+  cleaningByComplex: Boolean
 }
 
 input ChargeAmenityDamageInput {
