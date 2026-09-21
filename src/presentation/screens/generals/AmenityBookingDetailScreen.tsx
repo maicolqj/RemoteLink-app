@@ -18,6 +18,7 @@ import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
   AMENITY_TYPE_LABEL, BOOKING_STATUS_CFG, bookingWhenLabel, formatMoney,
+  minutesLabel, timeOf,
 } from './amenities.shared';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'AmenityBookingDetail'>;
@@ -61,6 +62,15 @@ export default function AmenityBookingDetailScreen() {
   }
 
   const status = String(booking.status);
+
+  /**
+   * Lo que falta por pagar: tarifa más el aseo que asumió el conjunto, menos lo
+   * que ya entró. Misma cuenta que hace el backend para decidir si emite el
+   * código, porque mostrar un valor distinto al del aviso sería peor que nada.
+   */
+  const pendingAmount = booking.directIncomeId
+    ? 0
+    : booking.feeAmount + (booking.cleaningByComplex ? booking.cleaningFeeAmount : 0);
   const canCancel = ['PENDING', 'APPROVED'].includes(status);
   // El plazo suma los días y las horas que configuró la administración, y fuera
   // de él solo se retiene el porcentaje de la tarifa que fije la zona. El
@@ -137,9 +147,36 @@ export default function AmenityBookingDetailScreen() {
             value={
               booking.isCouncilFreeBooking
                 ? 'Sin costo · cupo del consejo'
-                : booking.feeAmount > 0 ? formatMoney(booking.feeAmount) : 'Sin costo'
+                : booking.feeAmount > 0
+                  // Pagado en la ventanilla: ya no le cuelga a la unidad, y
+                  // decirlo evita que lo busque en su estado de cuenta.
+                  ? `${formatMoney(booking.feeAmount)}${booking.directIncomeId ? ' · pagado en la administración' : ''}`
+                  : 'Sin costo'
             }
           />
+          {/* El aseo cambia dos cosas que el residente necesita ver: hasta
+              cuándo queda tomada la zona y si le llega un cargo más. La
+              administración puede ajustarlo después de reservar. */}
+          {(booking.cleaningMinutes > 0 || booking.cleaningByComplex) && (
+            <Row
+              icon="cleaning-services"
+              label="Aseo"
+              value={cleaningValue(booking)}
+            />
+          )}
+          {/* Plata a favor del residente: es lo primero que va a querer saber
+              al abrir una reserva que canceló. */}
+          {booking.refundAmount > 0 && (
+            <Row
+              icon="assignment-return"
+              label="Devolución"
+              value={
+                booking.refundedAt
+                  ? `${formatMoney(booking.refundAmount)} · ya te fueron entregados`
+                  : `${formatMoney(booking.refundAmount)} · reclámalos en la administración`
+              }
+            />
+          )}
           {booking.lateCancellationAmount > 0 && (
             <Row
               icon="money-off"
@@ -163,6 +200,19 @@ export default function AmenityBookingDetailScreen() {
               {booking.accessCode}
             </CustomTextComponent>
           </View>
+        )}
+
+        {/* El código es la llave de la zona y no sale hasta que la reserva esté
+            pagada. Quien no lo sepa llega a portería y se devuelve, así que se
+            dice acá, con el valor y dónde pagarlo. */}
+        {status === 'APPROVED' && !booking.accessCode && pendingAmount > 0 && (
+          <Notice
+            icon="lock"
+            text={
+              `Tu código de ingreso sale cuando pagues ${formatMoney(pendingAmount)}. ` +
+              'Acércate a la administración o cancela el cargo de tu unidad.'
+            }
+          />
         )}
 
         {/* ── Avisos según estado ──────────────────────────────── */}
@@ -217,6 +267,28 @@ export default function AmenityBookingDetailScreen() {
       </ScrollView>
     </View>
   );
+}
+
+/**
+ * El aseo en una frase: quién lo hace, qué cuesta y hasta cuándo deja tomada la
+ * zona. Se nombra la hora de liberación y no los minutos sueltos: "hasta las
+ * 21:00" es lo que el vecino de al lado va a ver ocupado.
+ */
+function cleaningValue(booking: {
+  cleaningMinutes: number;
+  cleaningByComplex: boolean;
+  cleaningFeeAmount: number;
+  blockedUntilAt: string;
+}): string {
+  const who = booking.cleaningByComplex
+    ? booking.cleaningFeeAmount > 0
+      ? `Lo hace la administración · ${formatMoney(booking.cleaningFeeAmount)}`
+      : 'Lo hace la administración · sin costo'
+    : 'Lo hace tu unidad';
+
+  if (booking.cleaningMinutes <= 0) return who;
+
+  return `${who} · la zona queda apartada ${minutesLabel(booking.cleaningMinutes)} más, hasta las ${timeOf(booking.blockedUntilAt)}`;
 }
 
 function Row({ icon, label, value }: { icon: string; label: string; value: string }) {

@@ -199,6 +199,52 @@ export function stepLabel(iso: string, windowStartIso: string): string {
   return `${timeOf(iso)}${nextDay ? ' (+1)' : ''}`;
 }
 
+/**
+ * Un tramo YA OCUPADO, sin decir de quién es: el residente necesita saber que
+ * la zona está tomada, no quién la tomó.
+ *
+ * "16:00 – 20:00" cuando cae en el día que está mirando, y "mar, 22 sep · 12:00
+ * – 16:00" cuando cae en otro. La fecha no es decoración: una reserva que
+ * arranca a las 4 p. m. puede llegar hasta la tarde del día siguiente, y la
+ * reserva ajena que la corta suele ser la de MAÑANA. Sin la fecha, "12:00" se
+ * lee como mediodía de hoy y el tope parece arbitrario.
+ */
+export function busyLabel(
+  range: { startAt: string; endAt: string; cleaningFromAt?: string | null },
+  refDateKey?: string | null,
+): string {
+  const start = new Date(range.startAt);
+  // El tramo ocupado termina donde termina el aseo. Lo que el vecino reservó
+  // acaba antes, y esa es la hora que se nombra: "tomada hasta las 8, aseo
+  // hasta las 9" dice mucho más que un bloque ciego hasta las 9.
+  const useEnd = range.cleaningFromAt ?? range.endAt;
+  const crossesMidnight = start.getDate() !== new Date(useEnd).getDate();
+
+  let span = `${timeOf(range.startAt)} – ${timeOf(useEnd)}${crossesMidnight ? ' (+1)' : ''}`;
+  if (range.cleaningFromAt) span += ` · aseo hasta ${timeOf(range.endAt)}`;
+
+  if (!refDateKey || localDateKey(start) === refDateKey) return span;
+  return `${dayChipLabel(localDateKey(start))} · ${span}`;
+}
+
+/** "45 min", "1 h", "2 h 30 min" — una duración en palabras del residente. */
+export function minutesLabel(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}
+
+/**
+ * Un instante contado desde otro: "las 12:00" si es el mismo día, la fecha
+ * completa si no. Sirve para explicar hasta dónde llega una reserva que cruza
+ * la medianoche.
+ */
+export function whenLabel(iso: string, referenceIso: string): string {
+  const sameDay = localDateKey(new Date(iso)) === localDateKey(new Date(referenceIso));
+  return sameDay ? `las ${timeOf(iso)}` : momentLabel(iso);
+}
+
 
 /**
  * Une las ventanas que se tocan: el cierre de una es la apertura de la
@@ -273,9 +319,15 @@ export function cancellationPolicyLabel(amenity: {
 
   if (hours === 0) return noFee ? null : 'Puedes cancelar en cualquier momento sin costo.';
 
-  const when = hours % 24 === 0
-    ? `${hours / 24} ${hours === 24 ? 'día' : 'días'}`
-    : `${hours} horas`;
+  // Los dos campos del plazo se suman, así que un plazo de 8 días y 5 horas
+  // llega acá como 197. Escrito en horas crudas el residente no lo dimensiona.
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  const when = days === 0
+    ? `${restHours} ${restHours === 1 ? 'hora' : 'horas'}`
+    : restHours === 0
+      ? `${days} ${days === 1 ? 'día' : 'días'}`
+      : `${days} ${days === 1 ? 'día' : 'días'} y ${restHours} ${restHours === 1 ? 'hora' : 'horas'}`;
 
   return noFee
     ? `Cancelación gratuita hasta ${when} antes del inicio.`

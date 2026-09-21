@@ -43,6 +43,14 @@ export interface Amenity {
   /** Reservas gratis al año por miembro del consejo. 0 = la zona no da el beneficio. */
   councilFreeBookingsPerYear: number;
   requiresApproval: boolean;
+  /** La administración ofrece encargarse del aseo de esta zona. */
+  cleaningServiceAvailable: boolean;
+  /** Franja de aseo sugerida. La definitiva la fija la administración. */
+  defaultCleaningMinutes: number;
+  /** Costo del aseo hecho por el conjunto. 0 = sin costo. */
+  cleaningFeeAmount: number;
+  /** El cupo anual del consejo cubre también el aseo, no solo el alquiler. */
+  councilQuotaCoversCleaning: boolean;
   feeType: AmenityFeeType | string;
   feeAmount: number;
   complexId: string;
@@ -66,7 +74,14 @@ export interface AmenityTimeWindow {
 
 export interface AmenityBusyRange {
   startAt: string;
+  /** Fin de la ocupación, con la franja de aseo incluida. */
   endAt: string;
+  /**
+   * Desde dónde el tramo es aseo y no uso. null si la reserva no arrastra
+   * franja. Al vecino le sirve la diferencia: "reservada hasta las 10" y "la
+   * están aseando hasta las 10" no se leen igual.
+   */
+  cleaningFromAt?: string | null;
   bookingsCount: number;
 }
 
@@ -115,6 +130,24 @@ export interface AmenityBooking {
   feeAmount: number;
   /** Nació gratis por el cupo anual del consejo de administración. */
   isCouncilFreeBooking: boolean;
+  /** Minutos que la zona queda bloqueada tras la reserva para el aseo. */
+  cleaningMinutes: number;
+  /** Fin de la ocupación real: `endAt` más la franja de aseo. */
+  blockedUntilAt: string;
+  /** El aseo lo hace el conjunto (con cobro) en vez de la unidad. */
+  cleaningByComplex: boolean;
+  /** Lo que cuesta el aseo del conjunto, congelado al elegirlo. */
+  cleaningFeeAmount: number;
+  /**
+   * El alquiler se pagó en la administración y entró a caja del complejo, así
+   * que ya no cuelga de la cartera de la unidad. Null = va por cartera.
+   */
+  directIncomeId?: string | null;
+  directPaymentAmount: number;
+  /** Plata que la administración tiene que devolverle por cancelar. 0 si no hay. */
+  refundAmount: number;
+  /** Cuándo se la entregaron. Null = todavía está por reclamar. */
+  refundedAt?: string | null;
   /** Parte de la tarifa retenida por cancelar fuera de plazo. 0 si no hubo. */
   lateCancellationAmount: number;
   /** Cobro por daños detectados al entregar la zona. 0 si no hubo. */
@@ -130,5 +163,7 @@ export interface AmenityBooking {
     cancellationDeadlineHours: number;
     lateCancellationFeePercent: number;
     councilFreeBookingsPerYear: number;
+    cleaningServiceAvailable: boolean;
+    cleaningFeeAmount: number;
   } | null;
 }

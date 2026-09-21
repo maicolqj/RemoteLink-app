@@ -52,7 +52,7 @@ interface AmenitiesState {
   createBooking: (input: {
     amenityId: string; startAt: string; endAt: string;
     attendees: number; purpose?: string; notes?: string;
-    useCouncilFreeQuota?: boolean;
+    useCouncilFreeQuota?: boolean; cleaningByComplex?: boolean;
   }) => Promise<AmenityBooking>;
   cancelBooking: (bookingId: string, reason?: string) => Promise<void>;
 
