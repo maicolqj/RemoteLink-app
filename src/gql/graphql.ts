@@ -6192,6 +6192,7 @@ export type QueryListingReportsArgs = {
   complexId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
   status?: InputMaybe<MarketplaceReportStatus>;
+  types?: InputMaybe<Array<MarketplaceListingType>>;
 };
 
 
@@ -6295,6 +6296,7 @@ export type QueryMarketplaceSettingsArgs = {
 
 export type QueryMarketplaceStatsArgs = {
   complexId: Scalars['String']['input'];
+  types?: InputMaybe<Array<MarketplaceListingType>>;
 };
 
 
