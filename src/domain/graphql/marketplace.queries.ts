@@ -89,9 +89,16 @@ export const GET_LISTING = gql`
   }
 `;
 
+/**
+ * `kind` separa los tableros: sin él el servidor devuelve las de clasificados,
+ * y el directorio de servicios tiene sus propios oficios.
+ */
 export const GET_MARKETPLACE_CATEGORIES = gql`
-  query MarketplaceCategoriesApp($complexId: String!) {
-    marketplaceCategories(complexId: $complexId) {
+  query MarketplaceCategoriesApp(
+    $complexId: String!
+    $kind: MarketplaceCategoryKind
+  ) {
+    marketplaceCategories(complexId: $complexId, kind: $kind) {
       id
       name
       icon
@@ -113,6 +120,7 @@ export const GET_MARKETPLACE_SETTINGS = gql`
       complexId
       moderationMode
       listingDurationDays
+      serviceListingDurationDays
       maxActiveListingsPerUnit
       maxImagesPerListing
       allowPhoneContact

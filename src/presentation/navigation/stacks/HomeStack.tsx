@@ -31,6 +31,7 @@ import AccessRequestDetailScreen from '../../screens/generals/AccessRequestDetai
 import FinancesScreen from '../../screens/generals/FinancesScreen';
 import PaymentDetailScreen from '../../screens/generals/PaymentDetailScreen';
 import MarketplaceScreen from '../../screens/generals/MarketplaceScreen';
+import ServicesScreen from '../../screens/generals/ServicesScreen';
 import ListingDetailScreen from '../../screens/generals/ListingDetailScreen';
 import MyListingsScreen from '../../screens/generals/MyListingsScreen';
 import ListingFormScreen from '../../screens/generals/ListingFormScreen';
@@ -74,6 +75,7 @@ export default function HomeStack() {
       {/* Clasificados: la tienda de demostración vivía en su propia pestaña;
           ahora es un módulo más del Home, como PQRF o zonas comunes. */}
       <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+      <Stack.Screen name="Services" component={ServicesScreen} />
       <Stack.Screen name="ListingDetail" component={ListingDetailScreen} />
       <Stack.Screen name="MyListings" component={MyListingsScreen} />
       <Stack.Screen name="ListingForm" component={ListingFormScreen} />

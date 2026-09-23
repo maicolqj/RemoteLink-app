@@ -18,6 +18,7 @@ import {
 import { getApiErrorMessage } from '../utils/apiError';
 import type { PhotoUpload } from '../../domain/interfaces/PhotoUpload';
 import type {
+  CategoryKind,
   Listing,
   ListingCategory,
   ListingFilters,
@@ -66,12 +67,13 @@ export async function fetchListing(listingId: string): Promise<Listing> {
 
 export async function fetchCategories(
   complexId: string,
+  kind: CategoryKind = 'CLASSIFIED',
 ): Promise<ListingCategory[]> {
   const { data } = await apolloClient.query<{
     marketplaceCategories: ListingCategory[];
   }>({
     query: GET_MARKETPLACE_CATEGORIES,
-    variables: { complexId },
+    variables: { complexId, kind },
     fetchPolicy: 'network-only',
   });
   return data?.marketplaceCategories ?? [];

@@ -28,6 +28,9 @@ export type ContactPreference = 'IN_APP' | 'PHONE' | 'WHATSAPP';
 
 export type ModerationMode = 'AUTO' | 'PREVIA';
 
+/** Tablero al que pertenece una categoría: clasificados o directorio. */
+export type CategoryKind = 'CLASSIFIED' | 'SERVICE';
+
 export type ReportReason =
   | 'PROHIBITED_ITEM'
   | 'SCAM'
@@ -104,6 +107,8 @@ export interface MarketplaceSettings {
   complexId: string;
   moderationMode: ModerationMode;
   listingDurationDays: number;
+  /** Vigencia de los avisos del directorio de servicios. */
+  serviceListingDurationDays: number;
   maxActiveListingsPerUnit: number;
   maxImagesPerListing: number;
   allowPhoneContact: boolean;
@@ -114,6 +119,8 @@ export interface MarketplaceSettings {
 export interface ListingFilters {
   search?: string;
   type?: ListingType;
+  /** Tipos que no se quieren; la vitrina de clasificados deja fuera SERVICE. */
+  excludeTypes?: ListingType[];
   categoryId?: string;
   onlyMine?: boolean;
   onlyFavorites?: boolean;

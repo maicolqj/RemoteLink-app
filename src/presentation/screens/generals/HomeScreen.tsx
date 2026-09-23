@@ -222,6 +222,9 @@ export default function HomeScreen() {
     { id: 'pets',    icon: 'pets',      label: 'Mascotas', screen: 'Pets',       color: colors.warning, module: 'MASCOTAS' },
     { id: 'maintenance', icon: 'build', label: 'Daños',   screen: 'Maintenance', color: colors.error, module: 'MANTENIMIENTO' },
     { id: 'marketplace', icon: 'storefront', label: 'Clasificados', screen: 'Marketplace', color: colors.accent, module: 'CLASIFICADOS' },
+    // El directorio de servicios tiene su propio interruptor: hay conjuntos que
+    // quieren los oficios de los vecinos y no la venta entre ellos.
+    { id: 'services', icon: 'handyman', label: 'Servicios', screen: 'Services', color: colors.success, module: 'SERVICIOS' },
     ...(votingEnabled
       ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary, module: 'VOTACIONES' }]
       : []),

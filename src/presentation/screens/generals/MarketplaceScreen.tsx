@@ -40,6 +40,7 @@ import type { HomeStackParamList } from '../../navigation/types/NavigationTypes'
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
+  CLASSIFIED_EXCLUDED_TYPES,
   LISTING_TYPES,
   LISTING_TYPE_LABEL,
   expiryLabel,
@@ -71,6 +72,8 @@ type Tab = 'all' | 'favorites';
  * Reemplaza la tienda de demostración que traía la app —productos inventados,
  * carrito y total a pagar—. Aquí no hay pagos: la copropiedad presta el tablero
  * y el trato se cierra entre vecinos.
+ *
+ * Los servicios no salen aquí: tienen su propio directorio (`ServicesScreen`).
  */
 export default function MarketplaceScreen() {
   const navigation = useNavigation<NavProp>();
@@ -122,6 +125,7 @@ export default function MarketplaceScreen() {
     () => ({
       search: search || undefined,
       type: type ?? undefined,
+      excludeTypes: CLASSIFIED_EXCLUDED_TYPES,
       categoryId: categoryId ?? undefined,
       onlyFavorites: tab === 'favorites' ? true : undefined,
     }),

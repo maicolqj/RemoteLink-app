@@ -7,7 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -34,6 +39,7 @@ import type { HomeStackParamList } from '../../navigation/types/NavigationTypes'
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import {
+  CLASSIFIED_EXCLUDED_TYPES,
   LISTING_STATUS_LABEL,
   LISTING_STATUS_TONE,
   canEditStatus,
@@ -43,6 +49,7 @@ import {
 } from './marketplace.shared';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'MyListings'>;
+type MyListingsRoute = RouteProp<HomeStackParamList, 'MyListings'>;
 
 const TONE_TO_CHIP: Record<
   string,
@@ -61,9 +68,14 @@ const TONE_TO_CHIP: Record<
  * Es la única pantalla donde el residente ve sus borradores, lo que está
  * esperando aprobación y lo que le rechazaron —con el motivo—. Desde la vitrina
  * eso no se ve, porque ahí solo está lo publicado.
+ *
+ * Con `service` muestra solo los servicios del directorio; sin él, los
+ * clasificados. Cada tablero administra lo suyo y publica con su formulario.
  */
 export default function MyListingsScreen() {
   const navigation = useNavigation<NavProp>();
+  const { params } = useRoute<MyListingsRoute>();
+  const isService = !!params?.service;
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const gs = useGlobalStyles();
@@ -79,14 +91,25 @@ export default function MyListingsScreen() {
   const load = useCallback(async () => {
     if (!complexId) return;
     try {
-      const page = await fetchListings(complexId, 1, { onlyMine: true });
+      const page = await fetchListings(
+        complexId,
+        1,
+        isService
+          ? { onlyMine: true, type: 'SERVICE' }
+          : { onlyMine: true, excludeTypes: CLASSIFIED_EXCLUDED_TYPES },
+      );
       setItems(page.items);
     } catch (e: any) {
       showError(e?.message ?? 'No se pudieron cargar tus publicaciones.');
     } finally {
       setIsLoading(false);
     }
-  }, [complexId, showError]);
+  }, [complexId, isService, showError]);
+
+  const openForm = useCallback(
+    () => navigation.navigate('ListingForm', { service: isService }),
+    [navigation, isService],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -295,12 +318,12 @@ export default function MyListingsScreen() {
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
-        title="Mis publicaciones"
+        title={isService ? 'Mis servicios' : 'Mis publicaciones'}
         showBack
         onBack={() => navigation.goBack()}
         rightAction={{
           icon: 'add',
-          onPress: () => navigation.navigate('ListingForm'),
+          onPress: openForm,
         }}
       />
 
@@ -320,11 +343,17 @@ export default function MyListingsScreen() {
           }
           ListEmptyComponent={
             <EmptyState
-              icon="sell"
-              title="No has publicado nada"
-              description="Vende, arrienda o regala lo que ya no usas a tus vecinos."
-              actionLabel="Publicar un aviso"
-              onAction={() => navigation.navigate('ListingForm')}
+              icon={isService ? 'handyman' : 'sell'}
+              title={
+                isService ? 'No ofreces ningún servicio' : 'No has publicado nada'
+              }
+              description={
+                isService
+                  ? 'Cuéntale al conjunto a qué te dedicas: plomería, clases, cuidado de niños…'
+                  : 'Vende, arrienda o regala lo que ya no usas a tus vecinos.'
+              }
+              actionLabel={isService ? 'Ofrecer un servicio' : 'Publicar un aviso'}
+              onAction={openForm}
             />
           }
         />

@@ -282,7 +282,7 @@ export default function ListingDetailScreen() {
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
-        title="Publicación"
+        title={listing.type === 'SERVICE' ? 'Servicio' : 'Publicación'}
         showBack
         onBack={() => navigation.goBack()}
         rightAction={{
@@ -502,13 +502,21 @@ export default function ListingDetailScreen() {
 
           {listing.viewerIsOwner && (
             <CustomButtonComponent
-              text="Administrar mis avisos"
+              text={
+                listing.type === 'SERVICE'
+                  ? 'Administrar mis servicios'
+                  : 'Administrar mis avisos'
+              }
               iconLeft={{
                 name: 'sell',
                 type: 'material',
                 color: colors.textInverse,
               }}
-              onPress={() => navigation.navigate('MyListings')}
+              onPress={() =>
+                navigation.navigate('MyListings', {
+                  service: listing.type === 'SERVICE',
+                })
+              }
               style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               textStyle={{
                 color: colors.textInverse,

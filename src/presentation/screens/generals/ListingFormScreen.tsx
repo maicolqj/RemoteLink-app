@@ -48,6 +48,8 @@ import {
   PRICE_TYPES,
   PRICE_TYPES_WITH_AMOUNT,
   PRICE_TYPE_LABEL,
+  SERVICE_PRICE_TYPES,
+  SERVICE_PRICE_TYPE_LABEL,
   editModerationHint,
   moderationHint,
 } from './marketplace.shared';
@@ -75,6 +77,11 @@ const formatThousands = (raw: string): string => {
  * La misma pantalla corrige un aviso propio cuando llega con `listingId`: el
  * residente que se equivocó en el precio —o al que le rechazaron el aviso—
  * arregla lo que escribió sin tener que publicarlo otra vez desde cero.
+ *
+ * Con `service` (o al corregir un aviso que ya es de servicio) se vuelve el
+ * formulario corto del directorio: sin elegir tipo ni estado del artículo, con
+ * los oficios como categorías, la foto opcional y el precio "a convenir". Era
+ * el formulario de venta lo que hacía difícil inscribirse en el directorio.
  */
 export default function ListingFormScreen() {
   const navigation = useNavigation<NavProp>();
@@ -88,25 +95,37 @@ export default function ListingFormScreen() {
   const resident = useAuthStore(state => state.resident);
   const complexId = resident?.complex?.id;
 
-  const categories = useMarketplaceStore(state => state.categories);
+  const classifiedCategories = useMarketplaceStore(state => state.categories);
+  const serviceCategories = useMarketplaceStore(
+    state => state.serviceCategories,
+  );
   const settings = useMarketplaceStore(state => state.settings);
   const init = useMarketplaceStore(state => state.init);
   const patchListing = useMarketplaceStore(state => state.patchListing);
 
-  const [type, setType] = useState<ListingType>('PRODUCT');
+  const [type, setType] = useState<ListingType>(
+    params?.service ? 'SERVICE' : 'PRODUCT',
+  );
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priceType, setPriceType] = useState<PriceType>('FIXED');
+  const [priceType, setPriceType] = useState<PriceType>(
+    params?.service ? 'ON_REQUEST' : 'FIXED',
+  );
   const [priceAmount, setPriceAmount] = useState('');
   const [condition, setCondition] = useState<ItemCondition | null>(null);
-  const [showPhone, setShowPhone] = useState(false);
+  // En el directorio lo que el vecino busca es cómo contactar a quien ofrece
+  // el servicio: ahí el interruptor arranca encendido, siempre a la vista para
+  // que la decisión siga siendo de quien publica.
+  const [showPhone, setShowPhone] = useState(!!params?.service);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
   const [busy, setBusy] = useState(false);
 
   const listingId = params?.listingId;
   const isEdit = !!listingId;
+  const isService = type === 'SERVICE';
+  const categories = isService ? serviceCategories : classifiedCategories;
 
   /** Lo que ya está subido. Aquí solo se puede quitar; lo nuevo va en `photos`. */
   const [original, setOriginal] = useState<Listing | null>(null);
@@ -122,6 +141,21 @@ export default function ListingFormScreen() {
   useEffect(() => {
     if (complexId && categories.length === 0) init(complexId);
   }, [complexId, categories.length, init]);
+
+  /**
+   * Un servicio viejo pudo quedar en una categoría de clasificados, de antes de
+   * que el directorio tuviera las suyas. Si no está entre los oficios, se deja
+   * sin elegir para que el vecino escoja uno: el servidor ya no la acepta.
+   */
+  useEffect(() => {
+    if (
+      categoryId &&
+      categories.length > 0 &&
+      !categories.some(category => category.id === categoryId)
+    ) {
+      setCategoryId(null);
+    }
+  }, [categoryId, categories]);
 
   /**
    * Trae el aviso que se va a corregir y deja el formulario como quedó.
@@ -168,7 +202,7 @@ export default function ListingFormScreen() {
   }, [listingId, showError, navigation]);
 
   const maxPhotos = settings?.maxImagesPerListing ?? 5;
-  const needsPhotos = type !== 'WANTED';
+  const needsPhotos = type !== 'WANTED' && type !== 'SERVICE';
   const needsAmount = PRICE_TYPES_WITH_AMOUNT.includes(priceType);
   const totalPhotos = existingImages.length + photos.length;
 
@@ -245,12 +279,18 @@ export default function ListingFormScreen() {
   const submit = useCallback(async () => {
     if (!complexId) return;
 
-    if (!categoryId) return showError('Elige una categoría.');
+    if (!categoryId) {
+      return showError(isService ? 'Elige tu oficio.' : 'Elige una categoría.');
+    }
     if (title.trim().length < 5) {
       return showError('El título necesita al menos 5 caracteres.');
     }
     if (description.trim().length < 10) {
-      return showError('Describe un poco mejor lo que publicas.');
+      return showError(
+        isService
+          ? 'Cuenta un poco más: qué haces y en qué horario.'
+          : 'Describe un poco mejor lo que publicas.',
+      );
     }
     if (needsPhotos && totalPhotos === 0) {
       return showError(
@@ -294,9 +334,11 @@ export default function ListingFormScreen() {
 
       showSuccess(
         settings?.moderationMode === 'AUTO'
-          ? 'Tu aviso ya está visible para el conjunto.'
+          ? isService
+            ? 'Tu servicio ya aparece en el directorio del conjunto.'
+            : 'Tu aviso ya está visible para el conjunto.'
           : 'La administración lo revisa y te avisamos cuando quede publicado.',
-        'Aviso enviado',
+        isService ? 'Servicio enviado' : 'Aviso enviado',
       );
       navigation.goBack();
     } catch (e: any) {
@@ -313,7 +355,19 @@ export default function ListingFormScreen() {
     complexId, categoryId, title, description, needsPhotos, totalPhotos, photos,
     needsAmount, priceAmount, acceptTerms, type, priceType, condition,
     showPhone, settings, navigation, showError, showSuccess, isEdit, saveEdit,
+    isService,
   ]);
+
+  const screenTitle = isService
+    ? isEdit
+      ? 'Editar servicio'
+      : 'Ofrecer un servicio'
+    : isEdit
+      ? 'Editar aviso'
+      : 'Publicar aviso';
+
+  const priceTypes = isService ? SERVICE_PRICE_TYPES : PRICE_TYPES;
+  const priceLabels = isService ? SERVICE_PRICE_TYPE_LABEL : PRICE_TYPE_LABEL;
 
   const sectionTitle = (text: string, first = false) => (
     <CustomTextComponent
@@ -329,7 +383,7 @@ export default function ListingFormScreen() {
     return (
       <View style={[gs.screen, { paddingTop: insets.top }]}>
         <AppHeader
-          title="Editar aviso"
+          title={screenTitle}
           showBack
           onBack={() => navigation.goBack()}
         />
@@ -341,7 +395,7 @@ export default function ListingFormScreen() {
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
-        title={isEdit ? 'Editar aviso' : 'Publicar aviso'}
+        title={screenTitle}
         showBack
         onBack={() => navigation.goBack()}
       />
@@ -352,31 +406,37 @@ export default function ListingFormScreen() {
           { paddingBottom: insets.bottom + SPACING.xxl },
         ]}
         keyboardShouldPersistTaps="handled">
-        {sectionTitle('¿Qué vas a publicar?', true)}
-        <View style={styles.chips}>
-          {availableTypes.map(item => {
-            const isActive = type === item;
-            return (
-              <TouchableOpacity
-                key={item}
-                onPress={() => setType(item)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: isActive ? colors.primary : colors.surface,
-                  },
-                ]}>
-                <CustomTextComponent
-                  fontSize={FONT_SIZE.sm}
-                  color={isActive ? colors.textInverse : colors.textPrimary}>
-                  {LISTING_TYPE_LABEL[item]}
-                </CustomTextComponent>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* En el directorio el tipo ya está decidido: es un servicio. */}
+        {!isService && sectionTitle('¿Qué vas a publicar?', true)}
+        {!isService && (
+          <View style={styles.chips}>
+            {availableTypes.map(item => {
+              const isActive = type === item;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => setType(item)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isActive ? colors.primary : colors.surface,
+                    },
+                  ]}>
+                  <CustomTextComponent
+                    fontSize={FONT_SIZE.sm}
+                    color={isActive ? colors.textInverse : colors.textPrimary}>
+                    {LISTING_TYPE_LABEL[item]}
+                  </CustomTextComponent>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
-        {sectionTitle('Categoría')}
+        {sectionTitle(
+          isService ? '¿Cuál es tu oficio?' : 'Categoría',
+          isService,
+        )}
         {categories.length === 0 ? (
           <CustomTextComponent
             fontSize={FONT_SIZE.sm}
@@ -414,7 +474,11 @@ export default function ListingFormScreen() {
         <CustomInputComponent
           value={title}
           onChangeText={setTitle}
-          placeholder="Nevera Haceb de 320 litros"
+          placeholder={
+            isService
+              ? 'Plomería y arreglos de baño'
+              : 'Nevera Haceb de 320 litros'
+          }
           maxLength={120}
         />
 
@@ -422,15 +486,19 @@ export default function ListingFormScreen() {
         <CustomInputComponent
           value={description}
           onChangeText={setDescription}
-          placeholder="Cuéntale a tu vecino en qué estado está y por qué lo vendes"
+          placeholder={
+            isService
+              ? 'Qué haces, en qué horario atiendes y si tienes experiencia o referencias'
+              : 'Cuéntale a tu vecino en qué estado está y por qué lo vendes'
+          }
           multiline
           numberOfLines={5}
           maxLength={4000}
         />
 
-        {sectionTitle('Precio')}
+        {sectionTitle(isService ? 'Tarifa' : 'Precio')}
         <View style={styles.chips}>
-          {PRICE_TYPES.map(item => {
+          {priceTypes.map(item => {
             const isActive = priceType === item;
             return (
               <TouchableOpacity
@@ -445,7 +513,7 @@ export default function ListingFormScreen() {
                 <CustomTextComponent
                   fontSize={FONT_SIZE.sm}
                   color={isActive ? colors.textInverse : colors.textPrimary}>
-                  {PRICE_TYPE_LABEL[item]}
+                  {priceLabels[item]}
                 </CustomTextComponent>
               </TouchableOpacity>
             );
@@ -456,7 +524,7 @@ export default function ListingFormScreen() {
           <CustomInputComponent
             value={priceAmount}
             onChangeText={raw => setPriceAmount(formatThousands(raw))}
-            placeholder="800.000"
+            placeholder={isService ? '50.000' : '800.000'}
             keyboardType="numeric"
             leftIcon={{ name: 'attach-money', color: colors.textTertiary }}
           />
@@ -494,11 +562,19 @@ export default function ListingFormScreen() {
           </>
         )}
 
-        {sectionTitle(needsPhotos ? 'Fotos' : 'Fotos (opcionales)')}
+        {sectionTitle(
+          isService
+            ? 'Fotos de tus trabajos (opcionales)'
+            : needsPhotos
+              ? 'Fotos'
+              : 'Fotos (opcionales)',
+        )}
         <CustomTextComponent
           fontSize={FONT_SIZE.sm}
           color={colors.textSecondary}>
-          Hasta {maxPhotos}. La primera es la que se ve en la vitrina.
+          {isService
+            ? `Hasta ${maxPhotos}. Un trabajo terminado da más confianza que cualquier descripción.`
+            : `Hasta ${maxPhotos}. La primera es la que se ve en la vitrina.`}
         </CustomTextComponent>
 
         <View style={styles.photos}>
@@ -570,8 +646,9 @@ export default function ListingFormScreen() {
               <CustomTextComponent
                 fontSize={FONT_SIZE.sm}
                 color={colors.textSecondary}>
-                Si lo dejas apagado, tus vecinos te avisan por la app y tú
-                decides si les devuelves el contacto.
+                {isService
+                  ? 'En el directorio es lo que más buscan tus vecinos. Si lo apagas, te escriben por la app y tú decides si les devuelves el contacto.'
+                  : 'Si lo dejas apagado, tus vecinos te avisan por la app y tú decides si les devuelves el contacto.'}
               </CustomTextComponent>
             </View>
             <Switch value={showPhone} onValueChange={setShowPhone} />
