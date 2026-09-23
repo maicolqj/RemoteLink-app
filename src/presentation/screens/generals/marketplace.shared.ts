@@ -15,14 +15,22 @@ export const LISTING_TYPE_LABEL: Record<string, string> = {
   WANTED: 'Busco',
 };
 
-/** El orden en que se ofrecen al publicar: lo más frecuente primero. */
+/**
+ * Los tipos de la vitrina de clasificados, en el orden en que se ofrecen al
+ * publicar: lo más frecuente primero.
+ *
+ * `SERVICE` no está: los servicios tienen su propio directorio, con su
+ * formulario y su interruptor (`SERVICIOS`).
+ */
 export const LISTING_TYPES: ListingType[] = [
   'PRODUCT',
-  'SERVICE',
   'RENTAL',
   'GIVEAWAY',
   'WANTED',
 ];
+
+/** Lo que la vitrina de clasificados deja fuera al consultar. */
+export const CLASSIFIED_EXCLUDED_TYPES: ListingType[] = ['SERVICE'];
 
 export const PRICE_TYPE_LABEL: Record<string, string> = {
   FIXED: 'Precio fijo',
@@ -39,6 +47,22 @@ export const PRICE_TYPES: PriceType[] = [
   'EXCHANGE',
   'ON_REQUEST',
 ];
+
+/**
+ * Cómo cobra un servicio. "A convenir" va primero: casi ningún oficio tiene
+ * tarifa única, depende del trabajo.
+ */
+export const SERVICE_PRICE_TYPES: PriceType[] = [
+  'ON_REQUEST',
+  'FIXED',
+  'FREE',
+];
+
+export const SERVICE_PRICE_TYPE_LABEL: Record<string, string> = {
+  ON_REQUEST: 'A convenir',
+  FIXED: 'Tarifa fija',
+  FREE: 'Gratis',
+};
 
 /** Los que exigen monto. El servidor rechaza un precio fijo sin número. */
 export const PRICE_TYPES_WITH_AMOUNT: PriceType[] = ['FIXED', 'NEGOTIABLE'];

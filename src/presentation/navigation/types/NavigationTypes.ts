@@ -52,10 +52,16 @@ export type HomeStackParamList = {
   PaymentDetail: { movementId: string };
   // Clasificados: la vitrina, la ficha de un aviso, los propios y el alta.
   Marketplace: undefined;
+  /** Directorio de servicios: comparte ficha, alta y "mis avisos" con clasificados. */
+  Services: undefined;
   ListingDetail: { listingId: string };
-  MyListings: undefined;
-  /** Sin id publica; con id corrige un aviso propio que todavía se puede editar. */
-  ListingForm: { listingId?: string } | undefined;
+  /** Con `service` lista solo los servicios propios; sin él, los clasificados. */
+  MyListings: { service?: boolean } | undefined;
+  /**
+   * Sin id publica; con id corrige un aviso propio que todavía se puede editar.
+   * `service` abre el formulario corto del directorio.
+   */
+  ListingForm: { listingId?: string; service?: boolean } | undefined;
 };
 
 export type FinancesStackParamList = {

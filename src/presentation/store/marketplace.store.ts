@@ -31,12 +31,14 @@ import type {
 interface MarketplaceState {
   listings: Listing[];
   categories: ListingCategory[];
+  /** Oficios del directorio de servicios; van aparte de las de clasificados. */
+  serviceCategories: ListingCategory[];
   settings: MarketplaceSettings | null;
   isLoading: boolean;
   page: number;
   hasNextPage: boolean;
 
-  /** Ajustes + categorías de la vitrina. */
+  /** Ajustes + categorías de los dos tableros. */
   init: (complexId: string) => Promise<void>;
   load: (complexId: string, filters?: ListingFilters) => Promise<void>;
   loadMore: (complexId: string, filters?: ListingFilters) => Promise<void>;
@@ -50,6 +52,7 @@ interface MarketplaceState {
 export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   listings: [],
   categories: [],
+  serviceCategories: [],
   settings: null,
   isLoading: false,
   page: 1,
@@ -57,16 +60,17 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
   init: async complexId => {
     try {
-      const [settings, categories] = await Promise.all([
+      const [settings, categories, serviceCategories] = await Promise.all([
         fetchSettings(complexId),
-        fetchCategories(complexId),
+        fetchCategories(complexId, 'CLASSIFIED'),
+        fetchCategories(complexId, 'SERVICE'),
       ]);
-      set({ settings, categories });
+      set({ settings, categories, serviceCategories });
     } catch {
       // Sin ajustes la pantalla sigue en pie con los valores por defecto: no
       // vale la pena tumbarle la vitrina al residente por no saber cuántas
       // fotos admite el conjunto.
-      set({ settings: null, categories: [] });
+      set({ settings: null, categories: [], serviceCategories: [] });
     }
   },
 
@@ -145,6 +149,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     set({
       listings: [],
       categories: [],
+      serviceCategories: [],
       settings: null,
       page: 1,
       hasNextPage: false,

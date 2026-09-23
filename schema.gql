@@ -1736,6 +1736,7 @@ enum NotificationType {
   RESIDENT_APPROVED
   RESIDENT_REJECTED
   RESIDENT_PENDING
+  ACCESS_CODE_RESET
   PARKING_ASSIGNED
   VEHICLE_REGISTERED
   VEHICLE_APPROVED
@@ -5511,6 +5512,9 @@ type MarketplaceSettings {
   """Días que dura publicado un aviso"""
   listingDurationDays: Int!
 
+  """Días que dura publicado un servicio del directorio"""
+  serviceListingDurationDays: Int!
+
   """Avisos activos que puede tener una unidad"""
   maxActiveListingsPerUnit: Int!
 
@@ -5612,6 +5616,7 @@ enum ComplexModule {
   MASCOTAS
   MANTENIMIENTO
   CLASIFICADOS
+  SERVICIOS
 }
 
 """Descarga de datos realizada en el complejo"""
@@ -5853,9 +5858,25 @@ type Query {
   maintenanceSlaConfigs(complexId: String!): [MaintenanceSlaConfig!]!
   marketplaceListings(complexId: String!, pagination: PaginationInput, filters: FilterListingsInput): PaginatedListingsResponse!
   marketplaceListing(listingId: String!): MarketplaceListing!
-  marketplaceStats(complexId: String!): MarketplaceStatsResponse!
+  marketplaceStats(
+    complexId: String!
+
+    """
+    Solo estos tipos de publicación. Separa el directorio de servicios de clasificados
+    """
+    types: [MarketplaceListingType!]
+  ): MarketplaceStatsResponse!
   marketplaceCategories(complexId: String!, kind: MarketplaceCategoryKind, includeInactive: Boolean): [MarketplaceCategory!]!
-  listingReports(complexId: String!, pagination: PaginationInput, status: MarketplaceReportStatus): PaginatedListingReportsResponse!
+  listingReports(
+    complexId: String!
+    pagination: PaginationInput
+    status: MarketplaceReportStatus
+
+    """
+    Solo estos tipos de publicación. Separa el directorio de servicios de clasificados
+    """
+    types: [MarketplaceListingType!]
+  ): PaginatedListingReportsResponse!
   marketplaceSettings(complexId: String!): MarketplaceSettings!
 
   """Módulos cuyos datos se pueden descargar en el complejo"""
@@ -6237,6 +6258,9 @@ input FilterListingsInput {
   search: String
   status: MarketplaceListingStatus
   type: MarketplaceListingType
+
+  """Tipos de publicación que se excluyen del listado"""
+  excludeTypes: [MarketplaceListingType!]
   priceType: MarketplacePriceType
   categoryId: String
 
@@ -6333,6 +6357,11 @@ type Mutation {
 
   """Cierra la sesión actual e invalida los tokens."""
   logout: Boolean!
+
+  """
+  Borra la clave de acceso de un residente que la olvidó. Solo elimina el factor: no abre sesión, no vincula dispositivos y no saltea el ingreso por WhatsApp. El residente recibe aviso.
+  """
+  resetResidentAccessCode(userId: ID!): Boolean!
 
   """
   Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido.
@@ -8693,6 +8722,7 @@ input UpdateMarketplaceSettingsInput {
   complexId: String!
   moderationMode: MarketplaceModerationMode
   listingDurationDays: Int
+  serviceListingDurationDays: Int
   maxActiveListingsPerUnit: Int
   maxImagesPerListing: Int
   autoPauseAfterReports: Int
