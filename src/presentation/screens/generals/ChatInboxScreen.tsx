@@ -106,7 +106,9 @@ export default function ChatInboxScreen() {
             lastMessagePreview:
               message.kind === 'PHONE_SHARED'
                 ? 'Compartió su WhatsApp'
-                : message.body,
+                : message.kind === 'IMAGE'
+                  ? '📷 Foto'
+                  : message.body,
             lastMessageAt: message.createdAt,
             lastMessageIsMine: message.isMine,
             unreadCount: message.isMine ? found.unreadCount : found.unreadCount + 1,
