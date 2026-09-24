@@ -30,6 +30,7 @@ import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useAuthStore } from '../../store/auth.store';
 import { useMarketplaceStore } from '../../store/marketplace.store';
+import { useMarketplaceChatStore } from '../../store/marketplace-chat.store';
 import {
   fetchListings,
   toggleFavorite as toggleFavoriteRequest,
@@ -76,6 +77,7 @@ export default function ServicesScreen() {
 
   const categories = useMarketplaceStore(state => state.serviceCategories);
   const init = useMarketplaceStore(state => state.init);
+  const unreadMessages = useMarketplaceChatStore(state => state.unreadTotal);
 
   const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const publishFabBottom = Math.max(
@@ -204,10 +206,17 @@ export default function ServicesScreen() {
         title="Servicios"
         showBack
         onBack={() => navigation.goBack()}
-        rightAction={{
-          icon: 'handyman',
-          onPress: () => navigation.navigate('MyListings', { service: true }),
-        }}
+        rightActions={[
+          {
+            icon: 'chat-bubble-outline',
+            onPress: () => navigation.navigate('ChatInbox'),
+            badge: unreadMessages,
+          },
+          {
+            icon: 'handyman',
+            onPress: () => navigation.navigate('MyListings', { service: true }),
+          },
+        ]}
       />
 
       <View style={styles.search}>

@@ -31,6 +31,7 @@ import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useAuthStore } from '../../store/auth.store';
 import { useMarketplaceStore } from '../../store/marketplace.store';
+import { useMarketplaceChatStore } from '../../store/marketplace-chat.store';
 import type {
   Listing,
   ListingFilters,
@@ -93,6 +94,7 @@ export default function MarketplaceScreen() {
   const loadListings = useMarketplaceStore(state => state.load);
   const loadMore = useMarketplaceStore(state => state.loadMore);
   const toggleFavorite = useMarketplaceStore(state => state.toggleFavorite);
+  const unreadMessages = useMarketplaceChatStore(state => state.unreadTotal);
 
   /**
    * Publicar va justo encima del pánico, nunca debajo: taparle el botón de
@@ -185,10 +187,17 @@ export default function MarketplaceScreen() {
         title="Clasificados"
         showBack
         onBack={() => navigation.goBack()}
-        rightAction={{
-          icon: 'sell',
-          onPress: () => navigation.navigate('MyListings'),
-        }}
+        rightActions={[
+          {
+            icon: 'chat-bubble-outline',
+            onPress: () => navigation.navigate('ChatInbox'),
+            badge: unreadMessages,
+          },
+          {
+            icon: 'sell',
+            onPress: () => navigation.navigate('MyListings'),
+          },
+        ]}
       />
 
       <View style={styles.search}>

@@ -14,6 +14,11 @@ import { useSettingsStore } from '../store/settings.store';
 import { useNotificationsStore } from '../store/notifications.store';
 import { usePqrfStore } from '../store/pqrf.store';
 import { useMaintenanceStore } from '../store/maintenance.store';
+import {
+  useMarketplaceChatStore,
+  type ChatReadEvent,
+  type IncomingChatMessage,
+} from '../store/marketplace-chat.store';
 import { usePetsStore } from '../store/pets.store';
 import { useVotingStore } from '../store/voting.store';
 import { fetchVotingEnabled } from '../../infraestructure/services/voting.service';
@@ -92,6 +97,9 @@ export function SocketProvider({ children }: Props) {
 
     socket.on('connect', () => {
       if (__DEV__) console.log('[Socket] connected:', socket.id);
+      // Mensajes que llegaron mientras no había socket: el número del ícono del
+      // chat se vuelve a pedir en cada conexión.
+      void useMarketplaceChatStore.getState().refreshUnread(cid);
       // The panic socket event is lost if it fired while the app was closed
       // (FCM full-screen launch / cold start). Sync pending alerts on connect.
       syncActivePanicAlerts();
@@ -188,6 +196,25 @@ export function SocketProvider({ children }: Props) {
     socket.on('maintenance:ticket:updated', (payload: { ticketId: string; status: string }) => {
       if (__DEV__) console.log('[Socket] maintenance:ticket:updated', payload);
       useMaintenanceStore.getState().applyUpdate(payload);
+    });
+
+    /**
+     * Chat de clasificados: mensaje nuevo en una conversación mía.
+     *
+     * Llega por el canal propio de cada participante (nunca por la sala del
+     * complejo: el chat es privado). El store sube el número del ícono y le
+     * pasa el mensaje a la pantalla del chat si está abierta.
+     */
+    socket.on('marketplace:chat:message', (payload: IncomingChatMessage) => {
+      if (__DEV__) console.log('[Socket] marketplace:chat:message', payload.conversationId);
+      useMarketplaceChatStore
+        .getState()
+        .applyIncoming(payload, useAuthStore.getState().resident?.user?.id);
+    });
+
+    /** El otro vecino leyó la conversación: el "visto". */
+    socket.on('marketplace:chat:read', (payload: ChatReadEvent) => {
+      useMarketplaceChatStore.getState().applyRead(payload);
     });
 
     /**

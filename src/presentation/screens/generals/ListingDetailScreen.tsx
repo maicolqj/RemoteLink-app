@@ -27,6 +27,7 @@ import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { useMarketplaceStore } from '../../store/marketplace.store';
+import { openListingConversation } from '../../../infraestructure/services/marketplace-chat.service';
 import {
   fetchListing,
   registerInterest,
@@ -120,23 +121,35 @@ export default function ListingDetailScreen() {
     }, [load, params.listingId]),
   );
 
+  /**
+   * "Me interesa" abre el chat con quien publicó: el interés queda registrado,
+   * a él le llega el aviso con tu nombre y tu unidad, y se pueden escribir sin
+   * que ninguno vea el teléfono del otro. Si ya habían hablado, reabre la
+   * misma conversación.
+   */
   const onInterested = useCallback(async () => {
     if (!listing) return;
     setBusy(true);
     try {
-      const updated = await registerInterest(listing.id);
-      setListing(updated);
-      patchListing(updated);
-      showSuccess(
-        'Le avisamos a tu vecino con tu nombre y tu unidad. Si quiere, te contacta.',
-        'Listo',
-      );
+      const conversation = await openListingConversation(listing.id);
+      if (!listing.viewerHasContacted) {
+        const updated = {
+          ...listing,
+          viewerHasContacted: true,
+          contactsCount: listing.contactsCount + 1,
+        };
+        setListing(updated);
+        patchListing(updated);
+      }
+      navigation.navigate('ChatConversation', {
+        conversationId: conversation.id,
+      });
     } catch (e: any) {
-      showError(e?.message ?? 'No se pudo enviar tu interés.');
+      showError(e?.message ?? 'No se pudo abrir el chat.');
     } finally {
       setBusy(false);
     }
-  }, [listing, patchListing, showError, showSuccess]);
+  }, [listing, patchListing, showError, navigation]);
 
   const onToggleFavorite = useCallback(async () => {
     if (!listing) return;
@@ -424,8 +437,8 @@ export default function ListingDetailScreen() {
                 <CustomTextComponent
                   fontSize={FONT_SIZE.xs}
                   color={colors.textTertiary}>
-                  Tu vecino no publicó su teléfono. Usa “Me interesa” y él te
-                  contacta.
+                  Tu vecino no publicó su teléfono. Toca “Me interesa” y
+                  escríbele por el chat: ninguno ve el número del otro.
                 </CustomTextComponent>
               </View>
             )}
@@ -449,17 +462,21 @@ export default function ListingDetailScreen() {
               <CustomButtonComponent
                 text={
                   listing.viewerHasContacted
-                    ? 'Volver a avisarle que te interesa'
-                    : 'Me interesa'
+                    ? 'Ver la conversación'
+                    : 'Me interesa · escribirle'
                 }
                 iconLeft={{
-                  name: 'waving-hand',
+                  name: listing.viewerHasContacted ? 'chat' : 'waving-hand',
                   type: 'material',
                   color: colors.textInverse,
                 }}
                 onPress={onInterested}
                 isLoading={busy}
-                disabled={listing.status !== 'PUBLISHED'}
+                // Con una conversación abierta se puede volver a ella aunque el
+                // aviso ya no esté publicado: queda para consulta.
+                disabled={
+                  listing.status !== 'PUBLISHED' && !listing.viewerHasContacted
+                }
                 loaderColor={colors.textInverse}
                 style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
                 textStyle={{
@@ -478,6 +495,33 @@ export default function ListingDetailScreen() {
                 </CustomTextComponent>
               </TouchableOpacity>
             </>
+          )}
+
+          {listing.viewerIsOwner && (
+            <CustomButtonComponent
+              text={
+                listing.contactsCount > 0
+                  ? `Mensajes de este aviso (${listing.contactsCount})`
+                  : 'Mensajes de este aviso'
+              }
+              iconLeft={{
+                name: 'chat',
+                type: 'material',
+                color: colors.textInverse,
+              }}
+              onPress={() =>
+                navigation.navigate('ChatInbox', {
+                  listingId: listing.id,
+                  title: 'Mensajes del aviso',
+                })
+              }
+              style={[styles.primaryBtn, { backgroundColor: colors.success }]}
+              textStyle={{
+                color: colors.textInverse,
+                fontSize: FONT_SIZE.md,
+                fontWeight: FONT_WEIGHT.semibold,
+              }}
+            />
           )}
 
           {listing.viewerIsOwner && canEditStatus(listing.status) && (

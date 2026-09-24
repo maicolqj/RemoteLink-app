@@ -32,6 +32,8 @@ import FinancesScreen from '../../screens/generals/FinancesScreen';
 import PaymentDetailScreen from '../../screens/generals/PaymentDetailScreen';
 import MarketplaceScreen from '../../screens/generals/MarketplaceScreen';
 import ServicesScreen from '../../screens/generals/ServicesScreen';
+import ChatInboxScreen from '../../screens/generals/ChatInboxScreen';
+import ChatConversationScreen from '../../screens/generals/ChatConversationScreen';
 import ListingDetailScreen from '../../screens/generals/ListingDetailScreen';
 import MyListingsScreen from '../../screens/generals/MyListingsScreen';
 import ListingFormScreen from '../../screens/generals/ListingFormScreen';
@@ -79,6 +81,8 @@ export default function HomeStack() {
       <Stack.Screen name="ListingDetail" component={ListingDetailScreen} />
       <Stack.Screen name="MyListings" component={MyListingsScreen} />
       <Stack.Screen name="ListingForm" component={ListingFormScreen} />
+      <Stack.Screen name="ChatInbox" component={ChatInboxScreen} />
+      <Stack.Screen name="ChatConversation" component={ChatConversationScreen} />
     </Stack.Navigator>
   );
 }
