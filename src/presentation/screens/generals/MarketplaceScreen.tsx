@@ -94,7 +94,9 @@ export default function MarketplaceScreen() {
   const loadListings = useMarketplaceStore(state => state.load);
   const loadMore = useMarketplaceStore(state => state.loadMore);
   const toggleFavorite = useMarketplaceStore(state => state.toggleFavorite);
-  const unreadMessages = useMarketplaceChatStore(state => state.unreadTotal);
+  const unreadMessages = useMarketplaceChatStore(
+    state => state.unreadClassifieds,
+  );
 
   /**
    * Publicar va justo encima del pánico, nunca debajo: taparle el botón de
@@ -190,7 +192,8 @@ export default function MarketplaceScreen() {
         rightActions={[
           {
             icon: 'chat-bubble-outline',
-            onPress: () => navigation.navigate('ChatInbox'),
+            onPress: () =>
+              navigation.navigate('ChatInbox', { board: 'classifieds' }),
             badge: unreadMessages,
           },
           {

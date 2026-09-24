@@ -77,7 +77,9 @@ export default function ServicesScreen() {
 
   const categories = useMarketplaceStore(state => state.serviceCategories);
   const init = useMarketplaceStore(state => state.init);
-  const unreadMessages = useMarketplaceChatStore(state => state.unreadTotal);
+  const unreadMessages = useMarketplaceChatStore(
+    state => state.unreadServices,
+  );
 
   const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const publishFabBottom = Math.max(
@@ -209,7 +211,8 @@ export default function ServicesScreen() {
         rightActions={[
           {
             icon: 'chat-bubble-outline',
-            onPress: () => navigation.navigate('ChatInbox'),
+            onPress: () =>
+              navigation.navigate('ChatInbox', { board: 'services' }),
             badge: unreadMessages,
           },
           {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { fetchUnreadMessages } from '../../infraestructure/services/marketplace-chat.service';
+import { fetchUnreadSummary } from '../../infraestructure/services/marketplace-chat.service';
 import type { ChatMessage } from '../../domain/responses/MarketplaceChatResponseModel';
 
 export interface IncomingChatMessage {
@@ -36,6 +36,10 @@ const readListeners = new Set<Listener<ChatReadEvent>>();
  */
 interface ChatState {
   unreadTotal: number;
+  /** No leídos de chats de clasificados: el número del acceso del inicio. */
+  unreadClassifieds: number;
+  /** No leídos de chats del directorio de servicios. */
+  unreadServices: number;
   activeConversationId: string | null;
 
   refreshUnread: (complexId: string) => Promise<void>;
@@ -48,13 +52,25 @@ interface ChatState {
   clear: () => void;
 }
 
+/** El conjunto del último refresco, para volver a preguntar tras un mensaje. */
+let lastComplexId: string | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useMarketplaceChatStore = create<ChatState>((set, get) => ({
   unreadTotal: 0,
+  unreadClassifieds: 0,
+  unreadServices: 0,
   activeConversationId: null,
 
   refreshUnread: async complexId => {
+    lastComplexId = complexId;
     try {
-      set({ unreadTotal: await fetchUnreadMessages(complexId) });
+      const summary = await fetchUnreadSummary(complexId);
+      set({
+        unreadTotal: summary.total,
+        unreadClassifieds: summary.classifieds,
+        unreadServices: summary.services,
+      });
     } catch {
       // Sin red el número se queda como estaba; el próximo foco lo corrige.
     }
@@ -70,6 +86,9 @@ export const useMarketplaceChatStore = create<ChatState>((set, get) => ({
     // Lo que escribo yo o lo que ya estoy viendo no cuenta como pendiente.
     if (!isMine && !isOpen) {
       set(state => ({ unreadTotal: state.unreadTotal + 1 }));
+      // El socket no dice de qué tablero es el chat: el servidor lo sabe, así
+      // que se le vuelve a preguntar (agrupando ráfagas de mensajes).
+      scheduleRefresh(get().refreshUnread);
     }
 
     const message: ChatMessage = { ...payload.message, isMine };
@@ -82,11 +101,29 @@ export const useMarketplaceChatStore = create<ChatState>((set, get) => ({
     readListeners.forEach(listener => listener(payload));
   },
 
-  discountUnread: count =>
-    set(state => ({ unreadTotal: Math.max(0, state.unreadTotal - count) })),
+  discountUnread: count => {
+    set(state => ({ unreadTotal: Math.max(0, state.unreadTotal - count) }));
+    scheduleRefresh(get().refreshUnread);
+  },
 
-  clear: () => set({ unreadTotal: 0, activeConversationId: null }),
+  clear: () =>
+    set({
+      unreadTotal: 0,
+      unreadClassifieds: 0,
+      unreadServices: 0,
+      activeConversationId: null,
+    }),
 }));
+
+function scheduleRefresh(refresh: (complexId: string) => Promise<void>): void {
+  if (!lastComplexId) return;
+  const complexId = lastComplexId;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    void refresh(complexId);
+  }, 600);
+}
 
 /** Suscribe a los mensajes que llegan por socket. Devuelve cómo desuscribirse. */
 export function onChatMessage(listener: Listener<ChatMessageEvent>): () => void {

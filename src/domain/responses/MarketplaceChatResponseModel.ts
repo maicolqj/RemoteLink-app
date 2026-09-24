@@ -65,6 +65,15 @@ export interface ChatMessage {
   isMine: boolean;
 }
 
+/** Los dos tableros que tienen chat. */
+export type ChatBoard = 'classifieds' | 'services';
+
+export interface UnreadSummary {
+  total: number;
+  classifieds: number;
+  services: number;
+}
+
 export interface ConversationPage {
   items: Conversation[];
   pagination: {
