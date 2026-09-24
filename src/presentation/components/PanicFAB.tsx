@@ -10,6 +10,7 @@ import { useMutation } from '@apollo/client/react';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TRIGGER_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
 import { useAuthStore } from '../store/auth.store';
+import { usePanicStore } from '../store/panic.store';
 import { useAlert } from '../providers/context/AlertContext';
 import { useCoachmarkTarget } from '../providers/context/CoachmarkContext';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
@@ -21,6 +22,9 @@ const DELAY_LONG_PRESS = 600;
 
 export function PanicFAB() {
   const resident = useAuthStore(s => s.resident);
+  // Una pantalla con barra fija abajo (el chat) sube el botón por encima de
+  // ella: el pánico sigue a mano sin tapar lo que se está escribiendo.
+  const fabLift = usePanicStore(s => s.fabLift);
   const { showInfo, showError, showSuccess } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   // First-run walkthrough target (the tour itself lives in HomeScreen).
@@ -100,7 +104,7 @@ export function PanicFAB() {
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={[styles.container, fabLift > 0 && { bottom: BOTTOM + fabLift }]}>
         <Animated.View
           style={[
             styles.pulse,
