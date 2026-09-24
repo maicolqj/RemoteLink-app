@@ -70,7 +70,12 @@ export default function ChatInboxScreen() {
   const load = useCallback(async () => {
     if (!complexId) return;
     try {
-      const result = await fetchConversations(complexId, 1, params?.listingId);
+      const result = await fetchConversations(
+        complexId,
+        1,
+        params?.listingId,
+        params?.board,
+      );
       setItems(result.items);
       setPage(result.pagination.currentPage);
       setHasNext(result.pagination.hasNextPage);
@@ -79,7 +84,7 @@ export default function ChatInboxScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [complexId, params?.listingId, showError]);
+  }, [complexId, params?.listingId, params?.board, showError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -128,7 +133,12 @@ export default function ChatInboxScreen() {
   const loadMore = useCallback(async () => {
     if (!complexId || !hasNext) return;
     try {
-      const next = await fetchConversations(complexId, page + 1, params?.listingId);
+      const next = await fetchConversations(
+        complexId,
+        page + 1,
+        params?.listingId,
+        params?.board,
+      );
       setItems(prev => [
         ...prev,
         ...next.items.filter(item => !prev.some(p => p.id === item.id)),
@@ -138,7 +148,7 @@ export default function ChatInboxScreen() {
     } catch {
       /* se reintenta al seguir bajando */
     }
-  }, [complexId, hasNext, page, params?.listingId]);
+  }, [complexId, hasNext, page, params?.listingId, params?.board]);
 
   const visible =
     filter === 'all' ? items : items.filter(item => item.role === filter);
@@ -158,7 +168,14 @@ export default function ChatInboxScreen() {
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
       <AppHeader
-        title={params?.title ?? 'Mensajes'}
+        title={
+          params?.title ??
+          (params?.board === 'services'
+            ? 'Mensajes de servicios'
+            : params?.board === 'classifieds'
+              ? 'Mensajes de clasificados'
+              : 'Mensajes')
+        }
         showBack
         onBack={() => navigation.goBack()}
       />

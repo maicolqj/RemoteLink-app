@@ -16,6 +16,7 @@ import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../provider
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
 import { useAuthStore, moduleEnabledIn } from '../../store/auth.store';
+import { useMarketplaceChatStore } from '../../store/marketplace-chat.store';
 import { useNotificationsStore } from '../../store/notifications.store';
 import { useOpenNotification } from '../../hooks/useOpenNotification';
 import { useVisitsStore } from '../../store/visits.store';
@@ -192,6 +193,24 @@ export default function HomeScreen() {
     }, [complexId, setVotingEnabled]),
   );
 
+  /**
+   * Mensajes sin leer del chat, por tablero: cada acceso muestra los suyos
+   * para que el vecino sepa si le escribieron por un clasificado o por un
+   * servicio. Se piden al volver al inicio (el socket los mantiene al día).
+   */
+  const unreadClassifieds = useMarketplaceChatStore(s => s.unreadClassifieds);
+  const unreadServices = useMarketplaceChatStore(s => s.unreadServices);
+  const refreshChatUnread = useMarketplaceChatStore(s => s.refreshUnread);
+  const chatEnabled =
+    moduleEnabledIn(enabledModules, 'CLASIFICADOS') ||
+    moduleEnabledIn(enabledModules, 'SERVICIOS');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (complexId && chatEnabled) void refreshChatUnread(complexId);
+    }, [complexId, chatEnabled, refreshChatUnread]),
+  );
+
   const recentNotifications = notifications.slice(0, 3);
   // El filtro por módulo va acá y no solo en el render: lo que el store trajo
   // antes de que apagaran el módulo sigue en memoria hasta el próximo arranque,
@@ -221,17 +240,17 @@ export default function HomeScreen() {
     { id: 'pqrf',    icon: 'forum',     label: 'PQRF',    screen: 'Pqrf',        color: colors.info, module: 'PQRF' },
     { id: 'pets',    icon: 'pets',      label: 'Mascotas', screen: 'Pets',       color: colors.warning, module: 'MASCOTAS' },
     { id: 'maintenance', icon: 'build', label: 'Daños',   screen: 'Maintenance', color: colors.error, module: 'MANTENIMIENTO' },
-    { id: 'marketplace', icon: 'storefront', label: 'Clasificados', screen: 'Marketplace', color: colors.accent, module: 'CLASIFICADOS' },
+    { id: 'marketplace', icon: 'storefront', label: 'Clasificados', screen: 'Marketplace', color: colors.accent, module: 'CLASIFICADOS', badge: unreadClassifieds },
     // El directorio de servicios tiene su propio interruptor: hay conjuntos que
     // quieren los oficios de los vecinos y no la venta entre ellos.
-    { id: 'services', icon: 'handyman', label: 'Servicios', screen: 'Services', color: colors.success, module: 'SERVICIOS' },
+    { id: 'services', icon: 'handyman', label: 'Servicios', screen: 'Services', color: colors.success, module: 'SERVICIOS', badge: unreadServices },
     ...(votingEnabled
       ? [{ id: 'voting', icon: 'how-to-vote', label: 'Votar', screen: 'Voting', color: colors.primary, module: 'VOTACIONES' }]
       : []),
     // Comentado temporalmente — pendiente para actualizaciones futuras.
     // { id: 'profile', icon: 'person',    label: 'Perfil',  tab: 'ProfileTab',     color: colors.info },
   ].filter(action => !action.module || moduleEnabledIn(enabledModules, action.module)),
-  [colors, votingEnabled, enabledModules]);
+  [colors, votingEnabled, enabledModules, unreadClassifieds, unreadServices]);
 
   /**
    * Las acciones se parten en filas de 4 como máximo.
@@ -366,6 +385,14 @@ export default function HomeScreen() {
                     activeOpacity={0.75}>
                     <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
                       <Icon name={action.icon} size={26} color={action.color} />
+                      {/* Mensajes sin leer del chat de ese tablero. */}
+                      {!!('badge' in action && action.badge) && (
+                        <View style={[gs.badgeContainer, styles.quickActionBadge]}>
+                          <CustomTextComponent style={gs.badgeText as any}>
+                            {action.badge > 9 ? '9+' : String(action.badge)}
+                          </CustomTextComponent>
+                        </View>
+                      )}
                     </View>
                     <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
                       {action.label}
@@ -563,6 +590,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: SPACING.xs,
   },
+  quickActionBadge: { position: 'absolute', top: -2, right: -4 },
   visitCard: {
     padding: SPACING.sm,
   },

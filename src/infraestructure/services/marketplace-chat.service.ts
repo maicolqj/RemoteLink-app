@@ -7,6 +7,7 @@ import {
   GET_MESSAGES,
   GET_MY_CONVERSATIONS,
   GET_UNREAD_MESSAGES,
+  GET_UNREAD_SUMMARY,
   MARK_CONVERSATION_READ,
   OPEN_LISTING_CONVERSATION,
   REPORT_CONVERSATION,
@@ -16,12 +17,20 @@ import {
 } from '../../domain/graphql/marketplace-chat.queries';
 import { getApiErrorMessage } from '../utils/apiError';
 import type {
+  ChatBoard,
   ChatMessage,
   ChatReportReason,
   Conversation,
   ConversationPage,
   MessagesPage,
+  UnreadSummary,
 } from '../../domain/responses/MarketplaceChatResponseModel';
+
+/** Qué tipos de aviso pertenecen a cada tablero. */
+const BOARD_TYPES: Record<ChatBoard, string[]> = {
+  classifieds: ['PRODUCT', 'RENTAL', 'GIVEAWAY', 'WANTED'],
+  services: ['SERVICE'],
+};
 
 /**
  * Todo con `network-only`: el chat cambia por lo que escribe el otro vecino,
@@ -32,12 +41,18 @@ export async function fetchConversations(
   complexId: string,
   page = 1,
   listingId?: string,
+  board?: ChatBoard,
 ): Promise<ConversationPage> {
   const { data, error } = await apolloClient.query<{
     myMarketplaceConversations: ConversationPage;
   }>({
     query: GET_MY_CONVERSATIONS,
-    variables: { complexId, pagination: { page, limit: 20 }, listingId },
+    variables: {
+      complexId,
+      pagination: { page, limit: 20 },
+      listingId,
+      types: board ? BOARD_TYPES[board] : undefined,
+    },
     fetchPolicy: 'network-only',
   });
   if (error) {
@@ -82,6 +97,21 @@ export async function fetchMessages(
     throw new Error(getApiErrorMessage(error, 'No se pudieron cargar los mensajes'));
   }
   return data?.marketplaceMessages ?? { items: [], hasMore: false };
+}
+
+export async function fetchUnreadSummary(
+  complexId: string,
+): Promise<UnreadSummary> {
+  const { data } = await apolloClient.query<{
+    marketplaceUnreadSummary: UnreadSummary;
+  }>({
+    query: GET_UNREAD_SUMMARY,
+    variables: { complexId },
+    fetchPolicy: 'network-only',
+  });
+  return (
+    data?.marketplaceUnreadSummary ?? { total: 0, classifieds: 0, services: 0 }
+  );
 }
 
 export async function fetchUnreadMessages(complexId: string): Promise<number> {

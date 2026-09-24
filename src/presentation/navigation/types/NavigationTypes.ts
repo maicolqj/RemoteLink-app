@@ -66,7 +66,9 @@ export type HomeStackParamList = {
    * Chat de clasificados. Con `listingId`, solo las conversaciones de un aviso
    * (lo que abre quien lo publicó desde su ficha).
    */
-  ChatInbox: { listingId?: string; title?: string } | undefined;
+  ChatInbox:
+    | { listingId?: string; title?: string; board?: 'classifieds' | 'services' }
+    | undefined;
   ChatConversation: { conversationId: string };
 };
 

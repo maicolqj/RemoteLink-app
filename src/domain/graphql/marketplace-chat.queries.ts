@@ -59,11 +59,13 @@ export const GET_MY_CONVERSATIONS = gql`
     $complexId: String!
     $pagination: PaginationInput
     $listingId: String
+    $types: [MarketplaceListingType!]
   ) {
     myMarketplaceConversations(
       complexId: $complexId
       pagination: $pagination
       listingId: $listingId
+      types: $types
     ) {
       items {
         ...ConversationFields
@@ -102,6 +104,17 @@ export const GET_MESSAGES = gql`
         ...MessageFields
       }
       hasMore
+    }
+  }
+`;
+
+/** No leídos en total y por tablero: el número de cada acceso del inicio. */
+export const GET_UNREAD_SUMMARY = gql`
+  query MarketplaceUnreadSummary($complexId: String!) {
+    marketplaceUnreadSummary(complexId: $complexId) {
+      total
+      classifieds
+      services
     }
   }
 `;
