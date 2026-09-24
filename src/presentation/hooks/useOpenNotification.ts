@@ -105,6 +105,34 @@ export function useOpenNotification() {
       else go('Pets');
       return;
     }
+    // Clasificados: el "me interesa" abre el chat con quien preguntó; los demás
+    // avisos del módulo (aprobado, rechazado, por vencer) abren la ficha.
+    // `metadata` viaja como JSON en texto (FCM solo admite strings). Si el aviso
+    // vino del servidor sin él, "me interesa" abre la ficha, que tiene el botón
+    // de los mensajes del aviso.
+    let conversationId: string | undefined;
+    try {
+      const meta = item.data?.metadata ? JSON.parse(item.data.metadata) : null;
+      if (typeof meta?.conversationId === 'string') conversationId = meta.conversationId;
+    } catch {
+      conversationId = undefined;
+    }
+    if (
+      (entityType as string) === 'marketplace_conversation' ||
+      ((entityType as string) === 'marketplace_listing' && conversationId)
+    ) {
+      go('ChatConversation', {
+        conversationId:
+          (entityType as string) === 'marketplace_conversation'
+            ? entityId
+            : conversationId,
+      });
+      return;
+    }
+    if ((entityType as string) === 'marketplace_listing' && entityId) {
+      go('ListingDetail', { listingId: entityId });
+      return;
+    }
     if (entityType === 'package' && entityId) {
       go('PackageDetail', { packageId: entityId });
       return;

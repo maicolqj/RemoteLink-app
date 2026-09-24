@@ -1075,6 +1075,33 @@ export type ConfirmDeliveryInput = {
   receivedByName?: InputMaybe<Scalars['String']['input']>;
 };
 
+/** El otro participante de la conversación */
+export type ConversationCounterpart = {
+  __typename?: 'ConversationCounterpart';
+  name: Scalars['String']['output'];
+  profilePicture?: Maybe<Scalars['String']['output']>;
+  unitLabel?: Maybe<Scalars['String']['output']>;
+};
+
+/** El aviso del que se habla, en corto */
+export type ConversationListingSummary = {
+  __typename?: 'ConversationListingSummary';
+  id: Scalars['String']['output'];
+  imageUrl?: Maybe<Scalars['String']['output']>;
+  /** Precio ya formateado para mostrar */
+  priceLabel: Scalars['String']['output'];
+  status: MarketplaceListingStatus;
+  title: Scalars['String']['output'];
+  type: MarketplaceListingType;
+};
+
+/** Lado de la conversación de quien consulta */
+export type ConversationRole =
+  /** Se interesó en el aviso */
+  | 'INTERESTED'
+  /** Publicó el aviso */
+  | 'OWNER';
+
 /** CountryCode */
 export type Country = {
   __typename?: 'Country';
@@ -2191,6 +2218,22 @@ export type LegalDocument = {
   version: Scalars['Int']['output'];
 };
 
+/** Vecino que marcó me gusta o me interesa */
+export type ListingAudienceEntry = {
+  __typename?: 'ListingAudienceEntry';
+  /** Cuándo marcó me gusta o me interesa */
+  at: Scalars['DateTime']['output'];
+  /** Canal que usó el interesado */
+  channel?: Maybe<MarketplaceContactPreference>;
+  /** Mensaje que dejó el interesado */
+  message?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  profilePicture?: Maybe<Scalars['String']['output']>;
+  /** Torre y unidad; nulo si ya no vive en el conjunto */
+  unitLabel?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
+};
+
 /** Datos de contacto del publicador */
 export type ListingContactResponse = {
   __typename?: 'ListingContactResponse';
@@ -2603,6 +2646,13 @@ export type MaintenanceVisibility =
   | 'PRIVATE'
   | 'PUBLIC';
 
+/** Público de una publicación que se consulta */
+export type MarketplaceAudienceKind =
+  /** Quienes tocaron el corazón (me gusta) */
+  | 'FAVORITES'
+  /** Quienes tocaron el botón me interesa */
+  | 'INTERESTED';
+
 /** Categoría de publicaciones del complejo */
 export type MarketplaceCategory = {
   __typename?: 'MarketplaceCategory';
@@ -2639,6 +2689,33 @@ export type MarketplaceContactPreference =
   | 'PHONE'
   /** WhatsApp al teléfono del publicador */
   | 'WHATSAPP';
+
+/** Conversación vista desde quien consulta */
+export type MarketplaceConversationView = {
+  __typename?: 'MarketplaceConversationView';
+  /** Quien consulta bloqueó al otro */
+  blockedByMe: Scalars['Boolean']['output'];
+  /** El conjunto permite compartir el teléfono */
+  canSharePhone: Scalars['Boolean']['output'];
+  counterpart: ConversationCounterpart;
+  /** Hasta cuándo leyó el otro; sirve para el "visto" */
+  counterpartLastReadAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['String']['output'];
+  /** No se puede escribir porque alguno bloqueó al otro */
+  isBlocked: Scalars['Boolean']['output'];
+  /** El aviso se cerró, venció o se retiró: se lee pero no se escribe */
+  isReadOnly: Scalars['Boolean']['output'];
+  lastMessageAt?: Maybe<Scalars['DateTime']['output']>;
+  /** El último mensaje lo escribí yo */
+  lastMessageIsMine: Scalars['Boolean']['output'];
+  lastMessagePreview?: Maybe<Scalars['String']['output']>;
+  listing: ConversationListingSummary;
+  /** Quien consulta ya compartió su WhatsApp aquí */
+  myPhoneShared: Scalars['Boolean']['output'];
+  role: ConversationRole;
+  /** Mensajes sin leer de quien consulta */
+  unreadCount: Scalars['Int']['output'];
+};
 
 /** Estado de conservación del artículo */
 export type MarketplaceItemCondition =
@@ -2760,6 +2837,33 @@ export type MarketplaceListingType =
   | 'SERVICE'
   /** Busco / necesito. El complejo puede apagarlo desde los ajustes */
   | 'WANTED';
+
+/** Mensaje del chat entre vecinos por un aviso */
+export type MarketplaceMessage = {
+  __typename?: 'MarketplaceMessage';
+  body: Scalars['String']['output'];
+  conversationId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  isMine: Scalars['Boolean']['output'];
+  kind: MarketplaceMessageKind;
+  senderUserId: Scalars['String']['output'];
+};
+
+/** Tipo de mensaje del chat de clasificados */
+export type MarketplaceMessageKind =
+  /** Su autor compartió su WhatsApp con esta persona */
+  | 'PHONE_SHARED'
+  /** Mensaje de texto */
+  | 'TEXT';
+
+/** Página de mensajes, del más nuevo al más viejo */
+export type MarketplaceMessagesPage = {
+  __typename?: 'MarketplaceMessagesPage';
+  /** Hay mensajes más viejos */
+  hasMore: Scalars['Boolean']['output'];
+  items: Array<MarketplaceMessage>;
+};
 
 /** Política de moderación de publicaciones */
 export type MarketplaceModerationMode =
@@ -2930,6 +3034,8 @@ export type Mutation = {
   /** Asigna un rol a un usuario */
   assignRoleToUser: AssignedUserRolResponse;
   blacklistVisitor: Visitor;
+  /** Bloquea al otro vecino: ninguno puede escribirle al otro */
+  blockConversationCounterpart: MarketplaceConversationView;
   bulkMoveOutResidents: Array<Resident>;
   bulkNotificationAction: BulkNotificationActionResult;
   cancelAmenityBooking: AmenityBooking;
@@ -3025,6 +3131,7 @@ export type Mutation = {
   markAllNotificationsAsRead: Scalars['Int']['output'];
   markListingAsSold: MarketplaceListing;
   markMaintenanceTicketDuplicate: MaintenanceTicket;
+  markMarketplaceConversationRead: Scalars['Boolean']['output'];
   markNotificationAsRead: Notification;
   markPackageAsLost: Package;
   markPackageAsNotified: Package;
@@ -3032,6 +3139,8 @@ export type Mutation = {
   moveOutResident: Resident;
   moveResidentsToUnit: Array<Resident>;
   moveRoleSubtree: MoveSubtreeResponse;
+  /** "Me interesa": registra el interés y abre el chat */
+  openListingConversation: MarketplaceConversationView;
   /** Marca el radicado como abierto por quien lo atiende */
   openPqrf: Pqrf;
   openVotingQuestion: VotingQuestion;
@@ -3148,6 +3257,7 @@ export type Mutation = {
   saveSentMessage: SentMessage;
   scheduleVisit: Visit;
   seedPucAccounts: Array<PucAccount>;
+  sendMarketplaceMessage: MarketplaceMessage;
   sendNotification: SendNotificationResult;
   setAmenitySchedules: Amenity;
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
@@ -3157,6 +3267,8 @@ export type Mutation = {
   /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido. */
   setResidentAccessCode: ResidentDevice;
   setVotingEnabled: Scalars['Boolean']['output'];
+  /** Comparte mi WhatsApp con el otro vecino de esta conversación */
+  shareMyPhoneInConversation: MarketplaceMessage;
   submitListing: MarketplaceListing;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
@@ -3175,6 +3287,7 @@ export type Mutation = {
   togglePucAccount: PucAccount;
   triageMaintenanceTicket: MaintenanceTicket;
   triggerPanicAlert: TriggerPanicAlertResult;
+  unblockConversationCounterpart: MarketplaceConversationView;
   undoMoveOutResident: Resident;
   updateAmenity: Amenity;
   updateAmenityBookingCleaning: AmenityBooking;
@@ -3318,6 +3431,11 @@ export type MutationAssignRoleToUserArgs = {
 
 export type MutationBlacklistVisitorArgs = {
   input: BlacklistVisitorInput;
+};
+
+
+export type MutationBlockConversationCounterpartArgs = {
+  conversationId: Scalars['String']['input'];
 };
 
 
@@ -3732,6 +3850,11 @@ export type MutationMarkMaintenanceTicketDuplicateArgs = {
 };
 
 
+export type MutationMarkMarketplaceConversationReadArgs = {
+  conversationId: Scalars['String']['input'];
+};
+
+
 export type MutationMarkNotificationAsReadArgs = {
   notificationId: Scalars['String']['input'];
 };
@@ -3766,6 +3889,11 @@ export type MutationMoveResidentsToUnitArgs = {
 export type MutationMoveRoleSubtreeArgs = {
   newParentId?: InputMaybe<Scalars['String']['input']>;
   roleId: Scalars['String']['input'];
+};
+
+
+export type MutationOpenListingConversationArgs = {
+  input: OpenListingConversationInput;
 };
 
 
@@ -4222,6 +4350,11 @@ export type MutationSeedPucAccountsArgs = {
 };
 
 
+export type MutationSendMarketplaceMessageArgs = {
+  input: SendMarketplaceMessageInput;
+};
+
+
 export type MutationSendNotificationArgs = {
   input: SendNotificationInput;
 };
@@ -4257,6 +4390,11 @@ export type MutationSetVotingEnabledArgs = {
   audience: VotingAudience;
   complexId: Scalars['String']['input'];
   enabled: Scalars['Boolean']['input'];
+};
+
+
+export type MutationShareMyPhoneInConversationArgs = {
+  conversationId: Scalars['String']['input'];
 };
 
 
@@ -4332,6 +4470,11 @@ export type MutationTriageMaintenanceTicketArgs = {
 
 export type MutationTriggerPanicAlertArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type MutationUnblockConversationCounterpartArgs = {
+  conversationId: Scalars['String']['input'];
 };
 
 
@@ -4838,6 +4981,7 @@ export type NotificationType =
   | 'MAINTENANCE_TICKET_REPORTED'
   | 'MAINTENANCE_TICKET_RESOLVED'
   | 'MAINTENANCE_TICKET_UPDATED'
+  | 'MARKETPLACE_CHAT_MESSAGE'
   | 'MORA_APPLIED'
   | 'NEW_DEVICE_LINKED'
   | 'PACKAGE_DELIVERED'
@@ -4902,6 +5046,12 @@ export type NotificationUserInfo = {
   phoneNumber?: Maybe<Scalars['String']['output']>;
   profilePicture?: Maybe<Scalars['String']['output']>;
   roles: Array<Scalars['String']['output']>;
+};
+
+export type OpenListingConversationInput = {
+  listingId: Scalars['String']['input'];
+  /** Primer mensaje para quien publicó */
+  message?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Respuesta al solicitar OTP */
@@ -5006,6 +5156,12 @@ export type PaginatedComplexesResponse = {
   pagination: PaginationReponse;
 };
 
+export type PaginatedConversationsResponse = {
+  __typename?: 'PaginatedConversationsResponse';
+  items: Array<MarketplaceConversationView>;
+  pagination: PaginationReponse;
+};
+
 export type PaginatedExpensesResponse = {
   __typename?: 'PaginatedExpensesResponse';
   byCategory: Array<ExpenseCategoryBreakdown>;
@@ -5020,6 +5176,12 @@ export type PaginatedIncomesResponse = {
   items: Array<DirectIncome>;
   pagination: PaginationReponse;
   totalAmount: Scalars['Float']['output'];
+};
+
+export type PaginatedListingAudienceResponse = {
+  __typename?: 'PaginatedListingAudienceResponse';
+  items: Array<ListingAudienceEntry>;
+  pagination: PaginationReponse;
 };
 
 export type PaginatedListingReportsResponse = {
@@ -5845,6 +6007,7 @@ export type Query = {
   getRoleHierarchy: RoleHierarchyResponse;
   /** Todos los documentos legales (incluidos no publicados). Solo SUPER_ADMIN. */
   legalDocumentsAdmin: Array<LegalDocument>;
+  listingAudience: PaginatedListingAudienceResponse;
   listingReports: PaginatedListingReportsResponse;
   maintenanceBoard: MaintenanceBoardResponse;
   maintenanceDuplicateCandidates: Array<MaintenanceTicket>;
@@ -5860,10 +6023,14 @@ export type Query = {
   maintenanceTickets: PaginatedMaintenanceTicketsResponse;
   maintenanceVendors: Array<MaintenanceVendor>;
   marketplaceCategories: Array<MarketplaceCategory>;
+  marketplaceConversation: MarketplaceConversationView;
   marketplaceListing: MarketplaceListing;
   marketplaceListings: PaginatedListingsResponse;
+  marketplaceMessages: MarketplaceMessagesPage;
   marketplaceSettings: MarketplaceSettings;
   marketplaceStats: MarketplaceStatsResponse;
+  /** Mensajes sin leer en todas mis conversaciones */
+  marketplaceUnreadMessages: Scalars['Int']['output'];
   /** Perfil completo del usuario autenticado (usuario o complejo residencial) */
   me: MeResponse;
   /** Retorna el historial de solicitudes de acceso del supervisor (últimas 50). */
@@ -5871,6 +6038,9 @@ export type Query = {
   myAmenityCouncilQuota: AmenityCouncilQuotaResponse;
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
+  /** Mi conversación sobre un aviso ajeno, si ya existe */
+  myListingConversation?: Maybe<MarketplaceConversationView>;
+  myMarketplaceConversations: PaginatedConversationsResponse;
   myNotifications: PaginatedNotificationsResponse;
   myPets: Array<Pet>;
   myPqrfRequests: PaginatedPqrfResponse;
@@ -6188,6 +6358,13 @@ export type QueryGetRoleHierarchyArgs = {
 };
 
 
+export type QueryListingAudienceArgs = {
+  kind: MarketplaceAudienceKind;
+  listingId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
 export type QueryListingReportsArgs = {
   complexId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
@@ -6277,6 +6454,11 @@ export type QueryMarketplaceCategoriesArgs = {
 };
 
 
+export type QueryMarketplaceConversationArgs = {
+  conversationId: Scalars['String']['input'];
+};
+
+
 export type QueryMarketplaceListingArgs = {
   listingId: Scalars['String']['input'];
 };
@@ -6286,6 +6468,13 @@ export type QueryMarketplaceListingsArgs = {
   complexId: Scalars['String']['input'];
   filters?: InputMaybe<FilterListingsInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMarketplaceMessagesArgs = {
+  before?: InputMaybe<Scalars['DateTime']['input']>;
+  conversationId: Scalars['String']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -6300,8 +6489,25 @@ export type QueryMarketplaceStatsArgs = {
 };
 
 
+export type QueryMarketplaceUnreadMessagesArgs = {
+  complexId: Scalars['String']['input'];
+};
+
+
 export type QueryMyAmenityCouncilQuotaArgs = {
   amenityId: Scalars['String']['input'];
+};
+
+
+export type QueryMyListingConversationArgs = {
+  listingId: Scalars['String']['input'];
+};
+
+
+export type QueryMyMarketplaceConversationsArgs = {
+  complexId: Scalars['String']['input'];
+  listingId?: InputMaybe<Scalars['String']['input']>;
+  pagination?: InputMaybe<PaginationInput>;
 };
 
 
@@ -7613,6 +7819,11 @@ export type SearchRolesInput = {
   filters?: InputMaybe<RolesFiltersInput>;
   pagination?: InputMaybe<PaginationInput>;
   sort?: InputMaybe<SortInput>;
+};
+
+export type SendMarketplaceMessageInput = {
+  body: Scalars['String']['input'];
+  conversationId: Scalars['String']['input'];
 };
 
 export type SendNotificationInput = {
@@ -9731,6 +9942,84 @@ export type AddMaintenanceCommentMutationVariables = Exact<{
 
 export type AddMaintenanceCommentMutation = { __typename: 'Mutation', addMaintenanceComment: { __typename: 'MaintenanceTicket', id: string, code: string, title: string, description: string, category: MaintenanceCategory, priority: MaintenancePriority, status: MaintenanceTicketStatus, visibility: MaintenanceVisibility, photoUrls?: Array<string> | null, videoUrl?: string | null, occurredAt: any, locationType: MaintenanceLocationType, locationText?: string | null, floor?: number | null, lat?: number | null, lng?: number | null, buildingId?: string | null, amenityId?: string | null, locationTagId?: string | null, endorsementCount: number, scheduledFor?: any | null, slaDueAt?: any | null, slaBreachedAt?: any | null, resolutionNotes?: string | null, closurePhotoUrls?: Array<string> | null, resolvedAt?: any | null, rating?: number | null, ratingComment?: string | null, reopenCount: number, reportedByUserId?: string | null, reportedByName?: string | null, createdAt: any, events?: Array<{ __typename: 'MaintenanceTicketEvent', id: string, type: MaintenanceEventType, message?: string | null, imageUrls?: Array<string> | null, authorName?: string | null, authorRole?: string | null, createdAt: any }> | null, building?: { __typename: 'Building', id: string, name: string } | null, amenity?: { __typename: 'Amenity', id: string, name: string } | null, locationTag?: { __typename: 'MaintenanceLocationTag', id: string, code: string, name: string } | null } };
 
+export type ConversationFieldsFragment = { __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } };
+
+export type MessageFieldsFragment = { __typename: 'MarketplaceMessage', id: string, conversationId: string, senderUserId: string, kind: MarketplaceMessageKind, body: string, createdAt: any, isMine: boolean };
+
+export type MyMarketplaceConversationsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  listingId?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type MyMarketplaceConversationsQuery = { __typename: 'Query', myMarketplaceConversations: { __typename: 'PaginatedConversationsResponse', items: Array<{ __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } }>, pagination: { __typename: 'PaginationReponse', currentPage: number, totalPages: number, hasNextPage: boolean } } };
+
+export type MarketplaceConversationQueryVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+}>;
+
+
+export type MarketplaceConversationQuery = { __typename: 'Query', marketplaceConversation: { __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } } };
+
+export type MarketplaceMessagesQueryVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+  before?: InputMaybe<Scalars['DateTime']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type MarketplaceMessagesQuery = { __typename: 'Query', marketplaceMessages: { __typename: 'MarketplaceMessagesPage', hasMore: boolean, items: Array<{ __typename: 'MarketplaceMessage', id: string, conversationId: string, senderUserId: string, kind: MarketplaceMessageKind, body: string, createdAt: any, isMine: boolean }> } };
+
+export type MarketplaceUnreadMessagesQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type MarketplaceUnreadMessagesQuery = { __typename: 'Query', marketplaceUnreadMessages: number };
+
+export type OpenListingConversationMutationVariables = Exact<{
+  input: OpenListingConversationInput;
+}>;
+
+
+export type OpenListingConversationMutation = { __typename: 'Mutation', openListingConversation: { __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } } };
+
+export type SendMarketplaceMessageMutationVariables = Exact<{
+  input: SendMarketplaceMessageInput;
+}>;
+
+
+export type SendMarketplaceMessageMutation = { __typename: 'Mutation', sendMarketplaceMessage: { __typename: 'MarketplaceMessage', id: string, conversationId: string, senderUserId: string, kind: MarketplaceMessageKind, body: string, createdAt: any, isMine: boolean } };
+
+export type ShareMyPhoneInConversationMutationVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+}>;
+
+
+export type ShareMyPhoneInConversationMutation = { __typename: 'Mutation', shareMyPhoneInConversation: { __typename: 'MarketplaceMessage', id: string, conversationId: string, senderUserId: string, kind: MarketplaceMessageKind, body: string, createdAt: any, isMine: boolean } };
+
+export type MarkMarketplaceConversationReadMutationVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+}>;
+
+
+export type MarkMarketplaceConversationReadMutation = { __typename: 'Mutation', markMarketplaceConversationRead: boolean };
+
+export type BlockConversationCounterpartMutationVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+}>;
+
+
+export type BlockConversationCounterpartMutation = { __typename: 'Mutation', blockConversationCounterpart: { __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } } };
+
+export type UnblockConversationCounterpartMutationVariables = Exact<{
+  conversationId: Scalars['String']['input'];
+}>;
+
+
+export type UnblockConversationCounterpartMutation = { __typename: 'Mutation', unblockConversationCounterpart: { __typename: 'MarketplaceConversationView', id: string, role: ConversationRole, lastMessagePreview?: string | null, lastMessageAt?: any | null, lastMessageIsMine: boolean, unreadCount: number, counterpartLastReadAt?: any | null, isReadOnly: boolean, isBlocked: boolean, blockedByMe: boolean, myPhoneShared: boolean, canSharePhone: boolean, listing: { __typename: 'ConversationListingSummary', id: string, title: string, type: MarketplaceListingType, status: MarketplaceListingStatus, imageUrl?: string | null, priceLabel: string }, counterpart: { __typename: 'ConversationCounterpart', name: string, profilePicture?: string | null, unitLabel?: string | null } } };
+
 export type ListingFieldsFragment = { __typename: 'MarketplaceListing', id: string, type: MarketplaceListingType, title: string, description: string, condition?: MarketplaceItemCondition | null, imageUrls: Array<string>, priceAmount?: number | null, priceType: MarketplacePriceType, currency: string, contactPreference: MarketplaceContactPreference, showPhone: boolean, status: MarketplaceListingStatus, rejectionReason?: string | null, publishedAt?: any | null, expiresAt?: any | null, viewsCount: number, contactsCount: number, favoritesCount: number, createdAt: any, categoryId: string, viewerHasFavorited: boolean, viewerHasContacted: boolean, viewerIsOwner: boolean, category?: { __typename: 'MarketplaceCategory', id: string, name: string, icon?: string | null } | null, unit?: { __typename: 'Unit', id: string, number: string, building?: { __typename: 'Building', id: string, name: string } | null } | null, contact: { __typename: 'ListingContactResponse', displayName: string, unitLabel?: string | null, preference: MarketplaceContactPreference, phone?: string | null, inAppOnly: boolean } };
 
 export type MarketplaceListingsQueryVariables = Exact<{
@@ -10141,6 +10430,8 @@ export type CastVoteMutationVariables = Exact<{
 export type CastVoteMutation = { __typename: 'Mutation', castVote: { __typename: 'VotingQuestion', id: string, meetingId: string, position: number, text: string, description?: string | null, weighting: VoteWeighting, secrecy: VoteSecrecy, status: VotingQuestionStatus, openedAt?: any | null, closedAt?: any | null, myVoteOptionId?: string | null, viewerCanVote: boolean, viewerHasVoiceOnly: boolean, meeting?: { __typename: 'VotingMeeting', id: string, kind: VotingMeetingKind, title: string, scheduledAt: any } | null, options?: Array<{ __typename: 'VotingOption', id: string, position: number, text: string }> | null, results?: { __typename: 'VotingResults', weighting: VoteWeighting, eligibleCount: number, eligibleWeight: number, votedCount: number, votedWeight: number, participation: number, options: Array<{ __typename: 'VotingOptionResult', optionId: string, text: string, votes: number, weight: number, share: number, shareOfEligible: number }> } | null } };
 
 export const MaintenanceTicketFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<MaintenanceTicketFieldsFragment, unknown>;
+export const ConversationFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<ConversationFieldsFragment, unknown>;
+export const MessageFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"conversationId"}},{"kind":"Field","name":{"kind":"Name","value":"senderUserId"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMine"}}]}}]} as unknown as DocumentNode<MessageFieldsFragment, unknown>;
 export const ListingFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<ListingFieldsFragment, unknown>;
 export const PetFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PetFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pet"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"species"}},{"kind":"Field","name":{"kind":"Name","value":"breed"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"distinguishingMarks"}},{"kind":"Field","name":{"kind":"Name","value":"sex"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"birthDate"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"hasMicrochip"}},{"kind":"Field","name":{"kind":"Name","value":"microchipCode"}},{"kind":"Field","name":{"kind":"Name","value":"isSpecialBreed"}},{"kind":"Field","name":{"kind":"Name","value":"insuranceCompany"}},{"kind":"Field","name":{"kind":"Name","value":"insurancePolicyNumber"}},{"kind":"Field","name":{"kind":"Name","value":"insuranceExpiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"vaccinationCardUrl"}},{"kind":"Field","name":{"kind":"Name","value":"rabiesVaccineAt"}},{"kind":"Field","name":{"kind":"Name","value":"sterilized"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"approvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PetFieldsFragment, unknown>;
 export const PetIncidentFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PetIncidentFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PetIncident"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"location"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"statementDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"fineAmount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"petId"}},{"kind":"Field","name":{"kind":"Name","value":"pet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"species"}},{"kind":"Field","name":{"kind":"Name","value":"breed"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<PetIncidentFieldsFragment, unknown>;
@@ -10189,6 +10480,16 @@ export const EndorseMaintenanceTicketDocument = {"__meta__":{"hash":"eaa7e1fe9a5
 export const RateMaintenanceTicketDocument = {"__meta__":{"hash":"5c469d95edbc79793bb1cfbfff84c043da61bbc937bbd73cb6aee74b415a22fc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RateMaintenanceTicket"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RateMaintenanceTicketInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"rateMaintenanceTicket"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MaintenanceTicketFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<RateMaintenanceTicketMutation, RateMaintenanceTicketMutationVariables>;
 export const ReopenMaintenanceTicketDocument = {"__meta__":{"hash":"a32d8b908d656b1efbeb7b39bed7de459f0530b87e35b7b6d72eb1ba597c1d98"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReopenMaintenanceTicket"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"ticketId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reason"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"reopenMaintenanceTicket"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"ticketId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"ticketId"}}},{"kind":"Argument","name":{"kind":"Name","value":"reason"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reason"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MaintenanceTicketFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<ReopenMaintenanceTicketMutation, ReopenMaintenanceTicketMutationVariables>;
 export const AddMaintenanceCommentDocument = {"__meta__":{"hash":"14f9dac5d22b64a6319bbeeaca8ddd0cf03b58075315dfd8c634c15227a6b419"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddMaintenanceComment"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddMaintenanceCommentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"addMaintenanceComment"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MaintenanceTicketFields"}},{"kind":"Field","name":{"kind":"Name","value":"events"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"authorRole"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<AddMaintenanceCommentMutation, AddMaintenanceCommentMutationVariables>;
+export const MyMarketplaceConversationsDocument = {"__meta__":{"hash":"534d06b333e079e797c04176992ab1b9d02682fa08d49926ef8754925b372855"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyMarketplaceConversations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myMarketplaceConversations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConversationFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<MyMarketplaceConversationsQuery, MyMarketplaceConversationsQueryVariables>;
+export const MarketplaceConversationDocument = {"__meta__":{"hash":"8ff40e5e088f307854d71f26b0e0b12701723d0fdd820054460aea0131c9f933"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceConversation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceConversation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConversationFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<MarketplaceConversationQuery, MarketplaceConversationQueryVariables>;
+export const MarketplaceMessagesDocument = {"__meta__":{"hash":"a09d0a93ad8dd6a41edaf58d5c522a263a30e5a7166bc42c711a232215e92f6e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceMessages"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"before"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"limit"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceMessages"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}},{"kind":"Argument","name":{"kind":"Name","value":"before"},"value":{"kind":"Variable","name":{"kind":"Name","value":"before"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"limit"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MessageFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"hasMore"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"conversationId"}},{"kind":"Field","name":{"kind":"Name","value":"senderUserId"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMine"}}]}}]} as unknown as DocumentNode<MarketplaceMessagesQuery, MarketplaceMessagesQueryVariables>;
+export const MarketplaceUnreadMessagesDocument = {"__meta__":{"hash":"781e4c045d12fe2a41f6e582fb85a3186bc7dfaf06f098acd085a6d368cf67f1"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceUnreadMessages"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceUnreadMessages"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}]}]}}]} as unknown as DocumentNode<MarketplaceUnreadMessagesQuery, MarketplaceUnreadMessagesQueryVariables>;
+export const OpenListingConversationDocument = {"__meta__":{"hash":"283550de21245e387cf51274f090d08efb52db673af5d1e71c2cf9d6d614d44c"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"OpenListingConversation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"OpenListingConversationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"openListingConversation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConversationFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<OpenListingConversationMutation, OpenListingConversationMutationVariables>;
+export const SendMarketplaceMessageDocument = {"__meta__":{"hash":"dd61c74186199655c691c8d84fb2311136e09adbd85247a1bec627b807e92be4"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SendMarketplaceMessage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SendMarketplaceMessageInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"sendMarketplaceMessage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MessageFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"conversationId"}},{"kind":"Field","name":{"kind":"Name","value":"senderUserId"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMine"}}]}}]} as unknown as DocumentNode<SendMarketplaceMessageMutation, SendMarketplaceMessageMutationVariables>;
+export const ShareMyPhoneInConversationDocument = {"__meta__":{"hash":"2ef989c72a37426d5f12583f82b3772c468bcbe88e1ca7da8b94c947d264165b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ShareMyPhoneInConversation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"shareMyPhoneInConversation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MessageFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MessageFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"conversationId"}},{"kind":"Field","name":{"kind":"Name","value":"senderUserId"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMine"}}]}}]} as unknown as DocumentNode<ShareMyPhoneInConversationMutation, ShareMyPhoneInConversationMutationVariables>;
+export const MarkMarketplaceConversationReadDocument = {"__meta__":{"hash":"8c4fdff4393244ab965eb79a30ea11d0b9d031b03709a73bc98a6c87c48908e8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkMarketplaceConversationRead"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"markMarketplaceConversationRead"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}}]}]}}]} as unknown as DocumentNode<MarkMarketplaceConversationReadMutation, MarkMarketplaceConversationReadMutationVariables>;
+export const BlockConversationCounterpartDocument = {"__meta__":{"hash":"92987326623690f6b1959726725af37c1ed256675bba9e4845cff9fcfef904fd"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"BlockConversationCounterpart"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"blockConversationCounterpart"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConversationFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<BlockConversationCounterpartMutation, BlockConversationCounterpartMutationVariables>;
+export const UnblockConversationCounterpartDocument = {"__meta__":{"hash":"7f11be8f00e546306dd2df882a7a3bff2a4d6583039ba7afc4a786bec318a25d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UnblockConversationCounterpart"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"unblockConversationCounterpart"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"conversationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"conversationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConversationFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConversationFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceConversationView"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"listing"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"priceLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"counterpart"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"profilePicture"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lastMessagePreview"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastMessageIsMine"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}},{"kind":"Field","name":{"kind":"Name","value":"counterpartLastReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"isReadOnly"}},{"kind":"Field","name":{"kind":"Name","value":"isBlocked"}},{"kind":"Field","name":{"kind":"Name","value":"blockedByMe"}},{"kind":"Field","name":{"kind":"Name","value":"myPhoneShared"}},{"kind":"Field","name":{"kind":"Name","value":"canSharePhone"}}]}}]} as unknown as DocumentNode<UnblockConversationCounterpartMutation, UnblockConversationCounterpartMutationVariables>;
 export const MarketplaceListingsDocument = {"__meta__":{"hash":"49c27bade62edbe7c6e7563aacf4ed1168f0f652efe88cb484fb9d3ce862287d"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceListings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterListingsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceListings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<MarketplaceListingsQuery, MarketplaceListingsQueryVariables>;
 export const MarketplaceListingDocument = {"__meta__":{"hash":"b7a5cdf7c2a6ecefea2ddc2517f389e7e53226971516ed1fa1901039be928baa"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceListing"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceListing"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"listingId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"listingId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"ListingFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ListingFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceListing"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"priceAmount"}},{"kind":"Field","name":{"kind":"Name","value":"priceType"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"contactPreference"}},{"kind":"Field","name":{"kind":"Name","value":"showPhone"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"publishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"viewsCount"}},{"kind":"Field","name":{"kind":"Name","value":"contactsCount"}},{"kind":"Field","name":{"kind":"Name","value":"favoritesCount"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"categoryId"}},{"kind":"Field","name":{"kind":"Name","value":"category"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"contact"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"unitLabel"}},{"kind":"Field","name":{"kind":"Name","value":"preference"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"inAppOnly"}}]}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasFavorited"}},{"kind":"Field","name":{"kind":"Name","value":"viewerHasContacted"}},{"kind":"Field","name":{"kind":"Name","value":"viewerIsOwner"}}]}}]} as unknown as DocumentNode<MarketplaceListingQuery, MarketplaceListingQueryVariables>;
 export const MarketplaceCategoriesAppDocument = {"__meta__":{"hash":"ce6e5138df15b5c5d6063c1546992073d8e7e8eb7222f0e70750f253b722c297"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MarketplaceCategoriesApp"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kind"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"MarketplaceCategoryKind"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"marketplaceCategories"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"kind"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kind"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}}]}}]}}]} as unknown as DocumentNode<MarketplaceCategoriesAppQuery, MarketplaceCategoriesAppQueryVariables>;

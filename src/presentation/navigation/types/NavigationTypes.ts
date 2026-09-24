@@ -62,6 +62,12 @@ export type HomeStackParamList = {
    * `service` abre el formulario corto del directorio.
    */
   ListingForm: { listingId?: string; service?: boolean } | undefined;
+  /**
+   * Chat de clasificados. Con `listingId`, solo las conversaciones de un aviso
+   * (lo que abre quien lo publicó desde su ficha).
+   */
+  ChatInbox: { listingId?: string; title?: string } | undefined;
+  ChatConversation: { conversationId: string };
 };
 
 export type FinancesStackParamList = {

@@ -28,6 +28,7 @@ import { DEACTIVATE_MOBILE_TOKEN } from '../../domain/graphql/notifications.muta
 import { getApiErrorMessage } from '../utils/apiError';
 import { useAuthStore } from '../../presentation/store/auth.store';
 import { SCREEN_MODULE } from '../../presentation/constants/modules';
+import { useMarketplaceChatStore } from '../../presentation/store/marketplace-chat.store';
 
 /** Push que pide aprobar el ingreso de otro equipo (contrato §03). */
 export const LOGIN_APPROVAL_TYPE = 'LOGIN_APPROVAL_REQUEST';
@@ -46,6 +47,47 @@ export interface FCMData {
   triggeredBy?: string;
   triggeredByLabel?: string;
   metadata?: string;
+}
+
+export const CHAT_MESSAGE_TYPE = 'MARKETPLACE_CHAT_MESSAGE';
+
+/**
+ * La conversación de clasificados a la que lleva un push, si lleva a alguna.
+ *
+ * Dos avisos abren el chat: el mensaje nuevo y el primer "me interesa" (que
+ * trae el id de la conversación en metadata). Los demás avisos de clasificados
+ * siguen abriendo lo suyo.
+ */
+export function chatConversationFromData(
+  data: Record<string, string | undefined>,
+): string | null {
+  let metadata: Record<string, unknown> = {};
+  try {
+    metadata = data.metadata ? JSON.parse(data.metadata) : {};
+  } catch {
+    metadata = {};
+  }
+  const fromMetadata =
+    typeof metadata.conversationId === 'string' ? metadata.conversationId : null;
+
+  if (data.type === CHAT_MESSAGE_TYPE) {
+    return fromMetadata ?? data.entityId ?? null;
+  }
+  if (data.type === 'LISTING_INTEREST') return fromMetadata;
+  return null;
+}
+
+/** Abre el chat dentro del stack del inicio. */
+export function navigateToChat(
+  navigationRef: NavigationContainerRef<RootStackParamList>,
+  conversationId: string,
+): void {
+  if (!navigationRef.isReady()) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (navigationRef as any).navigate('Main', {
+    screen: 'HomeTab',
+    params: { screen: 'ChatConversation', params: { conversationId } },
+  });
 }
 
 function buildNotification(
@@ -94,6 +136,14 @@ function navigateFromPayload(
 ) {
   if (!navigationRef.isReady()) return;
   if (navigateToApprovalIfNeeded(navigationRef, data)) return;
+
+  const chatId = chatConversationFromData(
+    data as unknown as Record<string, string | undefined>,
+  );
+  if (chatId) {
+    navigateToChat(navigationRef, chatId);
+    return;
+  }
 
   const stack = data.targetStack;
   const screen = data.targetScreen;
@@ -227,6 +277,21 @@ export function initNotificationListeners(
     // tipo de notificación y no debe entrar en ese enum, porque nada de la app
     // del residente lo maneja ni debería.
     if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
+
+    // Mensaje del chat: no entra a la bandeja de notificaciones (un chat
+    // activo la llenaría de "ok, gracias"), y si esa conversación ya está en
+    // pantalla tampoco se muestra el aviso: el mensaje ya se ve ahí.
+    if ((data.type as string) === CHAT_MESSAGE_TYPE) {
+      const chatId = chatConversationFromData(
+        remoteMessage.data as Record<string, string | undefined>,
+      );
+      if (chatId && useMarketplaceChatStore.getState().activeConversationId === chatId) {
+        return;
+      }
+      await displayForegroundNotification(remoteMessage);
+      return;
+    }
+
     onNewNotification(buildNotification(remoteMessage));
     await displayForegroundNotification(remoteMessage);
   });
@@ -240,7 +305,9 @@ export function initNotificationListeners(
     if (data.type === 'PANIC_ALERT') {
       onPanic?.(data);
     } else {
-      onNewNotification(buildNotification(remoteMessage));
+      if ((data.type as string) !== CHAT_MESSAGE_TYPE) {
+        onNewNotification(buildNotification(remoteMessage));
+      }
       navigateFromPayload(navigationRef, data);
     }
   });
@@ -273,7 +340,9 @@ export async function handleInitialNotification(
   if (data.type === 'PANIC_ALERT') {
     onPanic?.(data);
   } else {
-    onNewNotification(buildNotification(remoteMessage));
+    if ((data.type as string) !== CHAT_MESSAGE_TYPE) {
+      onNewNotification(buildNotification(remoteMessage));
+    }
     navigateFromPayload(navigationRef, data);
   }
 }

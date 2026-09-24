@@ -11,7 +11,13 @@ import notifee, {
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { RootStackParamList } from '../../presentation/navigation/types/NavigationTypes';
-import { LOGIN_APPROVAL_TYPE, navigateToApprovalIfNeeded, type FCMData } from './NotificationService';
+import {
+  LOGIN_APPROVAL_TYPE,
+  chatConversationFromData,
+  navigateToApprovalIfNeeded,
+  navigateToChat,
+  type FCMData,
+} from './NotificationService';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 
 // ─── Channel IDs ─────────────────────────────────────────────────────────────
@@ -233,6 +239,13 @@ function navigateFromData(
   if (!navigationRef.isReady()) return;
   const d = data as FCMData;
   if (navigateToApprovalIfNeeded(navigationRef, d)) return;
+
+  const chatId = chatConversationFromData(data);
+  if (chatId) {
+    navigateToChat(navigationRef, chatId);
+    return;
+  }
+
   if (!d.targetStack) return;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
