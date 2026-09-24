@@ -278,9 +278,10 @@ export function initNotificationListeners(
     // del residente lo maneja ni debería.
     if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
 
-    // Mensaje del chat: no entra a la bandeja de notificaciones (un chat
-    // activo la llenaría de "ok, gracias"), y si esa conversación ya está en
-    // pantalla tampoco se muestra el aviso: el mensaje ya se ve ahí.
+    // Mensaje del chat: si esa conversación ya está en pantalla, ni banner ni
+    // bandeja —el mensaje ya se ve ahí y el servidor lo da por leído al
+    // abrirla—. En cualquier otra pantalla sí se avisa: el vecino tiene que
+    // enterarse de que le escribieron.
     if ((data.type as string) === CHAT_MESSAGE_TYPE) {
       const chatId = chatConversationFromData(
         remoteMessage.data as Record<string, string | undefined>,
@@ -288,8 +289,6 @@ export function initNotificationListeners(
       if (chatId && useMarketplaceChatStore.getState().activeConversationId === chatId) {
         return;
       }
-      await displayForegroundNotification(remoteMessage);
-      return;
     }
 
     onNewNotification(buildNotification(remoteMessage));
@@ -305,9 +304,7 @@ export function initNotificationListeners(
     if (data.type === 'PANIC_ALERT') {
       onPanic?.(data);
     } else {
-      if ((data.type as string) !== CHAT_MESSAGE_TYPE) {
-        onNewNotification(buildNotification(remoteMessage));
-      }
+      onNewNotification(buildNotification(remoteMessage));
       navigateFromPayload(navigationRef, data);
     }
   });
@@ -340,9 +337,7 @@ export async function handleInitialNotification(
   if (data.type === 'PANIC_ALERT') {
     onPanic?.(data);
   } else {
-    if ((data.type as string) !== CHAT_MESSAGE_TYPE) {
-      onNewNotification(buildNotification(remoteMessage));
-    }
+    onNewNotification(buildNotification(remoteMessage));
     navigateFromPayload(navigationRef, data);
   }
 }

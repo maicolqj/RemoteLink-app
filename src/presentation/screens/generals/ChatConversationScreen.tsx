@@ -26,6 +26,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import ImageViewerModal from '../../components/ImageViewerModal';
 import { usePhotoPicker } from '../../hooks/usePhotoPicker';
 import { useAuthStore } from '../../store/auth.store';
+import { usePanicStore } from '../../store/panic.store';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
@@ -116,6 +117,17 @@ export default function ChatConversationScreen() {
     state => state.setActiveConversation,
   );
   const discountUnread = useMarketplaceChatStore(state => state.discountUnread);
+  const setFabLift = usePanicStore(state => state.setFabLift);
+
+  /**
+   * La barra de escribir mide distinto según el teclado, el alto del texto y
+   * la barra del sistema: se mide en vivo y el botón de pánico sube lo mismo.
+   */
+  const liftPanicAbove = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) =>
+      setFabLift(event.nativeEvent.layout.height + SPACING.sm),
+    [setFabLift],
+  );
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -158,8 +170,12 @@ export default function ChatConversationScreen() {
     useCallback(() => {
       setActiveConversation(conversationId);
       load();
-      return () => setActiveConversation(null);
-    }, [conversationId, load, setActiveConversation]),
+      return () => {
+        setActiveConversation(null);
+        // Al salir del chat el botón de pánico vuelve a su lugar.
+        setFabLift(0);
+      };
+    }, [conversationId, load, setActiveConversation, setFabLift]),
   );
 
   // Mensajes en vivo.
@@ -636,6 +652,7 @@ export default function ChatConversationScreen() {
 
         {canWrite ? (
           <View
+            onLayout={liftPanicAbove}
             style={[
               styles.composer,
               {
@@ -678,6 +695,7 @@ export default function ChatConversationScreen() {
           </View>
         ) : (
           <View
+            onLayout={liftPanicAbove}
             style={[
               styles.closedBar,
               {
