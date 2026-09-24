@@ -33,6 +33,8 @@ interface MarketplaceState {
   categories: ListingCategory[];
   /** Oficios del directorio de servicios; van aparte de las de clasificados. */
   serviceCategories: ListingCategory[];
+  /** Ya se intentó cargar: distingue "cargando" de "no llegó nada". */
+  categoriesLoaded: boolean;
   settings: MarketplaceSettings | null;
   isLoading: boolean;
   page: number;
@@ -53,25 +55,29 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   listings: [],
   categories: [],
   serviceCategories: [],
+  categoriesLoaded: false,
   settings: null,
   isLoading: false,
   page: 1,
   hasNextPage: false,
 
   init: async complexId => {
-    try {
-      const [settings, categories, serviceCategories] = await Promise.all([
-        fetchSettings(complexId),
-        fetchCategories(complexId, 'CLASSIFIED'),
-        fetchCategories(complexId, 'SERVICE'),
-      ]);
-      set({ settings, categories, serviceCategories });
-    } catch {
-      // Sin ajustes la pantalla sigue en pie con los valores por defecto: no
-      // vale la pena tumbarle la vitrina al residente por no saber cuántas
-      // fotos admite el conjunto.
-      set({ settings: null, categories: [], serviceCategories: [] });
-    }
+    // Cada consulta por su lado: con `Promise.all`, que fallaran los ajustes
+    // dejaba también sin categorías, y sin categoría no se puede publicar.
+    // Sin ajustes la pantalla sigue en pie con los valores por defecto.
+    const [settings, categories, serviceCategories] = await Promise.allSettled([
+      fetchSettings(complexId),
+      fetchCategories(complexId, 'CLASSIFIED'),
+      fetchCategories(complexId, 'SERVICE'),
+    ]);
+
+    set({
+      settings: settings.status === 'fulfilled' ? settings.value : null,
+      categories: categories.status === 'fulfilled' ? categories.value : [],
+      serviceCategories:
+        serviceCategories.status === 'fulfilled' ? serviceCategories.value : [],
+      categoriesLoaded: true,
+    });
   },
 
   load: async (complexId, filters) => {
@@ -150,6 +156,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       listings: [],
       categories: [],
       serviceCategories: [],
+      categoriesLoaded: false,
       settings: null,
       page: 1,
       hasNextPage: false,
