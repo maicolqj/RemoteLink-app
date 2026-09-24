@@ -24,6 +24,7 @@ import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ImageViewerModal from '../../components/ImageViewerModal';
+import PopupMenu, { type PopupMenuItem } from '../../components/PopupMenu';
 import { usePhotoPicker } from '../../hooks/usePhotoPicker';
 import { useAuthStore } from '../../store/auth.store';
 import { usePanicStore } from '../../store/panic.store';
@@ -380,88 +381,123 @@ export default function ChatConversationScreen() {
     [conversationId, showError, showSuccess],
   );
 
-  const onReport = useCallback(() => {
-    showAlert({
-      type: 'question',
-      title: '¿Por qué lo reportas?',
-      description:
-        'La administración podrá leer esta conversación para revisarla. Nadie más.',
-      buttons: [
-        ...REPORT_OPTIONS.map(option => ({
-          text: option.label,
-          style: 'secondary' as const,
-          onPress: () =>
-            setTimeout(
-              () =>
-                showAlert({
-                  type: 'question',
-                  title: '¿También quieres bloquearlo?',
-                  description:
-                    'Si lo bloqueas, ninguno de los dos podrá escribirle al otro.',
-                  buttons: [
-                    {
-                      text: 'Reportar y bloquear',
-                      style: 'danger',
-                      onPress: () => submitReport(option.value, true),
-                    },
-                    {
-                      text: 'Solo reportar',
-                      style: 'secondary',
-                      onPress: () => submitReport(option.value, false),
-                    },
-                  ],
-                }),
-              300,
-            ),
-        })),
-        { text: 'Cancelar', style: 'text' as const, onPress: () => undefined },
-      ],
-    });
-  }, [showAlert, submitReport]);
+  /**
+   * Qué menú está abierto. Todas las listas de opciones van en el menú
+   * desplegable bajo los tres puntos y no en un alert: el alert pinta los
+   * botones en fila y con textos largos los recortaba.
+   */
+  const [menu, setMenu] = useState<
+    | { kind: 'main' }
+    | { kind: 'report' }
+    | { kind: 'block-choice'; reason: ChatReportReason }
+    | null
+  >(null);
 
-  const onMenu = useCallback(() => {
+  /** Abrir un menú justo después de cerrar otro: se espera a que se vaya. */
+  const openMenuNext = useCallback(
+    (next: NonNullable<typeof menu>) => setTimeout(() => setMenu(next), 250),
+    [],
+  );
+
+  const toggleBlock = useCallback(() => {
     if (!conversation) return;
-    const blocked = conversation.blockedByMe;
+    const run = () =>
+      (conversation.blockedByMe ? unblockCounterpart : blockCounterpart)(
+        conversationId,
+      )
+        .then(setConversation)
+        .catch((e: any) => showError(e?.message ?? 'No se pudo completar.'));
+
+    if (conversation.blockedByMe) {
+      void run();
+      return;
+    }
 
     showAlert({
       type: 'question',
-      title: conversation.counterpart.name,
-      description: blocked
-        ? 'Lo bloqueaste: ninguno de los dos puede escribirle al otro.'
-        : 'Si lo bloqueas, ninguno podrá escribirle al otro. No se le avisa.',
+      title: `¿Bloquear a ${conversation.counterpart.name}?`,
+      description:
+        'Ninguno de los dos podrá escribirle al otro. No se le avisa.',
       buttons: [
-        {
-          text: 'Ver el aviso',
-          style: 'secondary',
-          onPress: () =>
-            navigation.navigate('ListingDetail', {
-              listingId: conversation.listing.id,
-            }),
-        },
-        ...(conversation.reportedByMe
-          ? []
-          : [
-              {
-                text: 'Reportar',
-                style: 'danger' as const,
-                onPress: () => setTimeout(onReport, 300),
-              },
-            ]),
-        {
-          text: blocked ? 'Desbloquear' : 'Bloquear',
-          style: blocked ? 'secondary' : 'danger',
-          onPress: () => {
-            (blocked ? unblockCounterpart : blockCounterpart)(conversationId)
-              .then(setConversation)
-              .catch((e: any) =>
-                showError(e?.message ?? 'No se pudo completar.'),
-              );
-          },
-        },
-        { text: 'Cerrar', style: 'text', onPress: () => undefined },
+        { text: 'Bloquear', style: 'danger', onPress: () => void run() },
+        { text: 'Cancelar', style: 'text', onPress: () => undefined },
       ],
     });
-  }, [conversation, conversationId, navigation, showAlert, showError, onReport]);
+  }, [conversation, conversationId, showAlert, showError]);
+
+  const menuItems = useMemo<PopupMenuItem[]>(() => {
+    if (!conversation || !menu) return [];
+
+    if (menu.kind === 'report') {
+      return REPORT_OPTIONS.map(option => ({
+        key: option.value,
+        label: option.label,
+        onPress: () => openMenuNext({ kind: 'block-choice', reason: option.value }),
+      }));
+    }
+
+    if (menu.kind === 'block-choice') {
+      return [
+        {
+          key: 'report-block',
+          label: 'Reportar y bloquear',
+          icon: 'block',
+          danger: true,
+          onPress: () => submitReport(menu.reason, true),
+        },
+        {
+          key: 'report-only',
+          label: 'Solo reportar',
+          icon: 'flag',
+          onPress: () => submitReport(menu.reason, false),
+        },
+      ];
+    }
+
+    return [
+      {
+        key: 'listing',
+        label: 'Ver el aviso',
+        icon: 'storefront',
+        onPress: () =>
+          navigation.navigate('ListingDetail', {
+            listingId: conversation.listing.id,
+          }),
+      },
+      ...(conversation.reportedByMe
+        ? []
+        : [
+            {
+              key: 'report',
+              label: 'Reportar conversación',
+              icon: 'flag',
+              danger: true,
+              onPress: () => openMenuNext({ kind: 'report' }),
+            },
+          ]),
+      {
+        key: 'block',
+        label: conversation.blockedByMe ? 'Desbloquear' : 'Bloquear',
+        icon: conversation.blockedByMe ? 'check-circle-outline' : 'block',
+        danger: !conversation.blockedByMe,
+        // El alert de confirmación, cuando el menú ya se cerró.
+        onPress: () => setTimeout(toggleBlock, 250),
+      },
+    ];
+  }, [conversation, menu, navigation, openMenuNext, submitReport, toggleBlock]);
+
+  const menuTitle =
+    menu?.kind === 'report'
+      ? '¿Por qué lo reportas?'
+      : menu?.kind === 'block-choice'
+        ? '¿También quieres bloquearlo?'
+        : undefined;
+  const menuDescription =
+    menu?.kind === 'report'
+      ? 'La administración podrá leer esta conversación para revisarla. Nadie más.'
+      : menu?.kind === 'block-choice'
+        ? 'Si lo bloqueas, ninguno de los dos podrá escribirle al otro.'
+        : undefined;
 
   const openPhone = useCallback(
     (phone: string, viaWhatsApp: boolean) => {
@@ -535,7 +571,7 @@ export default function ChatConversationScreen() {
         subtitle={conversation.counterpart.unitLabel ?? undefined}
         showBack
         onBack={() => navigation.goBack()}
-        rightAction={{ icon: 'more-vert', onPress: onMenu }}
+        rightAction={{ icon: 'more-vert', onPress: () => setMenu({ kind: 'main' }) }}
       />
 
       {/* El aviso del que se habla, siempre a la vista. */}
@@ -720,6 +756,14 @@ export default function ChatConversationScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <PopupMenu
+        visible={!!menu}
+        onDismiss={() => setMenu(null)}
+        items={menuItems}
+        title={menuTitle}
+        description={menuDescription}
+      />
 
       <ImageViewerModal
         uri={zoomed}
