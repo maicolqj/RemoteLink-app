@@ -1,4 +1,6 @@
-import apolloClient from '../../data/lib/apollo/client';
+import apolloClient, { API_BASE_URL } from '../../data/lib/apollo/client';
+import SecureStorageService from './SecureStorageService';
+import type { PhotoUpload } from '../../domain/interfaces/PhotoUpload';
 import {
   BLOCK_COUNTERPART,
   GET_CONVERSATION,
@@ -7,6 +9,7 @@ import {
   GET_UNREAD_MESSAGES,
   MARK_CONVERSATION_READ,
   OPEN_LISTING_CONVERSATION,
+  REPORT_CONVERSATION,
   SEND_MESSAGE,
   SHARE_MY_PHONE,
   UNBLOCK_COUNTERPART,
@@ -14,6 +17,7 @@ import {
 import { getApiErrorMessage } from '../utils/apiError';
 import type {
   ChatMessage,
+  ChatReportReason,
   Conversation,
   ConversationPage,
   MessagesPage,
@@ -135,6 +139,66 @@ export async function shareMyPhone(conversationId: string): Promise<ChatMessage>
     throw new Error(getApiErrorMessage(error, 'No se pudo compartir tu WhatsApp'));
   }
   return data.shareMyPhoneInConversation;
+}
+
+/**
+ * Manda una foto por el chat. Va por REST porque GraphQL en este proyecto no
+ * recibe archivos. El servidor valida antes de subirla a R2.
+ */
+export async function sendChatImage(
+  conversationId: string,
+  photo: PhotoUpload,
+): Promise<ChatMessage> {
+  const form = new FormData();
+  form.append('image', {
+    uri: photo.uri,
+    type: photo.type,
+    name: photo.name,
+  } as unknown as Blob);
+
+  const tokens = await SecureStorageService.getTokens();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/marketplace/conversations/${conversationId}/images`,
+    {
+      method: 'POST',
+      headers: tokens?.accessToken
+        ? { Authorization: `Bearer ${tokens.accessToken}` }
+        : {},
+      body: form,
+    },
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const message = Array.isArray(payload.message)
+      ? payload.message.join('\n')
+      : payload.message;
+    throw new Error(message ?? 'No se pudo enviar la foto');
+  }
+
+  return (await response.json()) as ChatMessage;
+}
+
+/** La URL completa de una foto del chat, a partir de su `imagePath`. */
+export const chatImageUrl = (imagePath: string): string =>
+  `${API_BASE_URL}${imagePath}`;
+
+export async function reportConversation(
+  conversationId: string,
+  reason: ChatReportReason,
+  alsoBlock: boolean,
+  comment?: string,
+): Promise<void> {
+  const { error } = await apolloClient.mutate({
+    mutation: REPORT_CONVERSATION,
+    variables: { input: { conversationId, reason, comment, alsoBlock } },
+  });
+  if (error) {
+    throw new Error(getApiErrorMessage(error, 'No se pudo enviar el reporte'));
+  }
 }
 
 /** Sin red no pasa nada: la próxima apertura la vuelve a marcar. */

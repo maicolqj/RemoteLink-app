@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   FlatList,
@@ -23,6 +23,9 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import AppHeader from '../../components/AppHeader';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import ImageViewerModal from '../../components/ImageViewerModal';
+import { usePhotoPicker } from '../../hooks/usePhotoPicker';
+import { useAuthStore } from '../../store/auth.store';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
@@ -33,17 +36,22 @@ import {
 } from '../../store/marketplace-chat.store';
 import {
   blockCounterpart,
+  chatImageUrl,
   fetchConversation,
   fetchMessages,
   markConversationRead,
+  reportConversation,
+  sendChatImage,
   sendMessage,
   shareMyPhone,
   unblockCounterpart,
 } from '../../../infraestructure/services/marketplace-chat.service';
 import type {
   ChatMessage,
+  ChatReportReason,
   Conversation,
 } from '../../../domain/responses/MarketplaceChatResponseModel';
+import type { PhotoUpload } from '../../../domain/interfaces/PhotoUpload';
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
@@ -52,8 +60,23 @@ import { bubbleTime, dayLabel, sameDay } from './chat.shared';
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'ChatConversation'>;
 type ChatRoute = RouteProp<HomeStackParamList, 'ChatConversation'>;
 
-/** Un mensaje en pantalla: los que van saliendo llevan su estado de envío. */
-type UiMessage = ChatMessage & { pending?: boolean; failed?: boolean };
+/**
+ * Un mensaje en pantalla: los que van saliendo llevan su estado de envío, y
+ * una foto que se está subiendo lleva el archivo local para verse de una vez
+ * (y para reintentar si falla).
+ */
+type UiMessage = ChatMessage & {
+  pending?: boolean;
+  failed?: boolean;
+  photo?: PhotoUpload;
+};
+
+const REPORT_OPTIONS: { value: ChatReportReason; label: string }[] = [
+  { value: 'HARASSMENT', label: 'Me acosa o insiste' },
+  { value: 'SCAM', label: 'Parece una estafa' },
+  { value: 'OFFENSIVE', label: 'Ofensivo o amenazante' },
+  { value: 'SPAM', label: 'Mensajes repetidos o publicidad' },
+];
 
 const CLOSED_HINT: Record<string, string> = {
   SOLD: 'El aviso se cerró',
@@ -78,7 +101,16 @@ export default function ChatConversationScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const gs = useGlobalStyles();
-  const { showAlert, showError } = useAlert();
+  const { showAlert, showError, showSuccess } = useAlert();
+  const { choosePhoto } = usePhotoPicker();
+  const token = useAuthStore(state => state.token);
+
+  /** Las fotos del chat no son públicas: se piden con la sesión. */
+  const authHeaders = useMemo<Record<string, string> | undefined>(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token],
+  );
+  const [zoomed, setZoomed] = useState<string | null>(null);
 
   const setActiveConversation = useMarketplaceChatStore(
     state => state.setActiveConversation,
@@ -141,7 +173,10 @@ export default function ChatConversationScreen() {
           // El eco de un mensaje mío reemplaza su copia provisional.
           if (message.isMine) {
             const tempIndex = prev.findIndex(
-              m => m.pending && m.body === message.body,
+              m =>
+                m.pending &&
+                m.kind === message.kind &&
+                m.body === message.body,
             );
             if (tempIndex >= 0) {
               const next = [...prev];
@@ -190,7 +225,9 @@ export default function ChatConversationScreen() {
   const deliver = useCallback(
     async (temp: UiMessage) => {
       try {
-        const saved = await sendMessage(conversationId, temp.body);
+        const saved = temp.photo
+          ? await sendChatImage(conversationId, temp.photo)
+          : await sendMessage(conversationId, temp.body);
         setMessages(prev => {
           // Si el eco del socket ya llegó, solo se quita la copia provisional.
           if (prev.some(m => m.id === saved.id)) {
@@ -228,6 +265,28 @@ export default function ChatConversationScreen() {
     setDraft('');
     void deliver(temp);
   }, [draft, conversationId, deliver]);
+
+  /** Una foto sale de una vez con el archivo local mientras se sube. */
+  const onAttach = useCallback(() => {
+    choosePhoto(picked => {
+      const photo = picked[0];
+      if (!photo) return;
+
+      const temp: UiMessage = {
+        id: `temp-${Date.now()}`,
+        conversationId,
+        senderUserId: '',
+        kind: 'IMAGE',
+        body: '',
+        createdAt: new Date().toISOString(),
+        isMine: true,
+        pending: true,
+        photo,
+      };
+      setMessages(prev => [temp, ...prev]);
+      void deliver(temp);
+    }, 1);
+  }, [choosePhoto, conversationId, deliver]);
 
   const retry = useCallback(
     (message: UiMessage) => {
@@ -276,6 +335,74 @@ export default function ChatConversationScreen() {
     });
   }, [conversation, conversationId, showAlert, showError]);
 
+  /**
+   * Reportar abre la conversación a la administración —es lo único que lo
+   * hace—, así que se dice antes. Al otro vecino no se le avisa quién reportó.
+   */
+  const submitReport = useCallback(
+    (reason: ChatReportReason, alsoBlock: boolean) => {
+      reportConversation(conversationId, reason, alsoBlock)
+        .then(() => {
+          setConversation(prev =>
+            prev
+              ? {
+                  ...prev,
+                  reportedByMe: true,
+                  ...(alsoBlock
+                    ? { isBlocked: true, blockedByMe: true }
+                    : {}),
+                }
+              : prev,
+          );
+          showSuccess(
+            'La administración revisa la conversación. Al otro vecino no se le dice quién la reportó.',
+            'Reporte enviado',
+          );
+        })
+        .catch((e: any) => showError(e?.message ?? 'No se pudo reportar.'));
+    },
+    [conversationId, showError, showSuccess],
+  );
+
+  const onReport = useCallback(() => {
+    showAlert({
+      type: 'question',
+      title: '¿Por qué lo reportas?',
+      description:
+        'La administración podrá leer esta conversación para revisarla. Nadie más.',
+      buttons: [
+        ...REPORT_OPTIONS.map(option => ({
+          text: option.label,
+          style: 'secondary' as const,
+          onPress: () =>
+            setTimeout(
+              () =>
+                showAlert({
+                  type: 'question',
+                  title: '¿También quieres bloquearlo?',
+                  description:
+                    'Si lo bloqueas, ninguno de los dos podrá escribirle al otro.',
+                  buttons: [
+                    {
+                      text: 'Reportar y bloquear',
+                      style: 'danger',
+                      onPress: () => submitReport(option.value, true),
+                    },
+                    {
+                      text: 'Solo reportar',
+                      style: 'secondary',
+                      onPress: () => submitReport(option.value, false),
+                    },
+                  ],
+                }),
+              300,
+            ),
+        })),
+        { text: 'Cancelar', style: 'text' as const, onPress: () => undefined },
+      ],
+    });
+  }, [showAlert, submitReport]);
+
   const onMenu = useCallback(() => {
     if (!conversation) return;
     const blocked = conversation.blockedByMe;
@@ -295,6 +422,15 @@ export default function ChatConversationScreen() {
               listingId: conversation.listing.id,
             }),
         },
+        ...(conversation.reportedByMe
+          ? []
+          : [
+              {
+                text: 'Reportar',
+                style: 'danger' as const,
+                onPress: () => setTimeout(onReport, 300),
+              },
+            ]),
         {
           text: blocked ? 'Desbloquear' : 'Bloquear',
           style: blocked ? 'secondary' : 'danger',
@@ -309,7 +445,7 @@ export default function ChatConversationScreen() {
         { text: 'Cerrar', style: 'text', onPress: () => undefined },
       ],
     });
-  }, [conversation, conversationId, navigation, showAlert, showError]);
+  }, [conversation, conversationId, navigation, showAlert, showError, onReport]);
 
   const openPhone = useCallback(
     (phone: string, viaWhatsApp: boolean) => {
@@ -351,6 +487,8 @@ export default function ChatConversationScreen() {
           <Bubble
             message={item}
             seen={seen}
+            authHeaders={authHeaders}
+            onZoom={setZoomed}
             onRetry={() => retry(item)}
             onWhatsApp={phone => openPhone(phone, true)}
             onCall={phone => openPhone(phone, false)}
@@ -358,7 +496,7 @@ export default function ChatConversationScreen() {
         </View>
       );
     },
-    [messages, conversation, colors, retry, openPhone],
+    [messages, conversation, colors, retry, openPhone, authHeaders],
   );
 
   if (isLoading || !conversation) {
@@ -431,6 +569,18 @@ export default function ChatConversationScreen() {
         <Icon name="chevron-right" size={20} color={colors.textTertiary} />
       </TouchableOpacity>
 
+      {conversation.reportedByMe && !conversation.closedByModeration && (
+        <View style={[styles.notice, { backgroundColor: colors.warningLight }]}>
+          <Icon name="flag" size={14} color={colors.warning} />
+          <CustomTextComponent
+            fontSize={FONT_SIZE.xs}
+            color={colors.textSecondary}
+            style={gs.flex1}>
+            Reportaste esta conversación. La administración la está revisando.
+          </CustomTextComponent>
+        </View>
+      )}
+
       <KeyboardAvoidingView
         style={gs.flex1}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -494,6 +644,12 @@ export default function ChatConversationScreen() {
                 paddingBottom: insets.bottom + SPACING.sm,
               },
             ]}>
+            <TouchableOpacity
+              onPress={onAttach}
+              style={styles.attachBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="photo-camera" size={24} color={colors.primary} />
+            </TouchableOpacity>
             <TextInput
               value={draft}
               onChangeText={setDraft}
@@ -535,7 +691,9 @@ export default function ChatConversationScreen() {
               fontSize={FONT_SIZE.sm}
               color={colors.textSecondary}
               style={gs.flex1}>
-              {conversation.isBlocked
+              {conversation.closedByModeration
+                ? 'La administración cerró esta conversación después de revisar un reporte.'
+                : conversation.isBlocked
                 ? conversation.blockedByMe
                   ? 'Bloqueaste a este vecino. Desbloquéalo desde el menú para volver a escribir.'
                   : 'No es posible escribirle a este vecino.'
@@ -544,6 +702,12 @@ export default function ChatConversationScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <ImageViewerModal
+        uri={zoomed}
+        headers={zoomed?.startsWith('http') ? authHeaders : undefined}
+        onClose={() => setZoomed(null)}
+      />
     </View>
   );
 }
@@ -553,12 +717,16 @@ export default function ChatConversationScreen() {
 function Bubble({
   message,
   seen,
+  authHeaders,
+  onZoom,
   onRetry,
   onWhatsApp,
   onCall,
 }: {
   message: UiMessage;
   seen: boolean;
+  authHeaders?: Record<string, string>;
+  onZoom: (uri: string) => void;
   onRetry: () => void;
   onWhatsApp: (phone: string) => void;
   onCall: (phone: string) => void;
@@ -582,6 +750,50 @@ function Bubble({
       )}
     </View>
   );
+
+  if (message.kind === 'IMAGE') {
+    // Mientras sube se ve el archivo local; ya enviada, se pide al API con la
+    // sesión. La URL pública del bucket nunca se usa para el chat.
+    const uri = message.photo?.uri
+      ?? (message.imagePath ? chatImageUrl(message.imagePath) : null);
+
+    return (
+      <View style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            if (message.failed) onRetry();
+            else if (uri) onZoom(uri);
+          }}
+          style={[
+            styles.imageBubble,
+            {
+              backgroundColor: mine ? colors.primary : colors.surface,
+              borderColor: message.failed ? colors.error : 'transparent',
+              opacity: message.pending ? 0.7 : 1,
+            },
+          ]}>
+          {uri ? (
+            <Image
+              source={
+                message.photo ? { uri } : { uri, headers: authHeaders }
+              }
+              style={styles.chatImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.chatImage, styles.imageMissing]}>
+              <Icon name="broken-image" size={28} color={metaColor} />
+            </View>
+          )}
+          <View style={styles.imageMeta}>{meta}</View>
+        </TouchableOpacity>
+        {message.failed && (
+          <Icon name="error-outline" size={18} color={colors.error} />
+        )}
+      </View>
+    );
+  }
 
   if (message.kind === 'PHONE_SHARED') {
     return (
@@ -723,6 +935,32 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   olderHint: { textAlign: 'center', marginVertical: SPACING.sm },
+  imageBubble: {
+    padding: 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  chatImage: { width: 220, height: 220, borderRadius: 13 },
+  imageMissing: { alignItems: 'center', justifyContent: 'center' },
+  imageMeta: {
+    position: 'absolute',
+    right: 10,
+    bottom: 6,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  attachBtn: { paddingBottom: 9 },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.xs,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.md,
+  },
   emptyWrap: {
     // La lista va invertida: sin esto el texto sale de cabeza.
     transform: [{ scaleY: -1 }],

@@ -31,6 +31,8 @@ export const CONVERSATION_FIELDS = gql`
     unreadCount
     counterpartLastReadAt
     isReadOnly
+    closedByModeration
+    reportedByMe
     isBlocked
     blockedByMe
     myPhoneShared
@@ -45,6 +47,7 @@ export const MESSAGE_FIELDS = gql`
     senderUserId
     kind
     body
+    imagePath
     createdAt
     isMine
   }
@@ -150,6 +153,16 @@ export const BLOCK_COUNTERPART = gql`
     blockConversationCounterpart(conversationId: $conversationId) {
       ...ConversationFields
     }
+  }
+`;
+
+/**
+ * Reportar el chat a la administración. Es lo único que le permite leerlo: sin
+ * reporte, nadie más que los dos vecinos ve la conversación.
+ */
+export const REPORT_CONVERSATION = gql`
+  mutation ReportMarketplaceConversation($input: ReportConversationInput!) {
+    reportMarketplaceConversation(input: $input)
   }
 `;
 

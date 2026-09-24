@@ -10,6 +10,8 @@ import { FONT_SIZE } from '../constants/typography';
 interface ImageViewerModalProps {
   uri: string | null;
   caption?: string | null;
+  /** Para fotos que exigen sesión, como las del chat entre vecinos. */
+  headers?: Record<string, string>;
   onClose: () => void;
 }
 
@@ -22,7 +24,7 @@ interface ImageViewerModalProps {
  * nadie busca la X— y la imagen va en `contain` para no recortar justo la parte
  * que se quería mirar.
  */
-export default function ImageViewerModal({ uri, caption, onClose }: ImageViewerModalProps) {
+export default function ImageViewerModal({ uri, caption, headers, onClose }: ImageViewerModalProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -39,7 +41,7 @@ export default function ImageViewerModal({ uri, caption, onClose }: ImageViewerM
           <Icon name="close" size={22} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {!!uri && <Image source={{ uri }} style={styles.image} resizeMode="contain" />}
+        {!!uri && <Image source={{ uri, headers }} style={styles.image} resizeMode="contain" />}
 
         {!!caption && (
           <CustomTextComponent
