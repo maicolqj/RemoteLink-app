@@ -99,6 +99,7 @@ export default function ListingFormScreen() {
   const serviceCategories = useMarketplaceStore(
     state => state.serviceCategories,
   );
+  const categoriesLoaded = useMarketplaceStore(state => state.categoriesLoaded);
   const settings = useMarketplaceStore(state => state.settings);
   const init = useMarketplaceStore(state => state.init);
   const patchListing = useMarketplaceStore(state => state.patchListing);
@@ -438,11 +439,25 @@ export default function ListingFormScreen() {
           isService,
         )}
         {categories.length === 0 ? (
-          <CustomTextComponent
-            fontSize={FONT_SIZE.sm}
-            color={colors.textTertiary}>
-            Cargando las categorías del conjunto…
-          </CustomTextComponent>
+          categoriesLoaded ? (
+            // Si no llegó ninguna, decirlo y dejar reintentar: quedarse en
+            // "cargando" para siempre deja al vecino sin saber por qué no
+            // puede publicar.
+            <TouchableOpacity
+              onPress={() => complexId && init(complexId)}
+              style={styles.retry}>
+              <Icon name="refresh" size={16} color={colors.primary} />
+              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.primary}>
+                No se pudieron cargar las categorías. Toca para reintentar.
+              </CustomTextComponent>
+            </TouchableOpacity>
+          ) : (
+            <CustomTextComponent
+              fontSize={FONT_SIZE.sm}
+              color={colors.textTertiary}>
+              Cargando las categorías del conjunto…
+            </CustomTextComponent>
+          )
         ) : (
           <View style={styles.chips}>
             {categories.map(category => {
@@ -725,6 +740,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { marginTop: SPACING.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  retry: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   chip: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
