@@ -20,6 +20,7 @@ import {
   ViewStyle,
   PanResponder,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { ColorsApp, GlobalColors } from '../../constants/CustomColors';
@@ -218,6 +219,9 @@ function doHaptic(): void {
 export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [options,   setOptions]   = useState<ResolvedOptions>(DEFAULT_OPTIONS);
+  // Android 15 dibuja de borde a borde: sin esto, una alerta abajo dejaba sus
+  // botones detrás de la barra de navegación del celular.
+  const insets = useSafeAreaInsets();
 
   // --- Animated values (stable object references, never reassigned) ---
   const fadeAnim     = useRef(new Animated.Value(0)).current;
@@ -461,8 +465,8 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const positionStyle: ViewStyle = position === 'center'
       ? { top: SCREEN_H * 0.45, marginTop: -(SCREEN_H * 0.1) }
       : position === 'top'
-      ? { top:    SCREEN_H * 0.05 }
-      : { bottom: SCREEN_H * 0.05 };
+      ? { top:    SCREEN_H * 0.05 + insets.top }
+      : { bottom: SCREEN_H * 0.05 + insets.bottom };
 
     // Transform list
     const baseTransform =
@@ -622,6 +626,8 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     swipeAnim,
     panResponder,
     hideAlert,
+    insets.top,
+    insets.bottom,
   ]);
 
   // ==========================================

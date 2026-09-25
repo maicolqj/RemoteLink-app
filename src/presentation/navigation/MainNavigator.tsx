@@ -1,19 +1,20 @@
 import React from 'react';
-import { View, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import type { MainTabParamList } from './types/NavigationTypes';
 import { FONT_SIZE, FONT_WEIGHT } from '../constants/typography';
 import { SPACING } from '../constants/spacing';
 import { useTheme } from '../providers/context/ThemeContext';
 import HomeStack from './stacks/HomeStack';
-import VisitsStack from './stacks/VisitsStack';
 import ProfileStack from './stacks/ProfileStack';
 import { useNotificationsStore } from '../store/notifications.store';
 
-const { width: wp, height: hp } = Dimensions.get('screen');
-
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+/** Alto del contenido de la barra (íconos + etiqueta), sin el borde del equipo. */
+const TAB_BAR_CONTENT = 56;
 
 type TabIconConfig = { name: string; label: string; icon: string };
 
@@ -40,12 +41,23 @@ function TabBarIcon({ iconName, focused, badgeDot, colors }: { iconName: string;
 export default function MainNavigator() {
   const unreadCount = useNotificationsStore(s => s.unreadCount);
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Android 15 dibuja la app de borde a borde (targetSdk 35+) aunque
+  // edgeToEdgeEnabled=false: con altura fija, las pestañas quedaban DEBAJO de
+  // los botones de navegación del celular. El relleno inferior es el alto real
+  // de esa barra (o el mínimo de siempre si el equipo usa gestos).
+  const bottomPad = Math.max(insets.bottom, SPACING.sm);
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { backgroundColor: colors.tabBarBg, borderTopColor: colors.border }],
+        tabBarStyle: [
+          styles.tabBar,
+          { height: TAB_BAR_CONTENT + bottomPad, paddingBottom: bottomPad },
+          { backgroundColor: colors.tabBarBg, borderTopColor: colors.border },
+        ],
         tabBarActiveTintColor: colors.tabBarActive,
         tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: styles.tabLabel,
@@ -85,8 +97,6 @@ export default function MainNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 84 : 64,
-    paddingBottom: Platform.OS === 'ios' ? 28 : SPACING.sm,
     paddingTop: SPACING.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
