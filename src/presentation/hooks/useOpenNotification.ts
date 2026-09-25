@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAlert } from '../providers/context/AlertContext';
 import { useNotificationsStore, type Notification } from '../store/notifications.store';
 import { useAuthStore } from '../store/auth.store';
+import { usePanicStore } from '../store/panic.store';
 import { fetchNotificationDetail } from '../../infraestructure/services/notifications.service';
 import type { NotificationEntityType } from '../../domain/responses/NotificationResponseModel';
 import type { HomeStackParamList } from '../navigation/types/NavigationTypes';
@@ -17,6 +18,9 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // Finance notifications carry no entityType — they're identified by their type
 // (PAYMENT_*, CHARGE_*, WALLET_*, MORA_*) and route to the account statement.
 const FINANCE_TYPE_RE = /(PAYMENT|CHARGE|WALLET|MORA)/i;
+
+/** Un pánico de hace más de esto ya no se trata como activo (mismo umbral que el socket). */
+const ACTIVE_PANIC_MAX_AGE_MS = 10 * 60 * 1000;
 
 /**
  * Abre la pantalla del evento al que apunta una notificación.
@@ -164,6 +168,23 @@ export function useOpenNotification() {
   const openNotification = useCallback(async (item: Notification) => {
     if (resolvingId) return;
     markAsRead(item.id);
+
+    // Un pánico reciente y sin atender abre el modal de pánico: es el único
+    // lugar con el botón que detiene la sirena. Uno viejo o ya atendido NO,
+    // porque el modal enciende la sirena al abrirse; cae al detalle de siempre.
+    const rawType = item.data?.type ?? String(item.type);
+    const age = Date.now() - new Date(item.createdAt).getTime();
+    if (rawType === 'PANIC_ALERT' && !item.data?.actionResult && age < ACTIVE_PANIC_MAX_AGE_MS) {
+      const ownId = useAuthStore.getState().resident?.user?.id;
+      if (!item.data?.triggeredBy || item.data.triggeredBy !== ownId) {
+        usePanicStore.getState().setPanicData({
+          complexId:        item.data?.complexId ?? useAuthStore.getState().resident?.complex?.id ?? '',
+          triggeredBy:      item.data?.triggeredBy ?? '',
+          triggeredByLabel: item.data?.triggeredByLabel,
+        });
+        return;
+      }
+    }
 
     // The FCM payload sometimes already carries the entity reference; use it to
     // skip the round-trip, otherwise resolve the full detail from the backend.

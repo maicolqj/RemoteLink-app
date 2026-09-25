@@ -261,6 +261,9 @@ export function SocketProvider({ children }: Props) {
       if (__DEV__) console.log('[Socket] panic:alert:new', payload);
       if (!useSettingsStore.getState().panicAlertsEnabled) return;
       if (payload.triggeredBy === userId) return;
+      // El servidor manda a quién no le corresponde (SUPER_ADMIN_ROL): su sesión
+      // de residente no lleva ese rol, así que la sala del complejo no lo excluye.
+      if (userId && payload.skipUserIds?.includes(userId)) return;
       if (payload.complexId !== complexId) return;
       panicReceivedAt.current = Date.now();
       setPanicData(payload);

@@ -267,6 +267,11 @@ export function initNotificationListeners(
       // llegó a este equipo: confirmarla es lo que hace que la estadística de
       // entrega refleje la realidad y no solo los casos con la app cerrada.
       void reportPanicDelivered(remoteMessage.data as Record<string, string>);
+      // El receptor nativo ya hizo sonar la sirena: el modal tiene que aparecer
+      // aquí mismo. Confiar solo en el socket dejaba la sirena sonando sin modal
+      // (y sin forma de apagarla) cuando el socket no estaba conectado. Si el
+      // socket también llega, reemplaza el mismo estado.
+      onPanic?.(data);
       return;
     }
     // Mensaje de servicio del backend, no del usuario. Aquí importa más que en el
