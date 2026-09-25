@@ -44,6 +44,8 @@ function roleLabel(role?: string): string {
 
 export interface PanicAlertNewPayload {
   complexId: string;
+  /** Usuarios que deben ignorar este pánico (los SUPER_ADMIN_ROL). */
+  skipUserIds?: string[];
   triggeredBy: string;
   triggeredByLabel?: string;
   triggeredByName?: string;
