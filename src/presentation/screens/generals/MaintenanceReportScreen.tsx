@@ -40,6 +40,8 @@ import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { MAINTENANCE_CATEGORIES } from './maintenance.shared';
 import { QrScannerModal } from '../../components/QrScannerModal';
+import { NfcPromptModal } from '../../components/NfcPromptModal';
+import { cancelNfc, isNfcCancel, isNfcSupported, readSiteCode } from '../../utils/nfc';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'MaintenanceReport'>;
 
@@ -107,6 +109,10 @@ export default function MaintenanceReportScreen() {
   const [locationText, setLocationText] = useState('');
 
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [nfcSupported, setNfcSupported] = useState(false);
+  const [nfcReading, setNfcReading] = useState(false);
+
+  useEffect(() => { void isNfcSupported().then(setNfcSupported); }, []);
 
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -202,6 +208,19 @@ export default function MaintenanceReportScreen() {
     },
     [resolveTagCode],
   );
+
+  /** El chip NFC del sitio: mismo código que el QR, mismo camino. */
+  const readNfc = useCallback(async () => {
+    setNfcReading(true);
+    try {
+      const code = await readSiteCode();
+      setNfcReading(false);
+      handleScannedCode(code);
+    } catch (e: any) {
+      setNfcReading(false);
+      if (!isNfcCancel(e)) showError(e?.message ?? 'No se pudo leer el chip.');
+    }
+  }, [handleScannedCode, showError]);
 
   const buildLocation = () => ({
     locationType,
@@ -415,6 +434,21 @@ export default function MaintenanceReportScreen() {
             Escanear el código del sitio
           </CustomTextComponent>
         </TouchableOpacity>
+        {nfcSupported && (
+          <TouchableOpacity
+            onPress={() => void readNfc()}
+            style={[styles.scanBtn, { borderColor: colors.primary }]}
+            accessibilityRole="button"
+            accessibilityLabel="Leer el chip NFC del sitio">
+            <Icon name="nfc" size={20} color={colors.primary} />
+            <CustomTextComponent
+              fontSize={FONT_SIZE.sm}
+              fontWeight={FONT_WEIGHT.medium as any}
+              color={colors.primary}>
+              Leer chip NFC
+            </CustomTextComponent>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.chips}>
           {locationModes.map(mode => {
@@ -610,6 +644,13 @@ export default function MaintenanceReportScreen() {
         onRead={handleScannedCode}
         title="Escanear el sitio"
         hint="Apunta al QR del sticker pegado en el sitio del daño"
+      />
+
+      <NfcPromptModal
+        visible={nfcReading}
+        title="Leer chip del sitio"
+        message="Acerca la parte de atrás del celular al chip pegado en el sitio."
+        onCancel={() => void cancelNfc()}
       />
     </View>
   );
