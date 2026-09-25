@@ -6,7 +6,7 @@ import {
   type NavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, Alert, Platform, StatusBar, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Platform, StatusBar, View } from 'react-native';
 import type { RootStackParamList } from './types/NavigationTypes';
 import MainNavigator from './MainNavigator';
 import AuthStack from './stacks/AuthStack';
@@ -273,6 +273,29 @@ function NotificationBootstrap({
       triggeredByLabel: data.triggeredByLabel,
     });
   }, [setPanicData]);
+
+  // Volver a la app con la sirena sonando: la notificación de pánico la publica
+  // el receptor nativo y abre la actividad sin pasar por Firebase ni Notifee,
+  // así que tocarla con la app en segundo plano no avisaba a JS. El receptor
+  // deja el payload guardado; se recoge cada vez que la app vuelve al frente.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const sub = AppState.addEventListener('change', next => {
+      if (next !== 'active') return;
+      PanicSound?.getInitialPanicData()
+        .then(p => {
+          if (p?.complexId || p?.triggeredBy) {
+            handlePanic({
+              complexId:        p.complexId ?? '',
+              triggeredBy:      p.triggeredBy ?? '',
+              triggeredByLabel: p.triggeredByLabel ?? undefined,
+            } as FCMData);
+          }
+        })
+        .catch(() => {});
+    });
+    return () => sub.remove();
+  }, [isAuthenticated, handlePanic]);
 
   // One-time setup: channels, permission, token, listeners
   useEffect(() => {
