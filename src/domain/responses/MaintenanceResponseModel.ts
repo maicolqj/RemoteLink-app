@@ -143,6 +143,10 @@ export interface MaintenanceLocationTag {
 export interface MaintenanceReportOptions {
   residentReportingEnabled: boolean;
   gpsAccuracyMeters: number;
+  /** El conjunto usa stickers QR: se ofrece escanear. */
+  qrEnabled?: boolean;
+  /** El conjunto usa chips NFC: se ofrece leerlos (si el celular tiene NFC). */
+  nfcEnabled?: boolean;
   buildings: { id: string; name: string; floors: number }[];
   amenities: NamedRef[];
   tags: MaintenanceLocationTag[];
