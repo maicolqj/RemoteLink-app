@@ -290,6 +290,11 @@ export function SocketProvider({ children }: Props) {
     socket.on('notification:new', (payload: SocketNotificationPayload) => {
       if (__DEV__) console.log('[Socket] notification:new', payload?.type);
       if (payload.complexId && payload.complexId !== cid) return;
+      // Avisos de administración (reservas por aprobar, reportes por revisar…):
+      // llegan al usuario porque la cuenta también administra, pero la sesión
+      // de RemoteLink es de residente y su historial no los trae. Mostrarlos en
+      // vivo los hacía desaparecer al reabrir la app. Se ven en el panel web.
+      if (payload.audience === 'STAFF') return;
       useNotificationsStore.getState().addNotification(mapSocketNotification(payload));
     });
 
