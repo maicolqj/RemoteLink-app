@@ -1718,6 +1718,7 @@ type Notification {
   actionResult: NotificationActionResult
   createdAt: DateTime!
   updatedAt: DateTime!
+  audience: NotificationAudience
 }
 
 """Tipo de evento que originó la notificación"""
@@ -1773,6 +1774,7 @@ enum NotificationType {
   AMENITY_DAMAGE_CHARGED
   AMENITY_CLEANING_UPDATED
   AMENITY_PAYMENT_RECEIVED
+  AMENITY_BOOKING_NOVELTY
   AMENITY_REFUND_PAID
   PET_REGISTERED
   PET_APPROVED
@@ -1858,6 +1860,13 @@ enum NotificationActionResult {
 
   """Alerta reconocida"""
   ACKNOWLEDGED
+}
+
+"""Con qué rol se lee una notificación"""
+enum NotificationAudience {
+  RESIDENT
+  STAFF
+  ANY
 }
 
 type PanicAlert {
@@ -4469,6 +4478,7 @@ type AmenityBooking {
   checkInAt: DateTime
   checkOutAt: DateTime
   checkedInByUserId: String
+  checkedOutByUserId: String
   feeAmount: Float!
   feeChargeId: String
 
@@ -4501,6 +4511,8 @@ type AmenityBooking {
   damageChargeId: String
   damageChargedAt: DateTime
   damageChargedByUserId: String
+  noveltyCount: Int
+  hasDamageNovelty: Boolean
   complexId: String!
   complex: ResidentialComplex
   reminderSentAt: DateTime
@@ -4519,6 +4531,31 @@ enum AmenityBookingStatus {
   COMPLETED
   NO_SHOW
   EXPIRED
+}
+
+"""Novedad registrada por portería sobre una reserva"""
+type AmenityBookingNovelty {
+  id: ID!
+  bookingId: String!
+  complexId: String!
+
+  """Qué encontró portería"""
+  description: String!
+
+  """Portería reporta daño en la zona: insumo para el cobro"""
+  hasDamage: Boolean!
+
+  """Fotos de evidencia (R2)"""
+  photoUrls: [String!]!
+
+  """SHA-256 de cada foto, en el orden de photoUrls"""
+  photoHashes: [String!]!
+  reportedByUserId: String
+  reportedByName: String
+  reportedByRole: String
+
+  """Hora del servidor al recibir la novedad"""
+  createdAt: DateTime!
 }
 
 type PaginatedAmenitiesResponse {
@@ -4589,6 +4626,29 @@ type AmenityCouncilQuotaResponse {
 
   """Año calendario sobre el que se cuenta"""
   year: Int!
+}
+
+"""Validación del código de ingreso de una reserva de zona común"""
+type AmenityAccessCodeValidation {
+  """La reserva a la que pertenece el código"""
+  booking: AmenityBooking!
+
+  """El ingreso se puede registrar ahora mismo"""
+  canCheckIn: Boolean!
+
+  """Ya tiene ingreso registrado: lo que procede es la salida"""
+  canCheckOut: Boolean!
+
+  """
+  Por qué no procede el ingreso, en palabras para el guarda. Null si procede
+  """
+  reason: String
+
+  """Código de error del motivo, el mismo que devolvería el ingreso"""
+  reasonCode: String
+
+  """Desde cuándo se admite el ingreso (inicio menos la gracia)"""
+  checkInOpensAt: DateTime!
 }
 
 """Mascota registrada por un residente"""
@@ -4749,6 +4809,7 @@ type PetIncidentStatement {
 
   """Soportes adjuntos (R2)"""
   imageUrls: [String!]
+  isDefense: Boolean!
   authorUserId: String
 
   """Rol de quien responde, congelado al momento del descargo"""
@@ -5870,10 +5931,10 @@ type Query {
   """
   pendingDeviceApprovals: [PendingDeviceApproval!]!
   devicePushHealth(deviceToken: String!): DevicePushHealthStatus!
-  myNotifications(complexId: String, pagination: PaginationInput, filters: FilterNotificationsInput): PaginatedNotificationsResponse!
+  myNotifications(complexId: String, pagination: PaginationInput, filters: FilterNotificationsInput, channel: NotificationChannel): PaginatedNotificationsResponse!
   complexNotifications(complexId: String!, pagination: PaginationInput, filters: FilterNotificationsInput): PaginatedNotificationsResponse!
   notificationDetail(notificationId: String!, complexId: String): NotificationDetailResponse!
-  unreadNotificationsCount(complexId: String): UnreadCountResponse!
+  unreadNotificationsCount(complexId: String, channel: NotificationChannel): UnreadCountResponse!
   sentNotifications(complexId: String!, pagination: PaginationInput): SentNotificationPaginatedResult!
   vapidPublicKey: String!
   activePanicAlerts(complexId: String!): [Notification!]!
@@ -6015,6 +6076,8 @@ type Query {
   amenity(amenityId: String!): Amenity!
   amenityAvailability(input: AmenityAvailabilityInput!): AmenityAvailabilityResponse!
   amenityBlackouts(amenityId: String!): [AmenityBlackout!]!
+  validateAmenityAccessCode(complexId: String!, accessCode: String!): AmenityAccessCodeValidation!
+  amenityBookingNovelties(bookingId: String!): [AmenityBookingNovelty!]!
   amenityBookings(complexId: String!, pagination: PaginationInput, filters: FilterAmenityBookingsInput): PaginatedAmenityBookingsResponse!
   myUnitAmenityBookings(complexId: String!, pagination: PaginationInput, filters: FilterAmenityBookingsInput): PaginatedAmenityBookingsResponse!
   myAmenityCouncilQuota(amenityId: String!): AmenityCouncilQuotaResponse!
@@ -6139,6 +6202,12 @@ input FilterNotificationsInput {
   isRead: Boolean
   isStarred: Boolean
   search: String
+}
+
+"""Pantalla desde la que se lee la bandeja"""
+enum NotificationChannel {
+  PANEL
+  APP
 }
 
 input FilterResidentsInput {

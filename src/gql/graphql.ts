@@ -163,6 +163,23 @@ export type Amenity = {
   updatedByUserId?: Maybe<Scalars['String']['output']>;
 };
 
+/** Validación del código de ingreso de una reserva de zona común */
+export type AmenityAccessCodeValidation = {
+  __typename?: 'AmenityAccessCodeValidation';
+  /** La reserva a la que pertenece el código */
+  booking: AmenityBooking;
+  /** El ingreso se puede registrar ahora mismo */
+  canCheckIn: Scalars['Boolean']['output'];
+  /** Ya tiene ingreso registrado: lo que procede es la salida */
+  canCheckOut: Scalars['Boolean']['output'];
+  /** Desde cuándo se admite el ingreso (inicio menos la gracia) */
+  checkInOpensAt: Scalars['DateTime']['output'];
+  /** Por qué no procede el ingreso, en palabras para el guarda. Null si procede */
+  reason?: Maybe<Scalars['String']['output']>;
+  /** Código de error del motivo, el mismo que devolvería el ingreso */
+  reasonCode?: Maybe<Scalars['String']['output']>;
+};
+
 /** Disponibilidad de una zona común en un día calendario */
 export type AmenityAvailabilityDay = {
   __typename?: 'AmenityAvailabilityDay';
@@ -222,6 +239,7 @@ export type AmenityBooking = {
   checkInAt?: Maybe<Scalars['DateTime']['output']>;
   checkOutAt?: Maybe<Scalars['DateTime']['output']>;
   checkedInByUserId?: Maybe<Scalars['String']['output']>;
+  checkedOutByUserId?: Maybe<Scalars['String']['output']>;
   /** El aseo lo hace el conjunto (se cobra) en vez de la unidad */
   cleaningByComplex: Scalars['Boolean']['output'];
   cleaningChargeId?: Maybe<Scalars['String']['output']>;
@@ -246,12 +264,14 @@ export type AmenityBooking = {
   endAt: Scalars['DateTime']['output'];
   feeAmount: Scalars['Float']['output'];
   feeChargeId?: Maybe<Scalars['String']['output']>;
+  hasDamageNovelty?: Maybe<Scalars['Boolean']['output']>;
   id: Scalars['ID']['output'];
   /** Nació gratis por el cupo anual del consejo de administración */
   isCouncilFreeBooking: Scalars['Boolean']['output'];
   lateCancellationAmount: Scalars['Float']['output'];
   lateCancellationChargeId?: Maybe<Scalars['String']['output']>;
   notes?: Maybe<Scalars['String']['output']>;
+  noveltyCount?: Maybe<Scalars['Int']['output']>;
   purpose?: Maybe<Scalars['String']['output']>;
   refundAmount: Scalars['Float']['output'];
   refundVoucherId?: Maybe<Scalars['String']['output']>;
@@ -272,6 +292,27 @@ export type AmenityBooking = {
 export type AmenityBookingMode =
   | 'RANGE'
   | 'SLOT';
+
+/** Novedad registrada por portería sobre una reserva */
+export type AmenityBookingNovelty = {
+  __typename?: 'AmenityBookingNovelty';
+  bookingId: Scalars['String']['output'];
+  complexId: Scalars['String']['output'];
+  /** Hora del servidor al recibir la novedad */
+  createdAt: Scalars['DateTime']['output'];
+  /** Qué encontró portería */
+  description: Scalars['String']['output'];
+  /** Portería reporta daño en la zona: insumo para el cobro */
+  hasDamage: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  /** SHA-256 de cada foto, en el orden de photoUrls */
+  photoHashes: Array<Scalars['String']['output']>;
+  /** Fotos de evidencia (R2) */
+  photoUrls: Array<Scalars['String']['output']>;
+  reportedByName?: Maybe<Scalars['String']['output']>;
+  reportedByRole?: Maybe<Scalars['String']['output']>;
+  reportedByUserId?: Maybe<Scalars['String']['output']>;
+};
 
 /** Estado de la reserva de zona común */
 export type AmenityBookingStatus =
@@ -4802,6 +4843,7 @@ export type Notification = {
   actionTakenAt?: Maybe<Scalars['DateTime']['output']>;
   actionTakenByUserId?: Maybe<Scalars['String']['output']>;
   actionType?: Maybe<NotificationActionType>;
+  audience?: Maybe<NotificationAudience>;
   body: Scalars['String']['output'];
   complexId: Scalars['String']['output'];
   createdAt: Scalars['DateTime']['output'];
@@ -4890,6 +4932,17 @@ export type NotificationActionType =
   | 'VEHICLE_APPROVAL'
   /** Visita walk-in esperando entrada — [Autorizar] [Denegar] */
   | 'VISIT_APPROVAL';
+
+/** Con qué rol se lee una notificación */
+export type NotificationAudience =
+  | 'ANY'
+  | 'RESIDENT'
+  | 'STAFF';
+
+/** Pantalla desde la que se lee la bandeja */
+export type NotificationChannel =
+  | 'APP'
+  | 'PANEL';
 
 export type NotificationDetailResponse = {
   __typename?: 'NotificationDetailResponse';
@@ -5022,6 +5075,7 @@ export type NotificationType =
   | 'ACCESS_REVOKED_INACTIVITY'
   | 'AMENITY_BOOKING_APPROVED'
   | 'AMENITY_BOOKING_CANCELLED'
+  | 'AMENITY_BOOKING_NOVELTY'
   | 'AMENITY_BOOKING_NO_SHOW'
   | 'AMENITY_BOOKING_REJECTED'
   | 'AMENITY_BOOKING_REQUESTED'
@@ -5758,6 +5812,7 @@ export type PetIncidentStatement = {
   imageUrls?: Maybe<Array<Scalars['String']['output']>>;
   incident?: Maybe<PetIncident>;
   incidentId: Scalars['String']['output'];
+  isDefense: Scalars['Boolean']['output'];
   /** Texto del descargo */
   text: Scalars['String']['output'];
 };
@@ -6048,6 +6103,7 @@ export type Query = {
   amenityAvailability: AmenityAvailabilityResponse;
   amenityBlackouts: Array<AmenityBlackout>;
   amenityBooking: AmenityBooking;
+  amenityBookingNovelties: Array<AmenityBookingNovelty>;
   amenityBookings: PaginatedAmenityBookingsResponse;
   amenityScheduleExceptions: Array<AmenityScheduleException>;
   /** Obtiene un registro de auditoría por su número de referencia (AUD-YYYYMMDD-XXXX) con labels enriquecidos. */
@@ -6200,6 +6256,7 @@ export type Query = {
   user?: Maybe<UserInfoCompleteResponse>;
   /** Lista paginada de usuarios. Filtrable por status y complexId. */
   users: UsersListResponse;
+  validateAmenityAccessCode: AmenityAccessCodeValidation;
   vapidPublicKey: Scalars['String']['output'];
   vehicle: Vehicle;
   vehicles: PaginatedVehiclesResponse;
@@ -6281,6 +6338,11 @@ export type QueryAmenityBlackoutsArgs = {
 
 
 export type QueryAmenityBookingArgs = {
+  bookingId: Scalars['String']['input'];
+};
+
+
+export type QueryAmenityBookingNoveltiesArgs = {
   bookingId: Scalars['String']['input'];
 };
 
@@ -6625,6 +6687,7 @@ export type QueryMyMarketplaceConversationsArgs = {
 
 
 export type QueryMyNotificationsArgs = {
+  channel?: InputMaybe<NotificationChannel>;
   complexId?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<FilterNotificationsInput>;
   pagination?: InputMaybe<PaginationInput>;
@@ -6935,6 +6998,7 @@ export type QueryUnitsFinancialStatusArgs = {
 
 
 export type QueryUnreadNotificationsCountArgs = {
+  channel?: InputMaybe<NotificationChannel>;
   complexId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -6946,6 +7010,12 @@ export type QueryUserArgs = {
 
 export type QueryUsersArgs = {
   input?: InputMaybe<UsersFilterInput>;
+};
+
+
+export type QueryValidateAmenityAccessCodeArgs = {
+  accessCode: Scalars['String']['input'];
+  complexId: Scalars['String']['input'];
 };
 
 

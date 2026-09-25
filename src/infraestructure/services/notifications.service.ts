@@ -72,6 +72,11 @@ export interface SocketNotificationPayload {
   entityType?: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
+  /**
+   * Con qué rol se lee el aviso (RESIDENT, STAFF o ANY). La app de residente
+   * descarta los STAFF: su historial no los muestra.
+   */
+  audience?: 'RESIDENT' | 'STAFF' | 'ANY';
 }
 
 // Map a socket `notification:new` payload to the store shape. Reuses the same
