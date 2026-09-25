@@ -142,6 +142,10 @@ export default function MaintenanceReportScreen() {
 
   /** Sin torres cargadas, "Torre / piso" no se ofrece. */
   const hasBuildings = (options?.buildings?.length ?? 0) > 0;
+  // QR por defecto mientras cargan las opciones (es lo que siempre hubo); NFC
+  // solo si el conjunto lo activó y el celular lo tiene.
+  const qrEnabled = options?.qrEnabled ?? true;
+  const nfcEnabled = nfcSupported && options?.nfcEnabled === true;
   const locationModes = useMemo(
     () => LOCATION_MODES.filter(mode => mode.value !== 'TREE' || hasBuildings),
     [hasBuildings],
@@ -420,21 +424,26 @@ export default function MaintenanceReportScreen() {
 
         {/* Arriba de todo y no dentro de "Código del sitio": escanear el
             sticker es el camino más rápido y el más exacto, y si queda
-            escondido detrás de un chip nadie lo encuentra. */}
-        <TouchableOpacity
-          onPress={() => setScannerOpen(true)}
-          style={[styles.scanBtn, { borderColor: colors.primary }]}
-          accessibilityRole="button"
-          accessibilityLabel="Escanear el código QR del sitio">
-          <Icon name="qr-code-scanner" size={20} color={colors.primary} />
-          <CustomTextComponent
-            fontSize={FONT_SIZE.sm}
-            fontWeight={FONT_WEIGHT.medium as any}
-            color={colors.primary}>
-            Escanear el código del sitio
-          </CustomTextComponent>
-        </TouchableOpacity>
-        {nfcSupported && (
+            escondido detrás de un chip nadie lo encuentra.
+            Cada botón aparece solo si el conjunto usa ese medio (lo decide la
+            administración): un botón de NFC donde solo hay stickers QR invita
+            a acercar el celular a una pared que no responde. */}
+        {qrEnabled && (
+          <TouchableOpacity
+            onPress={() => setScannerOpen(true)}
+            style={[styles.scanBtn, { borderColor: colors.primary }]}
+            accessibilityRole="button"
+            accessibilityLabel="Escanear el código QR del sitio">
+            <Icon name="qr-code-scanner" size={20} color={colors.primary} />
+            <CustomTextComponent
+              fontSize={FONT_SIZE.sm}
+              fontWeight={FONT_WEIGHT.medium as any}
+              color={colors.primary}>
+              Escanear el código del sitio
+            </CustomTextComponent>
+          </TouchableOpacity>
+        )}
+        {nfcEnabled && (
           <TouchableOpacity
             onPress={() => void readNfc()}
             style={[styles.scanBtn, { borderColor: colors.primary }]}

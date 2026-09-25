@@ -128,6 +128,8 @@ export const GET_MAINTENANCE_REPORT_OPTIONS = gql`
     maintenanceReportOptions(complexId: $complexId) {
       residentReportingEnabled
       gpsAccuracyMeters
+      qrEnabled
+      nfcEnabled
       buildings {
         id
         name
