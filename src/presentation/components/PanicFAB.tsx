@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Platform,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useMutation } from '@apollo/client/react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TRIGGER_PANIC_ALERT } from '../../domain/graphql/panic.mutations';
 import { useAuthStore } from '../store/auth.store';
@@ -25,6 +25,10 @@ export function PanicFAB() {
   // Una pantalla con barra fija abajo (el chat) sube el botón por encima de
   // ella: el pánico sigue a mano sin tapar lo que se está escribiendo.
   const fabLift = usePanicStore(s => s.fabLift);
+  // Encima de la barra de pestañas, que crece con la barra de navegación del
+  // celular (Android 15 dibuja de borde a borde).
+  const insets = useSafeAreaInsets();
+  const bottom = ABOVE_TAB_BAR + Math.max(insets.bottom, 8) + fabLift;
   const { showInfo, showError, showSuccess } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   // First-run walkthrough target (the tour itself lives in HomeScreen).
@@ -104,7 +108,7 @@ export function PanicFAB() {
 
   return (
     <>
-      <View style={[styles.container, fabLift > 0 && { bottom: BOTTOM + fabLift }]}>
+      <View style={[styles.container, { bottom }]}>
         <Animated.View
           style={[
             styles.pulse,
@@ -138,12 +142,12 @@ export function PanicFAB() {
   );
 }
 
-const BOTTOM = Platform.OS === 'ios' ? 100 : 80;
+/** Alto del contenido de la barra de pestañas (56) + 16 de aire. */
+const ABOVE_TAB_BAR = 72;
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom:   BOTTOM,
     right:    16,
     width:    PULSE_SIZE,
     height:   PULSE_SIZE,

@@ -3,6 +3,7 @@ import { useNotificationsStore } from '../store/notifications.store';
 import { useVisitsStore } from '../store/visits.store';
 import { InAppNotificationBanner, type BannerNotification } from '../components/InAppNotificationBanner';
 import { NotificationActionType, NotificationType } from '../../domain/enums/enums';
+import { LOGIN_APPROVAL_TYPE } from '../../infraestructure/services/NotificationService';
 
 function resolveActionType(type: string): string | null {
   if (
@@ -36,6 +37,10 @@ export function NotificationProvider({ children }: Props) {
 
     const latest = useNotificationsStore.getState().notifications.find(n => n.id === lastAddedId);
     if (!latest) return;
+
+    // La solicitud de ingreso desde otro equipo se responde en su propia
+    // pantalla (Aprobar / Rechazar): un banner sin botones solo la escondía.
+    if (String(latest.type) === LOGIN_APPROVAL_TYPE || latest.data?.type === LOGIN_APPROVAL_TYPE) return;
 
     // Replace previous banner immediately
     setBanner(null);

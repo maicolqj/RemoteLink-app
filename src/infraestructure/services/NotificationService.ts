@@ -278,6 +278,16 @@ export function initNotificationListeners(
     // del residente lo maneja ni debería.
     if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
 
+    // Solicitud de ingreso desde otro equipo con la app ABIERTA: se abre la
+    // pantalla de aprobación, que es la que tiene Aprobar / Rechazar y el código
+    // a comparar. Antes caía como un banner de 4 segundos sin botones (y la
+    // pantalla solo se abría tocando el push con la app en segundo plano), así
+    // que la solicitud vencía sin que hubiera cómo responderla.
+    if (data.type === LOGIN_APPROVAL_TYPE) {
+      navigateToApprovalIfNeeded(navigationRef, data);
+      return;
+    }
+
     // Mensaje del chat: si esa conversación ya está en pantalla, ni banner ni
     // bandeja —el mensaje ya se ve ahí y el servidor lo da por leído al
     // abrirla—. En cualquier otra pantalla sí se avisa: el vecino tiene que
