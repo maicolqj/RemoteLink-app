@@ -69,9 +69,13 @@ react {
 }
 
 /**
- * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ * R8 (minificar y ofuscar el bytecode) en release. Play marca como problema una
+ * ofuscación DEX por debajo del 25 %, y con esto apagado estaba en 2 %.
+ * Las reglas propias viven en proguard-rules.pro; las librerías traen las suyas.
+ * shrinkResources sigue apagado: la notificación de pánico busca su ícono por
+ * nombre y el recorte de recursos podría quitarlo.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -144,7 +148,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Súbelo en 1 en CADA subida a Play, aunque el versionName no cambie.
-        versionCode 8
+        versionCode 9
         versionName appVersionName
     }
     signingConfigs {
