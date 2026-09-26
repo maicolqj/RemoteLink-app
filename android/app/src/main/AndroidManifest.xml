@@ -26,13 +26,16 @@
          evidencia. El backend rechaza ambos sin imagen, así que sin cámara el
          residente no puede ni registrar ni reportar. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Galería en Android 13+ (API 33+). En versiones anteriores el permiso
-         equivalente es READ_EXTERNAL_STORAGE, que Android 13 ya ignora: por eso
-         va acotado con maxSdkVersion y no se le pide de más a los equipos nuevos. -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+    <!-- Galería: react-native-image-picker abre el selector de fotos del
+         sistema (PickVisualMedia), que no necesita permisos. Play rechaza
+         READ_MEDIA_IMAGES/VIDEO si el selector basta, así que se quitan también
+         si alguna librería los llegara a declarar. El almacenamiento externo
+         tampoco hace falta (la cámara guarda en caché, no en la galería);
+         react-native-camera-kit lo declara y se quita aquí. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
 
     <application
       android:name=".MainApplication"
