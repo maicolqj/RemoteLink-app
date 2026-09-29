@@ -321,8 +321,6 @@ export default function MarketplaceScreen() {
           data={listings}
           keyExtractor={item => item.id}
           renderItem={renderItem}
-          numColumns={2}
-          columnWrapperStyle={styles.column}
           contentContainerStyle={[
             styles.list,
             { paddingBottom: publishFabBottom + FAB_SIZE + SPACING.lg },
@@ -388,6 +386,7 @@ function ListingCard({
       style={[styles.card, { backgroundColor: colors.surface }]}
       onPress={onPress}
       activeOpacity={0.85}>
+      {/* Una publicación por fila: la foto a todo el ancho es lo que vende. */}
       <View
         style={[styles.cardImage, { backgroundColor: colors.primarySurface }]}>
         {listing.imageUrls[0] ? (
@@ -397,7 +396,7 @@ function ListingCard({
             resizeMode="cover"
           />
         ) : (
-          <Icon name="image-not-supported" size={30} color={colors.primary} />
+          <Icon name="image-not-supported" size={36} color={colors.primary} />
         )}
 
         <TouchableOpacity
@@ -406,59 +405,66 @@ function ListingCard({
           style={[styles.favBtn, { backgroundColor: colors.surface }]}>
           <Icon
             name={listing.viewerHasFavorited ? 'favorite' : 'favorite-border'}
-            size={17}
+            size={20}
             color={
               listing.viewerHasFavorited ? colors.error : colors.textTertiary
             }
           />
         </TouchableOpacity>
+
+        {listing.imageUrls.length > 1 && (
+          <View style={styles.photoCount}>
+            <Icon name="photo-library" size={12} color="#FFFFFF" />
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color="#FFFFFF">
+              {listing.imageUrls.length}
+            </CustomTextComponent>
+          </View>
+        )}
       </View>
 
       <View style={styles.cardBody}>
+        <View style={gs.rowBetween}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.lg}
+            fontWeight={FONT_WEIGHT.bold as any}
+            color={colors.primary}>
+            {listingPrice(listing)}
+          </CustomTextComponent>
+          {/* Solo se avisa lo que está por vencer: el resto no aporta nada. */}
+          {expiry && <StatusChip label={expiry} variant="warning" />}
+        </View>
+
         <CustomTextComponent
-          fontSize={FONT_SIZE.sm}
+          fontSize={FONT_SIZE.md}
           fontWeight={FONT_WEIGHT.semibold as any}
           color={colors.textPrimary}
-          numberOfLines={2}
-          style={styles.cardTitle}>
+          numberOfLines={2}>
           {listing.title}
         </CustomTextComponent>
 
         {/* Dos líneas de la descripción: es lo que decide si abren el aviso. */}
         {!!listing.description && (
           <CustomTextComponent
-            fontSize={FONT_SIZE.xs}
+            fontSize={FONT_SIZE.sm}
             color={colors.textSecondary}
-            numberOfLines={2}
-            style={styles.cardDescription}>
+            numberOfLines={2}>
             {listing.description}
           </CustomTextComponent>
         )}
 
-        <CustomTextComponent
-          fontSize={FONT_SIZE.xs}
-          color={colors.textTertiary}
-          numberOfLines={1}>
-          {listing.category?.name ?? LISTING_TYPE_LABEL[listing.type]}
-        </CustomTextComponent>
-
-        <CustomTextComponent
-          fontSize={FONT_SIZE.md}
-          fontWeight={FONT_WEIGHT.bold as any}
-          color={colors.primary}
-          style={styles.cardPrice}>
-          {listingPrice(listing)}
-        </CustomTextComponent>
-
-        <View style={gs.rowBetween}>
+        <View style={styles.cardFooter}>
           <CustomTextComponent
             fontSize={FONT_SIZE.xs}
             color={colors.textTertiary}
-            numberOfLines={1}>
-            {listingUnitLabel(listing) ?? ''}
+            numberOfLines={1}
+            style={gs.flex1}>
+            {[
+              listing.category?.name ?? LISTING_TYPE_LABEL[listing.type],
+              listingUnitLabel(listing),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </CustomTextComponent>
-          {/* Solo se avisa lo que está por vencer: el resto no aporta nada. */}
-          {expiry && <StatusChip label={expiry} variant="warning" />}
         </View>
       </View>
     </TouchableOpacity>
@@ -482,7 +488,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
   },
-  chipsRow: { flexGrow: 0 },
+  // Sin flexShrink: 0 la columna encoge las filas de chips cuando la lista
+  // de abajo se llena, porque un ScrollView horizontal sí se deja encoger.
+  chipsRow: { flexGrow: 0, flexShrink: 0 },
   chipsContent: {
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
@@ -495,10 +503,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   list: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
-  column: { gap: SPACING.md },
-  card: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  card: { borderRadius: RADIUS.lg, overflow: 'hidden' },
   cardImage: {
-    height: 120,
+    width: '100%',
+    aspectRatio: 16 / 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -507,13 +515,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.sm,
     right: SPACING.sm,
-    padding: SPACING.xs,
+    padding: SPACING.xs + 2,
     borderRadius: RADIUS.full,
   },
-  cardBody: { padding: SPACING.md, gap: 2 },
-  cardTitle: { marginBottom: 2 },
-  cardDescription: { lineHeight: 15, marginBottom: 2 },
-  cardPrice: { marginVertical: SPACING.xs },
+  photoCount: {
+    position: 'absolute',
+    left: SPACING.sm,
+    bottom: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  cardBody: { padding: SPACING.md, gap: SPACING.xs },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   fab: {
     position: 'absolute',
     right: SPACING.lg,

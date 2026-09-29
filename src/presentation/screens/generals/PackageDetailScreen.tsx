@@ -13,7 +13,7 @@ import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import { fetchPackageById } from '../../../infraestructure/services/packages.service';
 import type { Package } from '../../../domain/responses/PackageResponseModel';
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
-import { SPACING, RADIUS } from '../../constants/spacing';
+import { SPACING } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
 type RouteType = RouteProp<HomeStackParamList, 'PackageDetail'>;
@@ -101,12 +101,27 @@ export default function PackageDetailScreen() {
       <AppHeader title="Detalle de paquete" showBack onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xxl }]}>
-        {/* Header card */}
-        <Card elevated style={styles.headerCard}>
-          <View style={gs.center}>
-            <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
-              <Icon name="inventory-2" size={40} color={colors.primary} />
+        {/* La foto encabeza la ficha: es lo que permite reconocer el paquete.
+            La etiqueta y el estado van centrados debajo. */}
+        <Card elevated padding={0} style={styles.headerCard}>
+          {pkg.photoUrl ? (
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setPhotoOpen(true)}>
+              <Image
+                source={{ uri: pkg.photoUrl }}
+                style={[styles.photo, { backgroundColor: colors.border }]}
+                resizeMode="contain"
+              />
+              <View style={styles.zoomHint}>
+                <Icon name="zoom-out-map" size={16} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.photoPlaceholder, { backgroundColor: colors.primarySurface }]}>
+              <Icon name="inventory-2" size={48} color={colors.primary} />
             </View>
+          )}
+
+          <View style={[gs.center, styles.headerBody]}>
             <CustomTextComponent fontSize={FONT_SIZE.xl} fontWeight={FONT_WEIGHT.bold as any} color={colors.textPrimary} textAlign="center" style={{ marginBottom: SPACING.sm }}>
               {title}
             </CustomTextComponent>
@@ -115,18 +130,6 @@ export default function PackageDetailScreen() {
             </View>
           </View>
         </Card>
-
-        {/* Photo — tap to open fullscreen */}
-        {pkg.photoUrl && (
-          <Card padding={0} style={styles.photoCard}>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => setPhotoOpen(true)}>
-              <Image source={{ uri: pkg.photoUrl }} style={styles.photo} resizeMode="cover" />
-              <View style={styles.zoomHint}>
-                <Icon name="zoom-out-map" size={16} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          </Card>
-        )}
 
         {/* Package info */}
         <Card>
@@ -175,11 +178,12 @@ export default function PackageDetailScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: SPACING.md, gap: SPACING.md },
-  headerCard: { paddingVertical: SPACING.xl },
-  iconBox: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm },
+  headerCard: { overflow: 'hidden' },
+  headerBody: { padding: SPACING.lg },
   chipRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap', justifyContent: 'center' },
-  photoCard: { overflow: 'hidden' },
-  photo: { width: '100%', height: 200, borderRadius: RADIUS.md },
+  // Completa, sin recorte: una etiqueta de envío cortada no sirve para nada.
+  photo: { width: '100%', aspectRatio: 4 / 3 },
+  photoPlaceholder: { width: '100%', aspectRatio: 16 / 9, alignItems: 'center', justifyContent: 'center' },
   zoomHint: {
     position: 'absolute',
     right: SPACING.sm,
