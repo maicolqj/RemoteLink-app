@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import {
   useFocusEffect,
@@ -89,6 +90,18 @@ export default function ListingDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [zoomed, setZoomed] = useState<string | null>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  /**
+   * Las fotos ocupan todo el ancho y se ven completas: los vecinos suben de
+   * todo —verticales, horizontales, pantallazos— y recortarlas esconde justo
+   * lo que se quiere mostrar. El sobrante queda como franja del fondo.
+   */
+  const { width: screenWidth } = useWindowDimensions();
+  const photoSize = {
+    width: screenWidth,
+    height: Math.round(screenWidth * 0.75),
+  };
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -310,20 +323,40 @@ export default function ListingDetailScreen() {
           { paddingBottom: insets.bottom + SPACING.xxl },
         ]}>
         {listing.imageUrls.length > 0 && (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.gallery}>
-            {listing.imageUrls.map(url => (
-              <TouchableOpacity
-                key={url}
-                activeOpacity={0.9}
-                onPress={() => setZoomed(url)}>
-                <Image source={{ uri: url }} style={styles.photo} />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <View>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={e =>
+                setPhotoIndex(
+                  Math.round(e.nativeEvent.contentOffset.x / screenWidth),
+                )
+              }
+              style={{ height: photoSize.height }}>
+              {listing.imageUrls.map(url => (
+                <TouchableOpacity
+                  key={url}
+                  activeOpacity={0.9}
+                  onPress={() => setZoomed(url)}>
+                  <Image
+                    source={{ uri: url }}
+                    style={[photoSize, { backgroundColor: colors.surface }]}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* A todo el ancho no se asoma la siguiente: el contador avisa que hay más. */}
+            {listing.imageUrls.length > 1 && (
+              <View style={styles.photoCounter}>
+                <CustomTextComponent fontSize={FONT_SIZE.xs} color="#FFFFFF">
+                  {photoIndex + 1}/{listing.imageUrls.length}
+                </CustomTextComponent>
+              </View>
+            )}
+          </View>
         )}
 
         <View style={styles.body}>
@@ -389,8 +422,11 @@ export default function ListingDetailScreen() {
               {contact?.unitLabel ?? listingUnitLabel(listing) ?? ''}
             </CustomTextComponent>
 
-            {/* El teléfono lo decide el servidor. Si no vino, no existe. */}
-            {contact?.phone ? (
+            {/*
+              El teléfono lo decide el servidor. Si no vino, no existe.
+              Quien publicó no ve cómo contactarse a sí mismo.
+            */}
+            {listing.viewerIsOwner ? null : contact?.phone ? (
               <View style={styles.contactRow}>
                 <CustomButtonComponent
                   text="Llamar"
@@ -579,8 +615,15 @@ export default function ListingDetailScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: SPACING.xxl },
-  gallery: { maxHeight: 260 },
-  photo: { width: 320, height: 260 },
+  photoCounter: {
+    position: 'absolute',
+    right: SPACING.md,
+    bottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
   body: { padding: SPACING.lg, gap: SPACING.sm },
   chips: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap' },
   price: { marginTop: SPACING.xs },

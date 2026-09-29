@@ -8,7 +8,9 @@ import React, {
 } from 'react';
 import {
   View,
+  ActivityIndicator,
   FlatList,
+  Image,
   Platform,
   StyleSheet,
   TouchableOpacity,
@@ -42,7 +44,12 @@ import type {
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
-import { listingPrice, listingUnitLabel } from './marketplace.shared';
+import { openListingConversation } from '../../../infraestructure/services/marketplace-chat.service';
+import {
+  categoryAccent,
+  listingPrice,
+  listingUnitLabel,
+} from './marketplace.shared';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'Services'>;
 
@@ -184,6 +191,40 @@ export default function ServicesScreen() {
     [showError],
   );
 
+  /** El aviso cuyo chat se está abriendo: evita abrirlo dos veces seguidas. */
+  const [openingChatId, setOpeningChatId] = useState<string | null>(null);
+
+  /**
+   * "Escribirle" hace lo mismo que "Me interesa" en la ficha: abre (o retoma)
+   * la conversación con el vecino sin pasar por el detalle.
+   */
+  const onWrite = useCallback(
+    async (listing: Listing) => {
+      if (openingChatId) return;
+      setOpeningChatId(listing.id);
+      try {
+        const conversation = await openListingConversation(listing.id);
+        if (!listing.viewerHasContacted) {
+          setItems(prev =>
+            prev.map(item =>
+              item.id === listing.id
+                ? { ...item, viewerHasContacted: true }
+                : item,
+            ),
+          );
+        }
+        navigation.navigate('ChatConversation', {
+          conversationId: conversation.id,
+        });
+      } catch (e: any) {
+        showError(e?.message ?? 'No se pudo abrir el chat.');
+      } finally {
+        setOpeningChatId(null);
+      }
+    },
+    [openingChatId, navigation, showError],
+  );
+
   const openForm = useCallback(
     () => navigation.navigate('ListingForm', { service: true }),
     [navigation],
@@ -197,9 +238,11 @@ export default function ServicesScreen() {
           navigation.navigate('ListingDetail', { listingId: item.id })
         }
         onToggleFavorite={() => onToggleFavorite(item)}
+        onWrite={() => onWrite(item)}
+        isOpeningChat={openingChatId === item.id}
       />
     ),
-    [navigation, onToggleFavorite],
+    [navigation, onToggleFavorite, onWrite, openingChatId],
   );
 
   return (
@@ -367,16 +410,25 @@ function ServiceRow({
   listing,
   onPress,
   onToggleFavorite,
+  onWrite,
+  isOpeningChat,
 }: {
   listing: Listing;
   onPress: () => void;
   onToggleFavorite: () => void;
+  onWrite: () => void;
+  isOpeningChat: boolean;
 }) {
   const { colors } = useTheme();
   const gs = useGlobalStyles();
   const unit = listingUnitLabel(listing);
   const who = [listing.contact?.displayName, unit].filter(Boolean).join(' · ');
   const hasPhone = !!listing.contact?.phone;
+  const photo = listing.imageUrls[0];
+
+  /** Cada categoría con su color: la franja y el bloque del ícono lo llevan. */
+  const accent = categoryAccent(listing.category?.id);
+  const accentSoft = `${accent}1F`;
 
   return (
     <TouchableOpacity
@@ -384,76 +436,125 @@ function ServiceRow({
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <View style={[styles.avatar, { backgroundColor: colors.primarySurface }]}>
-        <Icon
-          name={listing.category?.icon || 'handyman'}
-          size={24}
-          color={colors.primary}
-        />
-      </View>
+      <View style={[styles.accentBar, { backgroundColor: accent }]} />
 
-      <View style={gs.flex1}>
-        <CustomTextComponent
-          fontSize={FONT_SIZE.xs}
-          color={colors.primary}
-          fontWeight={FONT_WEIGHT.medium as any}
-          numberOfLines={1}
-        >
-          {listing.category?.name ?? 'Servicio'}
-        </CustomTextComponent>
-        <CustomTextComponent
-          fontSize={FONT_SIZE.md}
-          fontWeight={FONT_WEIGHT.semibold as any}
-          color={colors.textPrimary}
-          numberOfLines={1}
-        >
-          {listing.title}
-        </CustomTextComponent>
-        {!!listing.description && (
-          <CustomTextComponent
-            fontSize={FONT_SIZE.xs}
-            color={colors.textSecondary}
-            numberOfLines={2}
-            style={styles.rowDescription}
-          >
-            {listing.description}
-          </CustomTextComponent>
-        )}
+      <View style={styles.rowInner}>
+        <View style={styles.rowTop}>
+          {/* Con foto se muestra la foto; sin ella, el ícono de la categoría. */}
+          <View style={[styles.cover, { backgroundColor: accentSoft }]}>
+            {photo ? (
+              <Image
+                source={{ uri: photo }}
+                style={styles.coverImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Icon
+                name={listing.category?.icon || 'handyman'}
+                size={34}
+                color={accent}
+              />
+            )}
+          </View>
+
+          <View style={gs.flex1}>
+            <View style={styles.rowHeading}>
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                color={accent}
+                fontWeight={FONT_WEIGHT.bold as any}
+                numberOfLines={1}
+                style={[gs.flex1, styles.categoryLabel]}
+              >
+                {(listing.category?.name ?? 'Servicio').toUpperCase()}
+              </CustomTextComponent>
+              <TouchableOpacity
+                onPress={onToggleFavorite}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon
+                  name={
+                    listing.viewerHasFavorited ? 'favorite' : 'favorite-border'
+                  }
+                  size={20}
+                  color={
+                    listing.viewerHasFavorited
+                      ? colors.error
+                      : colors.textTertiary
+                  }
+                />
+              </TouchableOpacity>
+            </View>
+            <CustomTextComponent
+              fontSize={FONT_SIZE.md}
+              fontWeight={FONT_WEIGHT.semibold as any}
+              color={colors.textPrimary}
+              numberOfLines={2}
+            >
+              {listing.title}
+            </CustomTextComponent>
+            {!!listing.description && (
+              <CustomTextComponent
+                fontSize={FONT_SIZE.xs}
+                color={colors.textSecondary}
+                numberOfLines={2}
+                style={styles.rowDescription}
+              >
+                {listing.description}
+              </CustomTextComponent>
+            )}
+          </View>
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <View style={styles.rowFooter}>
-          {!!who && (
-            <CustomTextComponent
-              fontSize={FONT_SIZE.xs}
-              color={colors.textTertiary}
-              numberOfLines={1}
-              style={gs.flex1}
-            >
-              {who}
-            </CustomTextComponent>
-          )}
-          {hasPhone && <Icon name="phone" size={14} color={colors.success} />}
+          <Icon name="person" size={14} color={colors.textTertiary} />
           <CustomTextComponent
             fontSize={FONT_SIZE.xs}
-            fontWeight={FONT_WEIGHT.semibold as any}
-            color={colors.textPrimary}
+            color={colors.textTertiary}
+            numberOfLines={1}
+            style={gs.flex1}
+          >
+            {who || 'Un residente'}
+          </CustomTextComponent>
+          {hasPhone && <Icon name="phone" size={14} color={colors.success} />}
+          <CustomTextComponent
+            fontSize={FONT_SIZE.md}
+            fontWeight={FONT_WEIGHT.bold as any}
+            color={colors.primary}
           >
             {listingPrice(listing)}
           </CustomTextComponent>
         </View>
-      </View>
 
-      <TouchableOpacity
-        onPress={onToggleFavorite}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Icon
-          name={listing.viewerHasFavorited ? 'favorite' : 'favorite-border'}
-          size={20}
-          color={
-            listing.viewerHasFavorited ? colors.error : colors.textTertiary
-          }
-        />
-      </TouchableOpacity>
+        {/* Quien publicó no se escribe a sí mismo. */}
+        {!listing.viewerIsOwner && (
+          <TouchableOpacity
+            onPress={onWrite}
+            disabled={isOpeningChat}
+            activeOpacity={0.85}
+            style={[styles.writeBtn, { backgroundColor: accent }]}
+          >
+            {isOpeningChat ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Icon name="chat" size={16} color="#FFFFFF" />
+                <CustomTextComponent
+                  fontSize={FONT_SIZE.sm}
+                  fontWeight={FONT_WEIGHT.semibold as any}
+                  color="#FFFFFF"
+                >
+                  {listing.viewerHasContacted
+                    ? 'Ver conversación'
+                    : 'Escribirle'}
+                </CustomTextComponent>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -475,7 +576,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
   },
-  chipsRow: { flexGrow: 0 },
+  // Sin flexShrink: 0 la columna encoge las filas de chips cuando la lista
+  // de abajo se llena, porque un ScrollView horizontal sí se deja encoger.
+  chipsRow: { flexGrow: 0, flexShrink: 0 },
   chipsContent: {
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
@@ -490,27 +593,53 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     borderWidth: 1,
   },
-  list: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
+  list: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.md,
-    padding: SPACING.md,
     borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  accentBar: { width: 5 },
+  rowInner: { flex: 1, padding: SPACING.md, gap: SPACING.sm },
+  rowTop: { flexDirection: 'row', gap: SPACING.md },
+  cover: {
+    width: 76,
+    height: 76,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  rowDescription: { lineHeight: 15, marginTop: 2 },
+  coverImage: { width: '100%', height: '100%' },
+  rowHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: 2,
+  },
+  categoryLabel: { letterSpacing: 0.6 },
+  rowDescription: { lineHeight: 16, marginTop: 2 },
+  divider: { height: StyleSheet.hairlineWidth },
   rowFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    marginTop: SPACING.xs,
+  },
+  writeBtn: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    minWidth: 130,
+    minHeight: 36,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
   },
   fab: {
     position: 'absolute',
