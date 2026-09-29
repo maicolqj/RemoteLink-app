@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, FlatList, Image, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,8 +69,13 @@ function PackageCard({ pkg, onPress }: { pkg: Package; onPress: () => void }) {
 
   return (
     <TouchableOpacity style={[styles.packageCard, { backgroundColor: colors.surface }]} onPress={onPress} activeOpacity={0.75}>
+      {/* La foto que tomó portería: reconocer el paquete sin abrirlo. */}
       <View style={[styles.cardIcon, { backgroundColor: colors.primarySurface }]}>
-        <Icon name="inventory-2" size={22} color={colors.primary} />
+        {pkg.photoUrl ? (
+          <Image source={{ uri: pkg.photoUrl }} style={styles.cardPhoto} resizeMode="cover" />
+        ) : (
+          <Icon name="inventory-2" size={26} color={colors.primary} />
+        )}
       </View>
       <View style={gs.flex1}>
         <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary} numberOfLines={1} style={{ marginBottom: 2 }}>
@@ -208,12 +213,14 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 60,
+    height: 60,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  cardPhoto: { width: '100%', height: '100%' },
   cardRight: {
     alignItems: 'flex-end',
     gap: 4,
