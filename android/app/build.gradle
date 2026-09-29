@@ -102,6 +102,25 @@ def appVersionName = new groovy.json.JsonSlurper()
         .parseText(file("../../package.json").text)
         .version
 
+// Clave de Google Maps para el mini mapa de la alerta de pánico.
+//
+// Vive en los .env de la raíz, junto al resto de la configuración, y nunca en el
+// repo: esos archivos están en .gitignore. Cada tipo de build lee el mismo .env
+// que usa su bundle de JS (debug → development, staging → staging, release →
+// production). En CI puede venir por la variable de entorno GOOGLE_MAPS_API_KEY,
+// que tiene prioridad. Sin clave el build no falla: la app detecta que falta y
+// muestra las coordenadas con el botón "Cómo llegar" en lugar del mapa.
+def readEnvValue(String envFile, String key) {
+    def f = rootProject.file("../${envFile}")
+    if (!f.exists()) return ""
+    def line = f.readLines().find { it.trim().startsWith("${key}=") }
+    if (!line) return ""
+    return line.substring(line.indexOf('=') + 1).trim().replaceAll(/^['"]|['"]$/, '')
+}
+def googleMapsApiKey = { String envFile ->
+    System.getenv("GOOGLE_MAPS_API_KEY") ?: readEnvValue(envFile, "GOOGLE_MAPS_API_KEY")
+}
+
 // Release signing credentials live OUTSIDE the repo in android/keystore.properties
 // (gitignored). Si el archivo falta (CI sin secretos, clon recien hecho), los
 // builds de release/aab FALLAN a proposito — ver el bloque gradle.taskGraph al
@@ -171,7 +190,10 @@ android {
         debug {
             signingConfig signingConfigs.debug
             // Allow HTTP to local dev backend
-            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            manifestPlaceholders = [
+                usesCleartextTraffic: "true",
+                googleMapsApiKey: googleMapsApiKey(".env.development"),
+            ]
         }
         release {
             // Aqui hubo un fallback a la llave de debug cuando faltaba
@@ -183,7 +205,10 @@ android {
             signingConfig hasReleaseSigning ? signingConfigs.release : null
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            manifestPlaceholders = [
+                usesCleartextTraffic: "false",
+                googleMapsApiKey: googleMapsApiKey(".env.production"),
+            ]
         }
         staging {
             // Release-like build pointing at the staging backend (see .env.staging).
@@ -192,6 +217,10 @@ android {
             initWith release
             signingConfig signingConfigs.debug
             matchingFallbacks = ['release']
+            manifestPlaceholders = [
+                usesCleartextTraffic: "false",
+                googleMapsApiKey: googleMapsApiKey(".env.staging"),
+            ]
         }
     }
 }

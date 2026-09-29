@@ -15,6 +15,7 @@ import { useAlert } from '../providers/context/AlertContext';
 import { useCoachmarkTarget } from '../providers/context/CoachmarkContext';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
 import { PanicTriggerModal } from './PanicTriggerModal';
+import { sharePanicLocation } from '../../infraestructure/services/panic-location.service';
 
 const FAB_SIZE = 56;
 const PULSE_SIZE = FAB_SIZE + 20;
@@ -56,7 +57,7 @@ export function PanicFAB() {
   }, [pulseScale, pulseOpacity]);
 
   const [triggerPanic, { loading }] = useMutation<
-    { triggerPanicAlert: { success: boolean } },
+    { triggerPanicAlert: { success: boolean; panicAlertId?: string | null } },
     { complexId: string }
   >(TRIGGER_PANIC_ALERT);
 
@@ -95,6 +96,9 @@ export function PanicFAB() {
       if (data?.triggerPanicAlert?.success === false) {
         throw new Error('El servidor no pudo activar la alerta.');
       }
+      // La alarma ya salió; la ubicación va detrás, sin hacerla esperar.
+      const panicAlertId = data?.triggerPanicAlert?.panicAlertId;
+      if (panicAlertId) void sharePanicLocation(panicAlertId);
       showSuccess('Se notificó a seguridad y a los residentes del conjunto.', 'Alerta de pánico activada');
     } catch (err) {
       console.warn('[PanicFAB] trigger error:', err);

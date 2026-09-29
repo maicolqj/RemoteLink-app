@@ -4,8 +4,20 @@ import type {
   PanicAlertAcknowledgedPayload,
 } from '../components/PanicAlertModal';
 
+/** Última ubicación conocida de quien activó el pánico (llega por socket). */
+export interface PanicLocation {
+  alertId: string;
+  latitude: number;
+  longitude: number;
+  /** Radio de error en metros. */
+  accuracy: number;
+  capturedAt: string;
+}
+
 interface PanicState {
   panicData: PanicAlertNewPayload | null;
+  panicLocation: PanicLocation | null;
+  setPanicLocation: (location: PanicLocation | null) => void;
   acknowledgedData: PanicAlertAcknowledgedPayload | null;
   setPanicData: (data: PanicAlertNewPayload | null) => void;
   setAcknowledgedData: (data: PanicAlertAcknowledgedPayload | null) => void;
@@ -22,9 +34,12 @@ interface PanicState {
 export const usePanicStore = create<PanicState>((set) => ({
   panicData: null,
   acknowledgedData: null,
-  setPanicData:        (data) => set({ panicData: data }),
+  panicLocation: null,
+  // Una alarma nueva no hereda la ubicación de la anterior.
+  setPanicData:        (data) => set({ panicData: data, panicLocation: null }),
   setAcknowledgedData: (data) => set({ acknowledgedData: data }),
-  clearPanic:          ()     => set({ panicData: null, acknowledgedData: null }),
+  setPanicLocation:    (location) => set({ panicLocation: location }),
+  clearPanic:          ()     => set({ panicData: null, acknowledgedData: null, panicLocation: null }),
   fabLift: 0,
   setFabLift: (lift) => set({ fabLift: Math.max(0, Math.round(lift)) }),
 }));
