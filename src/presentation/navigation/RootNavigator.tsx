@@ -307,11 +307,9 @@ function NotificationBootstrap({
       useSettingsStore.getState().hydrate();
       await createNotificationChannels();
 
-      // Permission only gates *showing* tray notifications — FCM still delivers
-      // messages and we still want the token + listeners. Don't bail on denial.
-      const granted = await requestNotificationPermission();
-      if (__DEV__ && !granted) console.log('[FCM] permiso de notificaciones NO concedido — los mensajes llegan pero no se mostrarán en bandeja');
-
+      // El permiso NO se pide aquí: ver el efecto de abajo, que espera la sesión.
+      // El token no depende de él —FCM entrega igual; el permiso solo decide si
+      // se muestra en la bandeja—, así que se obtiene desde el arranque.
       const token = await getFCMToken();
       if (__DEV__) console.log('[FCM] token obtenido:', token ?? 'NULL - Firebase no inicializado');
       if (token) setFcmToken(token);
@@ -360,6 +358,22 @@ function NotificationBootstrap({
     return () => cleanup?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * El permiso de notificaciones se pide con la sesión iniciada, no al abrir la
+   * app. En la pantalla de ingreso el residente todavía no sabe para qué lo
+   * queremos y lo niega; ya adentro, con sus visitas y paquetes a la vista, el
+   * motivo es evidente. Si ya lo concedió o lo negó para siempre, el sistema no
+   * vuelve a preguntar y esto no muestra nada.
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    requestNotificationPermission()
+      .then(granted => {
+        if (__DEV__ && !granted) console.log('[FCM] permiso de notificaciones NO concedido — los mensajes llegan pero no se mostrarán en bandeja');
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   // Register FCM token with backend once authenticated + complexId is available
   useEffect(() => {

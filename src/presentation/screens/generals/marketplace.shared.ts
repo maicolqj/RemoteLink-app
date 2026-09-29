@@ -208,3 +208,30 @@ export const editModerationHint = (
   }
   return 'La administración revisa el aviso antes de publicarlo. Te avisamos cuando quede visible.';
 };
+
+/**
+ * El color de una categoría de servicios.
+ *
+ * Las categorías no traen color desde el servidor: se deriva del id para que
+ * la misma categoría salga siempre igual y cada una se distinga de un vistazo
+ * en la lista. Tonos medios, que se leen sobre el tema claro y el oscuro.
+ */
+const CATEGORY_ACCENTS = [
+  '#2563EB',
+  '#059669',
+  '#D97706',
+  '#DC2626',
+  '#7C3AED',
+  '#0891B2',
+  '#DB2777',
+  '#65A30D',
+];
+
+export function categoryAccent(id?: string | null): string {
+  if (!id) return CATEGORY_ACCENTS[0];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return CATEGORY_ACCENTS[Math.abs(hash) % CATEGORY_ACCENTS.length];
+}
