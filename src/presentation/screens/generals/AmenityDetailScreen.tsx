@@ -9,6 +9,7 @@ import CustomInputComponent from '../../components/CustomInputComponent';
 import CustomButtonComponent from '../../components/CustomButtonComponent';
 import AppHeader from '../../components/AppHeader';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PhotoGallery from '../../components/PhotoGallery';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
@@ -296,6 +297,11 @@ export default function AmenityDetailScreen() {
         refreshControl={
           <RefreshControl refreshing={isLoadingAvailability} onRefresh={loadAvailability} colors={[colors.primary]} />
         }>
+
+        {/* ── Fotos: lo primero que se mira antes de reservar ──── */}
+        {(amenity.imageUrls?.length ?? 0) > 0 && (
+          <PhotoGallery urls={amenity.imageUrls ?? []} style={styles.gallery} />
+        )}
 
         {/* ── Ficha de la zona ─────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -1034,6 +1040,11 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
+  },
+  // Descuenta el padding del contenido: la galería va de borde a borde.
+  gallery: {
+    marginHorizontal: -SPACING.md,
+    marginTop: -SPACING.md,
   },
   facts: {
     marginTop: SPACING.sm,

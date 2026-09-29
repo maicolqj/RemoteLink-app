@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, FlatList, Image, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,47 +27,65 @@ function AmenityCard({ amenity, onPress }: { amenity: Amenity; onPress: () => vo
   const typeLabel = AMENITY_TYPE_LABEL[String(amenity.type)] ?? 'Zona común';
   const days = openDaysLabel(amenity.schedules);
   const price = priceLabel(amenity);
+  const cover = amenity.imageUrls?.[0];
+  const photoCount = amenity.imageUrls?.length ?? 0;
+  const icon = AMENITY_ICON[String(amenity.type)] ?? 'deck';
 
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.surface }]}
       onPress={onPress}
       activeOpacity={0.75}>
-      <View style={[styles.cardIcon, { backgroundColor: colors.primarySurface }]}>
-        <Icon name={AMENITY_ICON[String(amenity.type)] ?? 'deck'} size={22} color={colors.primary} />
+      {/* La portada: ver la zona antes de entrar ayuda a elegir. */}
+      <View style={[styles.cover, { backgroundColor: colors.primarySurface }]}>
+        {cover ? (
+          <Image source={{ uri: cover }} style={styles.coverImage} resizeMode="cover" />
+        ) : (
+          <Icon name={icon} size={40} color={colors.primary} />
+        )}
+        {photoCount > 1 && (
+          <View style={styles.photoCount}>
+            <Icon name="photo-library" size={12} color="#FFFFFF" />
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color="#FFFFFF">
+              {String(photoCount)}
+            </CustomTextComponent>
+          </View>
+        )}
       </View>
 
-      <View style={gs.flex1}>
-        <CustomTextComponent
-          fontSize={FONT_SIZE.md}
-          fontWeight={FONT_WEIGHT.semibold as any}
-          color={colors.textPrimary}
-          numberOfLines={1}
-          style={{ marginBottom: 2 }}>
-          {amenity.name}
-        </CustomTextComponent>
+      <View style={styles.cardBody}>
+        <View style={gs.flex1}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.md}
+            fontWeight={FONT_WEIGHT.semibold as any}
+            color={colors.textPrimary}
+            numberOfLines={1}
+            style={{ marginBottom: 2 }}>
+            {amenity.name}
+          </CustomTextComponent>
 
-        <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} numberOfLines={1}>
-          {amenity.location ? `${typeLabel} · ${amenity.location}` : typeLabel}
-        </CustomTextComponent>
+          <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} numberOfLines={1}>
+            {amenity.location ? `${typeLabel} · ${amenity.location}` : typeLabel}
+          </CustomTextComponent>
 
-        <CustomTextComponent
-          fontSize={FONT_SIZE.sm}
-          color={days ? colors.textSecondary : colors.error}
-          numberOfLines={1}
-          style={{ marginTop: 2 }}>
-          {days || 'Sin horario disponible'}
-        </CustomTextComponent>
-      </View>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.sm}
+            color={days ? colors.textSecondary : colors.error}
+            numberOfLines={1}
+            style={{ marginTop: 2 }}>
+            {days || 'Sin horario disponible'}
+          </CustomTextComponent>
+        </View>
 
-      <View style={styles.cardRight}>
-        <CustomTextComponent
-          fontSize={FONT_SIZE.sm}
-          fontWeight={FONT_WEIGHT.semibold as any}
-          color={price === 'Gratis' ? colors.success : colors.textPrimary}>
-          {price}
-        </CustomTextComponent>
-        <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+        <View style={styles.cardRight}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.sm}
+            fontWeight={FONT_WEIGHT.semibold as any}
+            color={price === 'Gratis' ? colors.success : colors.textPrimary}>
+            {price}
+          </CustomTextComponent>
+          <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -145,7 +163,6 @@ export default function AmenitiesScreen() {
               description="Tu conjunto aún no tiene zonas habilitadas para reservar."
             />
           }
-          ItemSeparatorComponent={() => <View style={[gs.divider, { marginVertical: 0 }]} />}
         />
       )}
     </View>
@@ -170,20 +187,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   list: {
+    padding: SPACING.md,
     paddingBottom: SPACING.xxl,
+    gap: SPACING.md,
   },
   card: {
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  cover: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverImage: { width: '100%', height: '100%' },
+  photoCount: {
+    position: 'absolute',
+    right: SPACING.sm,
+    bottom: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
     gap: SPACING.sm,
-  },
-  cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   cardRight: {
     alignItems: 'flex-end',
