@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Platform } from 'react-native';
+import { View, FlatList, Image, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,7 +57,12 @@ function VisitCard({ visit, onPress }: { visit: Visit; onPress: () => void }) {
   return (
     <TouchableOpacity style={[styles.visitCard, { backgroundColor: colors.surface }]} onPress={onPress} activeOpacity={0.75}>
       <View style={[styles.cardIcon, { backgroundColor: colors.primarySurface }]}>
-        <Icon name="person-pin" size={22} color={colors.primary} />
+        {/* La foto que tomó portería: reconocer a quien llegó vale más que leer el nombre. */}
+        {visit.visitor.photoUrl ? (
+          <Image source={{ uri: visit.visitor.photoUrl }} style={styles.cardPhoto} />
+        ) : (
+          <Icon name="person-pin" size={22} color={colors.primary} />
+        )}
       </View>
       <View style={gs.flex1}>
         <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary} numberOfLines={1} style={{ marginBottom: 2 }}>
@@ -200,7 +205,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  cardPhoto: { width: '100%', height: '100%' },
   cardRight: {
     alignItems: 'flex-end',
     gap: 4,

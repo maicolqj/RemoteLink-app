@@ -211,8 +211,17 @@ export default function VisitDetailScreen() {
         <Card elevated style={styles.headerCard}>
           <View style={gs.center}>
             {visit.visitor.photoUrl ? (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => setShowPhoto(true)}>
-                <Image source={{ uri: visit.visitor.photoUrl }} style={[styles.avatar, { backgroundColor: colors.border }]} />
+              // La foto a todo el ancho de la tarjeta: es lo que permite reconocer a
+              // quien está en portería. Completa, sin recorte; tocarla la amplía.
+              <TouchableOpacity activeOpacity={0.85} onPress={() => setShowPhoto(true)} style={styles.photoWrap}>
+                <Image
+                  source={{ uri: visit.visitor.photoUrl }}
+                  style={[styles.photo, { backgroundColor: colors.border }]}
+                  resizeMode="contain"
+                />
+                <View style={styles.zoomHint}>
+                  <Icon name="zoom-in" size={18} color="#FFFFFF" />
+                </View>
               </TouchableOpacity>
             ) : (
               <View style={[styles.avatar, { backgroundColor: colors.primarySurface }]}>
@@ -333,6 +342,9 @@ const styles = StyleSheet.create({
   scroll: { padding: SPACING.md, gap: SPACING.md },
   headerCard: { paddingVertical: SPACING.xl },
   avatar: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm },
+  photoWrap: { alignSelf: 'stretch', marginBottom: SPACING.md },
+  photo: { width: '100%', aspectRatio: 1, borderRadius: RADIUS.md },
+  zoomHint: { position: 'absolute', right: SPACING.sm, bottom: SPACING.sm, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
   chipRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap', justifyContent: 'center' },
   sectionLabel: { letterSpacing: 0.8, marginBottom: SPACING.sm },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: SPACING.xs, gap: SPACING.md },
