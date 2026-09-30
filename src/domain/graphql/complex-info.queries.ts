@@ -21,6 +21,12 @@ export const GET_MY_COMPLEX_INFO = gql`
         nit
         logoUrl
       }
+      settings {
+        showCall
+        showEmail
+        showDirections
+        showWebsite
+      }
       contacts {
         id
         category

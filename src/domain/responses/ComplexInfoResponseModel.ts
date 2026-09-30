@@ -72,8 +72,17 @@ export interface MyComplexDocument {
   hasFile: boolean;
 }
 
+/** Botones de acción rápida que eligió la administración. */
+export interface ComplexInfoSettings {
+  showCall: boolean;
+  showEmail: boolean;
+  showDirections: boolean;
+  showWebsite: boolean;
+}
+
 export interface MyComplexInfo {
   complex: ComplexPublicInfo;
+  settings: ComplexInfoSettings;
   contacts: ComplexContact[];
   documents: MyComplexDocument[];
   pendingAcknowledgements: number;

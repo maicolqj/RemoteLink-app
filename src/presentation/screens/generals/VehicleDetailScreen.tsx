@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,10 @@ import Card from '../../components/Card';
 import VisitStatusBadge, { type StatusBadgeCfg } from '../../components/VisitStatusBadge';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
-import { fetchVehicleById } from '../../../infraestructure/services/vehicles.service';
+import { fetchVehicleById, uploadVehiclePhoto } from '../../../infraestructure/services/vehicles.service';
+import { usePhotoPicker } from '../../hooks/usePhotoPicker';
+import { useAlert } from '../../providers/context/AlertContext';
+import ImageViewerModal from '../../components/ImageViewerModal';
 import type { Vehicle } from '../../../domain/responses/VehicleResponseModel';
 import type { HomeStackParamList } from '../../navigation/types/NavigationTypes';
 import { SPACING, RADIUS } from '../../constants/spacing';
@@ -70,6 +73,31 @@ export default function VehicleDetailScreen() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const { choosePhoto } = usePhotoPicker();
+  const { showError, showSuccess } = useAlert();
+
+  // Un vehículo dado de baja o rechazado ya no está en el conjunto: sin foto.
+  const canChangePhoto = !!vehicle && !['REMOVED', 'REJECTED'].includes(String(vehicle.status));
+
+  const changePhoto = useCallback(() => {
+    if (!vehicle) return;
+    choosePhoto(async photos => {
+      const photo = photos[0];
+      if (!photo) return;
+      setUploading(true);
+      try {
+        const url = await uploadVehiclePhoto(vehicle.id, photo);
+        setVehicle(v => (v ? { ...v, photoUrl: url || photo.uri } : v));
+        showSuccess('La foto del vehículo quedó guardada.', 'Listo');
+      } catch (e: any) {
+        showError(e?.message ?? 'No se pudo subir la foto.');
+      } finally {
+        setUploading(false);
+      }
+    });
+  }, [vehicle, choosePhoto, showError, showSuccess]);
 
   useEffect(() => {
     let active = true;
@@ -130,12 +158,51 @@ export default function VehicleDetailScreen() {
           </View>
         </Card>
 
-        {/* Photo */}
-        {vehicle.photoUrl && (
+        {/* Foto: la ve portería para reconocer el vehículo. */}
+        {vehicle.photoUrl ? (
           <Card padding={0} style={styles.photoCard}>
-            <Image source={{ uri: vehicle.photoUrl }} style={styles.photo} resizeMode="cover" />
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setZoomed(true)}>
+              <Image source={{ uri: vehicle.photoUrl }} style={styles.photo} resizeMode="cover" />
+            </TouchableOpacity>
+            {canChangePhoto && (
+              <TouchableOpacity
+                style={[styles.photoAction, { backgroundColor: colors.overlay }]}
+                onPress={changePhoto}
+                disabled={uploading}
+                accessibilityRole="button"
+                accessibilityLabel="Cambiar la foto del vehículo">
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Icon name="photo-camera" size={16} color="#fff" />
+                )}
+                <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.semibold as any} color="#fff">
+                  Cambiar foto
+                </CustomTextComponent>
+              </TouchableOpacity>
+            )}
           </Card>
-        )}
+        ) : canChangePhoto ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={changePhoto}
+            disabled={uploading}
+            style={[styles.addPhoto, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            accessibilityRole="button"
+            accessibilityLabel="Agregar una foto del vehículo">
+            {uploading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Icon name="add-a-photo" size={28} color={colors.primary} />
+            )}
+            <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.semibold as any} color={colors.primary}>
+              {uploading ? 'Subiendo foto…' : 'Agregar foto'}
+            </CustomTextComponent>
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary} textAlign="center">
+              Ayuda a portería a reconocer tu vehículo.
+            </CustomTextComponent>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Vehicle info */}
         <Card>
@@ -159,6 +226,8 @@ export default function VehicleDetailScreen() {
           {vehicle.rejectionReason && (<><View style={gs.divider} /><DetailRow label="Motivo rechazo" value={vehicle.rejectionReason} colors={colors} /></>)}
         </Card>
       </ScrollView>
+
+      <ImageViewerModal uri={zoomed ? vehicle.photoUrl ?? null : null} onClose={() => setZoomed(false)} />
     </View>
   );
 }
@@ -171,6 +240,14 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap', justifyContent: 'center' },
   photoCard: { overflow: 'hidden' },
   photo: { width: '100%', height: 200, borderRadius: RADIUS.md },
+  photoAction: {
+    position: 'absolute', right: SPACING.sm, bottom: SPACING.sm, flexDirection: 'row', alignItems: 'center',
+    gap: 6, paddingHorizontal: SPACING.sm, paddingVertical: 6, borderRadius: RADIUS.full,
+  },
+  addPhoto: {
+    alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: SPACING.lg,
+    borderWidth: 1, borderStyle: 'dashed', borderRadius: RADIUS.md,
+  },
   sectionLabel: { letterSpacing: 0.8, marginBottom: SPACING.sm },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: SPACING.xs, gap: SPACING.md },
   detailLabel: { flexShrink: 0 },
