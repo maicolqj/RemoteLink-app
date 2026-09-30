@@ -119,7 +119,9 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xxl }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Mi Conjunto: documentos y directorio que publica la administración. */}
+        {/* Dos módulos distintos: "Mi unidad" son los datos registrados de la
+            unidad; "Mi Conjunto", los documentos y el directorio que publica la
+            administración. */}
         <View>
           <CustomTextComponent
             fontSize={FONT_SIZE.xs}
@@ -127,10 +129,31 @@ export default function SettingsScreen() {
             color={colors.textTertiary}
             style={styles.sectionLabel}
           >
-            MI CONJUNTO
+            MI RESIDENCIA
           </CustomTextComponent>
 
           <Card style={styles.card}>
+            {/* Vive en el stack de inicio: ahí está el detalle de vehículo al que enlaza. */}
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => (navigation.getParent() as any)?.navigate('HomeTab', { screen: 'MyUnit' })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.primarySurface }]}>
+                <Icon name="home" size={20} color={colors.primary} />
+              </View>
+              <View style={gs.flex1}>
+                <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.medium as any} color={colors.textPrimary}>
+                  Mi unidad
+                </CustomTextComponent>
+                <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={{ marginTop: 1 }}>
+                  Parqueaderos, bodegas, vehículos e integrantes
+                </CustomTextComponent>
+              </View>
+              <Icon name="chevron-right" size={24} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <TouchableOpacity
               style={styles.row}
               onPress={() => (navigation as any).navigate('MyComplex')}

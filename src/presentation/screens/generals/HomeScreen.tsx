@@ -231,8 +231,7 @@ export default function HomeScreen() {
    * cuándo se lo muestra a los residentes—, así que se piden las dos cosas.
    */
   const QUICK_ACTIONS = useMemo(() => [
-    // Sin módulo: la unidad, sus vehículos y sus integrantes son de todo conjunto.
-    { id: 'my-unit', icon: 'home', label: 'Mi unidad', screen: 'MyUnit', color: colors.primary },
+    // "Mi unidad" vive en Ajustes, junto a "Mi Conjunto".
     // Packages tab/flow lives in HomeStack; navigate to the local 'Packages' screen.
     { id: 'packages', icon: 'inventory-2', label: 'Paquetes', screen: 'Packages',     color: colors.primary, module: 'PAQUETES' },
     // Visits tab is disabled; the flow lives in HomeStack, so navigate to the
