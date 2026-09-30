@@ -48,6 +48,10 @@ export type HomeStackParamList = {
   VehicleDetail: { vehicleId: string };
   /** Datos de la unidad, parqueaderos y bodegas, vehículos e integrantes. */
   MyUnit: undefined;
+  // Mi Conjunto también vive aquí: el aviso de un documento nuevo abre desde
+  // Inicio/Notificaciones, que navegan dentro de este stack.
+  MyComplex: undefined;
+  ComplexDocument: { documentId: string; title?: string };
   AccessRequestDetail: { accessRequestId: string };
   // Finance notifications route here; the screen self-loads the resident's unit.
   Finances: undefined;
@@ -98,6 +102,9 @@ export type ProfileStackParamList = {
   ResidentDirectory: undefined;
   ResidentDetail: { residentId: string };
   Settings: undefined;
+  // Mi Conjunto: documentos y directorio del conjunto (entrada en Ajustes).
+  MyComplex: undefined;
+  ComplexDocument: { documentId: string; title?: string };
   // Seguridad de la cuenta: clave de acceso y equipos vinculados.
   // `mandatory` bloquea la salida de la pantalla: se usa en el primer ingreso y
   // cuando el residente volvió a entrar por haber olvidado la clave. La única

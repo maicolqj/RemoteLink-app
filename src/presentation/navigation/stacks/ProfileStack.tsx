@@ -8,6 +8,8 @@ import SettingsScreen from '../../screens/generals/SettingsScreen';
 import SetAccessCodeScreen from '../../screens/auth/SetAccessCodeScreen';
 import MyDevicesScreen from '../../screens/generals/MyDevicesScreen';
 import SystemPermissionsScreen from '../../screens/generals/SystemPermissionsScreen';
+import MyComplexScreen from '../../screens/generals/MyComplexScreen';
+import ComplexDocumentScreen from '../../screens/generals/ComplexDocumentScreen';
 import { ForcedLightTheme } from '../../providers/context/ThemeContext';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -30,6 +32,8 @@ export default function ProfileStack() {
       </Stack.Screen>
       <Stack.Screen name="MyDevices" component={MyDevicesScreen} />
       <Stack.Screen name="SystemPermissions" component={SystemPermissionsScreen} />
+      <Stack.Screen name="MyComplex" component={MyComplexScreen} />
+      <Stack.Screen name="ComplexDocument" component={ComplexDocumentScreen} />
     </Stack.Navigator>
   );
 }

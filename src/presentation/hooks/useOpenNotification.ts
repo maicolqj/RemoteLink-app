@@ -85,6 +85,12 @@ export function useOpenNotification() {
       else go('Voting');
       return;
     }
+    // Documento de Mi Conjunto publicado o actualizado: abre el lector.
+    if (entityType === 'complex_document') {
+      if (entityId) go('ComplexDocument', { documentId: entityId });
+      else go('MyComplex');
+      return;
+    }
     if (entityType === 'pqrf') {
       if (entityId) go('PqrfDetail', { pqrfId: entityId });
       else go('Pqrf');
