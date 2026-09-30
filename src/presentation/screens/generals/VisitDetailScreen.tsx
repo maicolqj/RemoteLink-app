@@ -260,7 +260,7 @@ export default function VisitDetailScreen() {
           {visit.expectedArrivalUntil && (<><View style={gs.divider} /><DetailRow label="Hasta" value={formatDT(visit.expectedArrivalUntil)} colors={colors} /></>)}
           {visit.entryTime && (<><View style={gs.divider} /><DetailRow label="Entrada" value={formatDT(visit.entryTime)} colors={colors} /></>)}
           {visit.exitTime && (<><View style={gs.divider} /><DetailRow label="Salida" value={formatDT(visit.exitTime)} colors={colors} /></>)}
-          {visit.purpose && (<><View style={gs.divider} /><DetailRow label="Motivo" value={visit.purpose} colors={colors} /></>)}
+          {visit.purpose && (<><View style={gs.divider} /><DetailRow label="Nota" value={visit.purpose} colors={colors} /></>)}
           {visit.vehiclePlate && (<><View style={gs.divider} /><DetailRow label="Placa" value={visit.vehiclePlate} colors={colors} /></>)}
           {visit.notes && (<><View style={gs.divider} /><DetailRow label="Notas" value={visit.notes} colors={colors} /></>)}
           {visit.denialReason && (<><View style={gs.divider} /><DetailRow label="Motivo rechazo" value={visit.denialReason} colors={colors} /></>)}
