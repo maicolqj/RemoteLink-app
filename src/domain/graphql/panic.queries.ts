@@ -19,6 +19,7 @@ export const ACTIVE_PANIC_ALERTS = gql`
     activePanicAlerts(complexId: $complexId) {
       id
       complexId
+      panicAlertId
       createdByUserId
       metadata
       createdAt
@@ -56,6 +57,22 @@ export const GET_RESIDENT_BY_USER_ID = gql`
           name
         }
       }
+    }
+  }
+`;
+
+/**
+ * Ubicación de quien activó la alerta, para el mini mapa del modal. La ven
+ * quien la activó, quienes la recibieron y el personal del conjunto.
+ */
+export const PANIC_ALERT_LOCATION = gql`
+  query PanicAlertLocation($panicAlertId: String!) {
+    panicAlertLocation(panicAlertId: $panicAlertId) {
+      id
+      latitude
+      longitude
+      accuracy
+      locationCapturedAt
     }
   }
 `;

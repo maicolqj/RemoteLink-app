@@ -21,6 +21,7 @@ import { useAuthStore } from '../store/auth.store';
 import type { GetUnitResponseModel, GetResidentByUserIdResponseModel } from '../../domain/responses/UnitResponseModel';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 import { cancelPanicNotifications } from '../../infraestructure/services/NotifeeService';
+import { PanicLocationMap } from './PanicLocationMap';
 
 
 const PANIC_ROLES = [
@@ -44,6 +45,8 @@ function roleLabel(role?: string): string {
 
 export interface PanicAlertNewPayload {
   complexId: string;
+  /** Id de la alerta (panic_alerts). Con él se consulta la ubicación. */
+  alertId?: string;
   /** Usuarios que deben ignorar este pánico (los SUPER_ADMIN_ROL). */
   skipUserIds?: string[];
   triggeredBy: string;
@@ -255,6 +258,13 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
                 </View>
               </View>
             )}
+
+            {/* Dónde está AHORA quien la activó: puede no estar en su unidad. */}
+            <PanicLocationMap
+              complexId={panicData.complexId}
+              alertId={panicData.alertId}
+              triggeredBy={panicData.triggeredBy}
+            />
 
             {/* Phone */}
             {!!phone && (

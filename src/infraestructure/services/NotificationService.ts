@@ -46,6 +46,8 @@ export interface FCMData {
   body?: string;
   triggeredBy?: string;
   triggeredByLabel?: string;
+  /** Id de la alerta (panic_alerts): con él se consulta la ubicación. */
+  alertId?: string;
   metadata?: string;
 }
 

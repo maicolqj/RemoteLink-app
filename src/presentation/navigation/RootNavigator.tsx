@@ -47,6 +47,10 @@ import { SAVE_MOBILE_TOKEN } from '../../domain/graphql/notifications.mutations'
 import type { SaveMobileTokenMutationVariables } from '../../gql/graphql';
 import PanicSound from '../../shared/modules/PanicSoundModule';
 import { mirrorPanicSelfUserId } from '../../infraestructure/services/panicSelfIdentity';
+import {
+  hasLocationPermission,
+  requestLocationPermission,
+} from '../../infraestructure/services/LocationService';
 // Versión desde package.json: fuente única, la misma que muestra el perfil.
 import { version as APP_VERSION } from '../../../package.json';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
@@ -249,6 +253,12 @@ function NotificationBootstrap({
   const { showQuestion } = useAlert();
 
   const [fcmToken, setFcmToken] = useState<string | null>(null);
+  /**
+   * Los permisos se piden en fila —notificaciones, ubicación— y solo después se
+   * muestra el recordatorio de inicio automático: la app tiene un único aviso
+   * en pantalla y uno nuevo pisa al anterior.
+   */
+  const [permissionFlowDone, setPermissionFlowDone] = useState(false);
 
   // El espejo del usuario tiene que existir ANTES de que pueda llegar un pánico,
   // así que se escribe en cuanto hay perfil y no al disparar la alarma: quien la
@@ -269,6 +279,7 @@ function NotificationBootstrap({
     if (data.triggeredBy && data.triggeredBy === useAuthStore.getState().resident?.user?.id) return;
     setPanicData({
       complexId:        data.complexId ?? '',
+      alertId:          data.alertId || undefined,
       triggeredBy:      data.triggeredBy ?? '',
       triggeredByLabel: data.triggeredByLabel,
     });
@@ -367,13 +378,67 @@ function NotificationBootstrap({
    * vuelve a preguntar y esto no muestra nada.
    */
   useEffect(() => {
-    if (!isAuthenticated) return;
-    requestNotificationPermission()
-      .then(granted => {
+    if (!isAuthenticated) {
+      setPermissionFlowDone(false);
+      return;
+    }
+    if (!settingsHydrated) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const granted = await requestNotificationPermission();
         if (__DEV__ && !granted) console.log('[FCM] permiso de notificaciones NO concedido — los mensajes llegan pero no se mostrarán en bandeja');
-      })
-      .catch(() => {});
-  }, [isAuthenticated]);
+        if (!cancelled) await askLocationOnce();
+      } catch {
+        // Un permiso que falla no puede dejar la app a medias.
+      } finally {
+        if (!cancelled) setPermissionFlowDone(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, settingsHydrated]);
+
+  /**
+   * La ubicación se explica antes de pedirla, y una sola vez por instalación.
+   *
+   * Solo se usa si el residente activa el pánico: los vecinos acuden a donde
+   * está y no a su unidad. Pedirla sin decir eso —o pedirla al pulsar el botón,
+   * en plena emergencia— es la forma segura de que la nieguen.
+   */
+  const askLocationOnce = useCallback(async () => {
+    if (useSettingsStore.getState().locationPromptShown) return;
+    if (await hasLocationPermission()) {
+      void useSettingsStore.getState().markLocationPromptShown();
+      return;
+    }
+    void useSettingsStore.getState().markLocationPromptShown();
+
+    await new Promise<void>(resolve => {
+      // Si el aviso se cierra por otra vía, el flujo no puede quedar colgado.
+      const fallback = setTimeout(resolve, 120_000);
+      const done = () => { clearTimeout(fallback); resolve(); };
+
+      showQuestion(
+        'Si alguna vez activas el botón de pánico, tus vecinos y la portería verán en un mapa dónde estás, para llegar al lugar correcto y no a tu apartamento.\n\nSolo se toma en ese momento: la app no sigue tu ubicación.',
+        'Tu ubicación en una emergencia',
+        {
+          position: 'top',
+          duration: 0,
+          dismissable: false,
+          buttons: [
+            { text: 'Ahora no', style: 'secondary', onPress: done },
+            {
+              text: 'Permitir',
+              style: 'primary',
+              onPress: () => { requestLocationPermission().catch(() => false).finally(done); },
+            },
+          ],
+        },
+      );
+    });
+  }, [showQuestion]);
 
   // Register FCM token with backend once authenticated + complexId is available
   useEffect(() => {
@@ -475,7 +540,7 @@ function NotificationBootstrap({
   // pantalla, así que ahí se marca como confirmado y no se vuelve a preguntar.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    if (!isAuthenticated || !settingsHydrated || autostartConfirmed) return;
+    if (!isAuthenticated || !settingsHydrated || !permissionFlowDone || autostartConfirmed) return;
     if (Date.now() - autostartPromptLastShownAt < AUTOSTART_NUDGE_INTERVAL_MS) return;
 
     let cancelled = false;
@@ -510,7 +575,7 @@ function NotificationBootstrap({
       );
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated, settingsHydrated, autostartConfirmed, autostartPromptLastShownAt, showQuestion]);
+  }, [isAuthenticated, settingsHydrated, permissionFlowDone, autostartConfirmed, autostartPromptLastShownAt, showQuestion]);
 
   return null;
 }

@@ -8,6 +8,7 @@ const PANIC_ALERTS_KEY = 'settings.panicAlertsEnabled';
 const AUTOSTART_LAST_PROMPT_KEY = 'settings.autostartPromptLastShownAt';
 const AUTOSTART_CONFIRMED_KEY = 'settings.autostartConfirmed';
 const BIOMETRIC_PROMPT_KEY = 'settings.biometricPromptShown';
+const LOCATION_PROMPT_KEY = 'settings.locationPromptShown';
 
 // Standalone reader for non-React / headless contexts (e.g. the FCM background
 // handler in index.js) where the zustand store isn't hydrated. Defaults to true.
@@ -45,6 +46,12 @@ interface SettingsState {
    * no los distingue: `setBiometricEnabled(false)` borra la entrada.
    */
   biometricPromptShown: boolean;
+  /**
+   * Ya se explicó para qué se usa la ubicación y se pidió el permiso. Se pide
+   * una vez: si lo negó, insistir en cada inicio de sesión solo molesta, y
+   * Android deja de mostrar el diálogo tras dos negativas.
+   */
+  locationPromptShown: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
@@ -52,6 +59,7 @@ interface SettingsState {
   markAutostartPromptShown: () => Promise<void>;
   confirmAutostartConfigured: () => Promise<void>;
   markBiometricPromptShown: () => Promise<void>;
+  markLocationPromptShown: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -62,16 +70,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   autostartPromptLastShownAt: 0,
   autostartConfirmed: false,
   biometricPromptShown: false,
+  locationPromptShown: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [enabled, status, panicAlerts, autostartLastPrompt, autostartConfirmed, biometricPromptShown] = await Promise.all([
+    const [enabled, status, panicAlerts, autostartLastPrompt, autostartConfirmed, biometricPromptShown, locationPromptShown] = await Promise.all([
       SecureStorageService.isBiometricEnabled(),
       SecureStorageService.getBiometricStatus(),
       getPanicAlertsEnabled(),
       AsyncStorage.getItem(AUTOSTART_LAST_PROMPT_KEY).then(v => Number(v) || 0),
       AsyncStorage.getItem(AUTOSTART_CONFIRMED_KEY).then(v => v === '1'),
       AsyncStorage.getItem(BIOMETRIC_PROMPT_KEY).then(v => v === '1'),
+      AsyncStorage.getItem(LOCATION_PROMPT_KEY).then(v => v === '1'),
     ]);
 
     const typeLabel = status.biometryType === Keychain.BIOMETRY_TYPE.FACE_ID
@@ -98,6 +108,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       autostartPromptLastShownAt: autostartLastPrompt,
       autostartConfirmed,
       biometricPromptShown,
+      locationPromptShown,
       hydrated: true,
     });
   },
@@ -136,5 +147,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   markBiometricPromptShown: async () => {
     await AsyncStorage.setItem(BIOMETRIC_PROMPT_KEY, '1');
     set({ biometricPromptShown: true });
+  },
+
+  markLocationPromptShown: async () => {
+    await AsyncStorage.setItem(LOCATION_PROMPT_KEY, '1');
+    set({ locationPromptShown: true });
   },
 }));

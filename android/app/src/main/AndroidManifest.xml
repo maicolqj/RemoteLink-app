@@ -26,6 +26,11 @@
          evidencia. El backend rechaza ambos sin imagen, así que sin cámara el
          residente no puede ni registrar ni reportar. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Ubicación de quien activa el pánico, para que los vecinos acudan a donde
+         está y no a su unidad. Solo en primer plano: se lee una vez al activar
+         la alarma, nunca en segundo plano. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Galería: react-native-image-picker abre el selector de fotos del
          sistema (PickVisualMedia), que no necesita permisos. Play rechaza
          READ_MEDIA_IMAGES/VIDEO si el selector basta, así que se quitan también
@@ -55,6 +60,11 @@
            `tools:replace` es obligatorio: react-native-firebase/messaging ya
            declara este mismo meta-data con un valor vacío, y sin el override el
            merge del manifiesto falla el build. -->
+      <!-- Mini mapa de la alerta de pánico. El valor sale de GOOGLE_MAPS_API_KEY
+           (ver build.gradle); vacío, la app no monta el mapa. -->
+      <meta-data
+        android:name="com.google.android.geo.API_KEY"
+        android:value="${googleMapsApiKey}" />
       <meta-data
         android:name="com.google.firebase.messaging.default_notification_channel_id"
         android:value="general"

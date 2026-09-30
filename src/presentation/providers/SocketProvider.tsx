@@ -48,6 +48,8 @@ interface PqrfUpdatedPayload {
 interface ActivePanicAlert {
   id: string;
   complexId: string;
+  /** Id del incidente (panic_alerts), distinto del id de la notificación. */
+  panicAlertId?: string | null;
   createdByUserId?: string | null;
   metadata?: { triggeredByLabel?: string } | null;
   createdAt: string;
@@ -130,6 +132,7 @@ export function SocketProvider({ children }: Props) {
         panicReceivedAt.current = Date.now();
         setPanicData({
           complexId:        cid,
+          alertId:          pending.panicAlertId ?? undefined,
           triggeredBy:      pending.createdByUserId ?? '',
           triggeredByLabel: pending.metadata?.triggeredByLabel,
         });
@@ -269,6 +272,24 @@ export function SocketProvider({ children }: Props) {
       setPanicData(payload);
     });
 
+    // Llega unos segundos después que la alarma: el GPS no la hace esperar.
+    socket.on('panic:alert:location', (payload: {
+      alertId: string; complexId: string;
+      latitude: number; longitude: number; accuracy: number; capturedAt: string;
+    }) => {
+      if (payload.complexId !== complexId) return;
+      const current = usePanicStore.getState().panicData;
+      if (!current) return;
+      if (current.alertId && current.alertId !== payload.alertId) return;
+      usePanicStore.getState().setPanicLocation({
+        alertId: payload.alertId,
+        latitude: Number(payload.latitude),
+        longitude: Number(payload.longitude),
+        accuracy: Number(payload.accuracy),
+        capturedAt: payload.capturedAt,
+      });
+    });
+
     socket.on('panic:alert:acknowledged', (payload: PanicAlertAcknowledgedPayload) => {
       if (__DEV__) console.log('[Socket] panic:alert:acknowledged', payload);
       if (payload.complexId !== complexId) return;
@@ -304,6 +325,7 @@ export function SocketProvider({ children }: Props) {
     return () => {
       socket.off('panic:alert:new');
       socket.off('panic:alert:acknowledged');
+      socket.off('panic:alert:location');
       socket.off('notification:new');
       socket.disconnect();
       socketRef.current = null;
