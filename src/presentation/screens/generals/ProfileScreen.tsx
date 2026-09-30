@@ -37,6 +37,8 @@ export default function ProfileScreen() {
   const menuItems = [
     { id: 'phone',    icon: 'phone',    label: 'Teléfono',           value: resident?.user.phoneNumber, onPress: () => {} },
     { id: 'email',    icon: 'email',    label: 'Correo electrónico', value: resident?.user.email,       onPress: () => {} },
+    // Vive en el stack de inicio (ahí está el detalle de vehículo al que enlaza).
+    { id: 'my-unit',  icon: 'home',     label: 'Mi unidad',                                             onPress: () => (navigation.getParent() as any)?.navigate('HomeTab', { screen: 'MyUnit' }) },
     { id: 'settings', icon: 'settings', label: 'Ajustes',                                               onPress: () => navigation.navigate('Settings') },
   ];
 

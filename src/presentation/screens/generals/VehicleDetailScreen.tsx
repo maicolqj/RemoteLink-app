@@ -19,10 +19,14 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 type RouteType = RouteProp<HomeStackParamList, 'VehicleDetail'>;
 type NavProp = NativeStackNavigationProp<HomeStackParamList, 'VehicleDetail'>;
 
+// Los estados que manda el backend (VehicleStatus). Antes decía PENDING y
+// APPROVED, que el servidor no usa: el chip mostraba "ACTIVE" en inglés.
 const VEHICLE_STATUS_CFG: Record<string, StatusBadgeCfg> = {
-  PENDING:  { label: 'Pendiente', color: '#F59E0B', bg: 'rgba(245,158,11,0.18)'  },
-  APPROVED: { label: 'Aprobado',  color: '#10B981', bg: 'rgba(16,185,129,0.18)'  },
-  REJECTED: { label: 'Rechazado', color: '#EF4444', bg: 'rgba(239,68,68,0.18)'   },
+  PENDING_APPROVAL: { label: 'Por aprobar', color: '#F59E0B', bg: 'rgba(245,158,11,0.18)'  },
+  ACTIVE:           { label: 'Activo',      color: '#10B981', bg: 'rgba(16,185,129,0.18)'  },
+  SUSPENDED:        { label: 'Suspendido',  color: '#EF4444', bg: 'rgba(239,68,68,0.12)'   },
+  REJECTED:         { label: 'Rechazado',   color: '#EF4444', bg: 'rgba(239,68,68,0.18)'   },
+  REMOVED:          { label: 'Retirado',    color: '#6B7280', bg: 'rgba(107,114,128,0.18)' },
 };
 
 const TYPE_LABEL: Record<string, string> = {
