@@ -28,6 +28,8 @@ import VotingScreen from '../../screens/generals/VotingScreen';
 import VotingQuestionScreen from '../../screens/generals/VotingQuestionScreen';
 import VehicleDetailScreen from '../../screens/generals/VehicleDetailScreen';
 import MyUnitScreen from '../../screens/generals/MyUnitScreen';
+import MyComplexScreen from '../../screens/generals/MyComplexScreen';
+import ComplexDocumentScreen from '../../screens/generals/ComplexDocumentScreen';
 import AccessRequestDetailScreen from '../../screens/generals/AccessRequestDetailScreen';
 import FinancesScreen from '../../screens/generals/FinancesScreen';
 import PaymentDetailScreen from '../../screens/generals/PaymentDetailScreen';
@@ -73,6 +75,8 @@ export default function HomeStack() {
       <Stack.Screen name="VotingQuestion" component={VotingQuestionScreen} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
       <Stack.Screen name="MyUnit" component={MyUnitScreen} />
+      <Stack.Screen name="MyComplex" component={MyComplexScreen} />
+      <Stack.Screen name="ComplexDocument" component={ComplexDocumentScreen} />
       <Stack.Screen name="AccessRequestDetail" component={AccessRequestDetailScreen} />
       <Stack.Screen name="Finances" component={FinancesScreen} />
       <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
