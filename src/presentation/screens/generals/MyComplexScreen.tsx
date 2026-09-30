@@ -181,23 +181,24 @@ export default function MyComplexScreen() {
     );
   }
 
-  const { complex, pendingAcknowledgements } = data;
+  const { complex, settings, pendingAcknowledgements } = data;
   const place = [complex.address, complex.city].filter(Boolean).join(', ');
 
+  // Cada botón sale si la administración lo dejó encendido Y el dato existe.
   const actions = [
-    complex.phoneNumber && {
+    settings.showCall && complex.phoneNumber && {
       icon: 'call', label: 'Llamar',
       onPress: () => open(`tel:${complex.phoneNumber!.replace(/[^\d+]/g, '')}`, 'No se pudo abrir la aplicación de llamadas.'),
     },
-    complex.email && {
+    settings.showEmail && complex.email && {
       icon: 'email', label: 'Correo',
       onPress: () => open(`mailto:${complex.email}`, 'No hay una aplicación de correo configurada.'),
     },
-    place && {
+    settings.showDirections && place && {
       icon: 'place', label: 'Cómo llegar',
       onPress: () => open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${complex.name}, ${place}`)}`, 'No se pudo abrir el mapa.'),
     },
-    complex.website && {
+    settings.showWebsite && complex.website && {
       icon: 'language', label: 'Sitio web',
       onPress: () => open(/^https?:\/\//.test(complex.website!) ? complex.website! : `https://${complex.website}`, 'No se pudo abrir el sitio.'),
     },
