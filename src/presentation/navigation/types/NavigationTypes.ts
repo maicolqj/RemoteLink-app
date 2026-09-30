@@ -46,6 +46,8 @@ export type HomeStackParamList = {
   Voting: undefined;
   VotingQuestion: { questionId: string };
   VehicleDetail: { vehicleId: string };
+  /** Datos de la unidad, parqueaderos y bodegas, vehículos e integrantes. */
+  MyUnit: undefined;
   AccessRequestDetail: { accessRequestId: string };
   // Finance notifications route here; the screen self-loads the resident's unit.
   Finances: undefined;
