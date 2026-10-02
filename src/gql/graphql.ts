@@ -100,6 +100,14 @@ export type AddMaintenanceCommentInput = {
   ticketId: Scalars['String']['input'];
 };
 
+/** Corregir a mano el vencimiento vigente */
+export type AdjustSubscriptionInput = {
+  complexId: Scalars['ID']['input'];
+  endsAt: Scalars['DateTime']['input'];
+  /** Motivo del ajuste (queda en el historial) */
+  reason: Scalars['String']['input'];
+};
+
 /** Datos para que un administrador restablezca la contraseña de un miembro del personal */
 export type AdminResetUserPasswordInput = {
   /** Nueva contraseña asignada por el administrador */
@@ -445,6 +453,29 @@ export type AmenityType =
   | 'TERRAZA'
   | 'ZONA_BBQ';
 
+/** Resultado de revisar la versión instalada */
+export type AppVersionCheck = {
+  __typename?: 'AppVersionCheck';
+  message?: Maybe<Scalars['String']['output']>;
+  minVersionCode: Scalars['Int']['output'];
+  /** true = la versión instalada ya no es compatible: la app debe bloquearse hasta actualizar */
+  updateRequired: Scalars['Boolean']['output'];
+};
+
+/** Versión mínima obligatoria de una app */
+export type AppVersionPolicy = {
+  __typename?: 'AppVersionPolicy';
+  app: ClientApp;
+  id: Scalars['ID']['output'];
+  /** Mensaje para el usuario al bloquear (vacío = texto genérico) */
+  message?: Maybe<Scalars['String']['output']>;
+  /** versionCode (Android) o build number (iOS) mínimo. 0 = no se obliga a nadie. */
+  minVersionCode: Scalars['Int']['output'];
+  platform: ClientPlatform;
+  updatedAt: Scalars['DateTime']['output'];
+  updatedById?: Maybe<Scalars['String']['output']>;
+};
+
 export type ApplyMoraInput = {
   complexId: Scalars['String']['input'];
   graceDays: Scalars['Float']['input'];
@@ -650,6 +681,13 @@ export type AuthResponse = {
   /** ID de la sesión activa */
   sessionId: Scalars['String']['output'];
 };
+
+/** Ciclo de cobro de la suscripción */
+export type BillingCycle =
+  /** Anual */
+  | 'ANNUAL'
+  /** Mensual */
+  | 'MONTHLY';
 
 export type BlacklistVisitorInput = {
   /** Razón del bloqueo (obligatoria) */
@@ -946,6 +984,18 @@ export type CheckMaintenanceDuplicateInput = {
   locationText?: InputMaybe<Scalars['String']['input']>;
   locationType: MaintenanceLocationType;
 };
+
+/** App móvil */
+export type ClientApp =
+  /** EntryLink (portería y administración) */
+  | 'ENTRYLINK'
+  /** RemoteLink (residentes) */
+  | 'REMOTELINK';
+
+/** Sistema operativo de la app */
+export type ClientPlatform =
+  | 'ANDROID'
+  | 'IOS';
 
 /** Pesos para derivar el coeficiente de copropiedad por características */
 export type CoefficientWeighting = {
@@ -2365,6 +2415,17 @@ export type FilterVisitsInput = {
   unitId?: InputMaybe<Scalars['String']['input']>;
 };
 
+/** Motivo de los días gratis */
+export type FreePeriodReason =
+  /** Otro motivo (explicarlo en las notas) */
+  | 'OTHER'
+  /** Promoción */
+  | 'PROMOTION'
+  /** Por recomendar a otro conjunto */
+  | 'REFERRAL'
+  /** Prueba gratis (una vez por complejo) */
+  | 'TRIAL';
+
 /** Opciones de género disponibles */
 export type Gender =
   | 'FEMALE'
@@ -2381,6 +2442,16 @@ export type GenerateChargesResponse = {
   generated: Scalars['Int']['output'];
   period: Scalars['String']['output'];
   skipped: Scalars['Int']['output'];
+};
+
+/** Otorgar días gratis: la prueba (una vez) o una cortesía (recomendación, promoción…) */
+export type GrantTrialInput = {
+  complexId: Scalars['ID']['input'];
+  /** Días gratis (1 a 365). Vacío = 30. */
+  days?: InputMaybe<Scalars['Int']['input']>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  /** Vacío = TRIAL (la prueba gratis) */
+  reason?: InputMaybe<FreePeriodReason>;
 };
 
 export type HierarchyRoleInfo = {
@@ -3312,6 +3383,8 @@ export type Mutation = {
   acknowledgePanicAlert: Notification;
   addMaintenanceComment: MaintenanceTicket;
   addPetIncidentStatement: PetIncident;
+  /** Corrige a mano el vencimiento vigente, con motivo. */
+  adjustComplexSubscription: SubscriptionSummary;
   /** Permite al administrador del complejo (o SUPER_ADMIN) restablecer directamente la contraseña de un miembro de su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP. */
   adminResetUserPassword: SetPasswordResponse;
   applyMoraAllPeriods: MoraApplicationResult;
@@ -3406,6 +3479,8 @@ export type Mutation = {
   deleteNotification: Scalars['Boolean']['output'];
   deletePucAccount: Scalars['Boolean']['output'];
   deleteRecurringCharge: Scalars['Boolean']['output'];
+  /** Elimina un impuesto de la suscripción. */
+  deleteSubscriptionTax: Scalars['Boolean']['output'];
   /** Elimina (soft delete) un usuario del sistema */
   deleteUser: User;
   deleteVotingMeeting: Scalars['Boolean']['output'];
@@ -3420,6 +3495,8 @@ export type Mutation = {
   generateCharges: GenerateChargesResponse;
   /** Genera un token QR de un solo uso (72 h de vigencia) para que un usuario inicie sesión sin contraseña. Solo accesible por SUPER_ADMIN. */
   generateQrLoginToken: QrLoginTokenResponse;
+  /** Regala días de suscripción: la prueba gratis (una vez por complejo) o una cortesía (recomendación, promoción…), con los días que se elijan. */
+  grantComplexTrial: SubscriptionSummary;
   logCall: CallLog;
   /** Inicia sesión como residente usando número de identidad y código de sistema. Exclusivo para RESIDENT_ROL. */
   loginResident: AuthResponse;
@@ -3505,6 +3582,8 @@ export type Mutation = {
   removeUnitAsset: Scalars['Boolean']['output'];
   removeVehicle: Scalars['Boolean']['output'];
   removeVisitorFromBlacklist: Visitor;
+  /** Registra el pago de un periodo mensual o anual. Si aún no vence, el periodo nuevo arranca al terminar el actual. */
+  renewComplexSubscription: SubscriptionSummary;
   renewListing: MarketplaceListing;
   reopenMaintenanceTicket: MaintenanceTicket;
   /** Reordena los números especiales globales. Solo SUPER_ADMIN. */
@@ -3563,11 +3642,17 @@ export type Mutation = {
   saveMobileToken: PushSubscriptionResult;
   savePushSubscription: PushSubscriptionResult;
   saveSentMessage: SentMessage;
+  /** Crea o edita un impuesto de la suscripción. */
+  saveSubscriptionTax: SubscriptionTax;
   scheduleVisit: Visit;
   seedPucAccounts: Array<PucAccount>;
   sendMarketplaceMessage: MarketplaceMessage;
   sendNotification: SendNotificationResult;
   setAmenitySchedules: Amenity;
+  /** Fija la versión mínima: las instalaciones anteriores quedan bloqueadas hasta actualizar. */
+  setAppVersionPolicy: AppVersionPolicy;
+  /** Configura cómo se le cobra al conjunto: por unidad, por plan o valor fijo, y su ciclo. */
+  setComplexSubscriptionPricing: SubscriptionSummary;
   /** Establece la contraseña inicial del usuario autenticado. Diseñado para el flujo post-login por QR donde el usuario aún no tiene contraseña propia. */
   setInitialPassword: SetPasswordResponse;
   setMaintenanceScanMethods: MaintenanceScanMethodsResponse;
@@ -3575,6 +3660,8 @@ export type Mutation = {
   setParkingRate: VisitorParkingConfig;
   /** Fija o cambia la clave de acceso del residente autenticado y vincula el dispositivo actual (header x-device-id). La clave es una sola por cuenta y sirve en todos sus equipos vinculados. Cambiarla exige enviar `currentCode`, salvo que el ingreso reciente haya sido por WhatsApp entrante o por aprobación desde otro equipo, que es el camino del olvido. */
   setResidentAccessCode: ResidentDevice;
+  /** Fija el precio mensual (y opcionalmente el anual) de un plan. */
+  setSubscriptionPlanPrice: SubscriptionPlanPriceView;
   setVehicleFixedParking: Vehicle;
   setVotingEnabled: Scalars['Boolean']['output'];
   /** Comparte mi WhatsApp con el otro vecino de esta conversación */
@@ -3624,6 +3711,8 @@ export type Mutation = {
   updateResident: Resident;
   updateRole: Role;
   updateSpecialNumber: SpecialNumber;
+  /** Corrige el valor, la fecha o la referencia de un pago registrado, con motivo. */
+  updateSubscriptionPayment: SubscriptionSummary;
   updateUnit: Unit;
   updateUnitAsset: UnitAsset;
   updateUser: User;
@@ -3668,6 +3757,11 @@ export type MutationAddMaintenanceCommentArgs = {
 
 export type MutationAddPetIncidentStatementArgs = {
   input: CreatePetIncidentStatementInput;
+};
+
+
+export type MutationAdjustComplexSubscriptionArgs = {
+  input: AdjustSubscriptionInput;
 };
 
 
@@ -4095,6 +4189,11 @@ export type MutationDeleteRecurringChargeArgs = {
 };
 
 
+export type MutationDeleteSubscriptionTaxArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteUserArgs = {
   userId: Scalars['String']['input'];
 };
@@ -4150,6 +4249,11 @@ export type MutationGenerateChargesArgs = {
 
 export type MutationGenerateQrLoginTokenArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type MutationGrantComplexTrialArgs = {
+  input: GrantTrialInput;
 };
 
 
@@ -4496,6 +4600,11 @@ export type MutationRemoveVisitorFromBlacklistArgs = {
 };
 
 
+export type MutationRenewComplexSubscriptionArgs = {
+  input: RenewSubscriptionInput;
+};
+
+
 export type MutationRenewListingArgs = {
   listingId: Scalars['String']['input'];
 };
@@ -4705,6 +4814,11 @@ export type MutationSaveSentMessageArgs = {
 };
 
 
+export type MutationSaveSubscriptionTaxArgs = {
+  input: SaveSubscriptionTaxInput;
+};
+
+
 export type MutationScheduleVisitArgs = {
   input: ScheduleVisitInput;
 };
@@ -4727,6 +4841,16 @@ export type MutationSendNotificationArgs = {
 
 export type MutationSetAmenitySchedulesArgs = {
   input: SetAmenitySchedulesInput;
+};
+
+
+export type MutationSetAppVersionPolicyArgs = {
+  input: SetAppVersionPolicyInput;
+};
+
+
+export type MutationSetComplexSubscriptionPricingArgs = {
+  input: SetComplexPricingInput;
 };
 
 
@@ -4755,6 +4879,11 @@ export type MutationSetParkingRateArgs = {
 
 export type MutationSetResidentAccessCodeArgs = {
   input: SetAccessCodeInput;
+};
+
+
+export type MutationSetSubscriptionPlanPriceArgs = {
+  input: SetPlanPriceInput;
 };
 
 
@@ -4981,6 +5110,11 @@ export type MutationUpdateRoleArgs = {
 
 export type MutationUpdateSpecialNumberArgs = {
   input: UpdateSpecialNumberInput;
+};
+
+
+export type MutationUpdateSubscriptionPaymentArgs = {
+  input: UpdateSubscriptionPaymentInput;
 };
 
 
@@ -5411,6 +5545,7 @@ export type NotificationType =
   | 'CHARGE_WAIVED'
   | 'COMPLEX_ALERT'
   | 'COMPLEX_DOCUMENT_PUBLISHED'
+  | 'COMPLEX_REGISTERED'
   | 'DIRECT_CHARGE'
   | 'DPA_APPROVED'
   | 'DPA_REJECTED'
@@ -5470,6 +5605,10 @@ export type NotificationType =
   | 'RESIDENT_PENDING'
   | 'RESIDENT_REJECTED'
   | 'SECURITY_CALL_REQUEST'
+  | 'SUBSCRIPTION_EXPIRED'
+  | 'SUBSCRIPTION_EXPIRING'
+  | 'SUBSCRIPTION_RENEWED'
+  | 'SUBSCRIPTION_SUSPENDED'
   | 'SYSTEM_ANNOUNCEMENT'
   | 'VEHICLE_APPROVED'
   | 'VEHICLE_PENDING'
@@ -6431,6 +6570,10 @@ export type Query = {
   amenityBookingNovelties: Array<AmenityBookingNovelty>;
   amenityBookings: PaginatedAmenityBookingsResponse;
   amenityScheduleExceptions: Array<AmenityScheduleException>;
+  /** ¿La versión instalada debe actualizarse obligatoriamente? (cambios que rompen compatibilidad) */
+  appVersionCheck: AppVersionCheck;
+  /** Versión mínima obligatoria de cada app y plataforma */
+  appVersionPolicies: Array<AppVersionPolicy>;
   /** Obtiene un registro de auditoría por su número de referencia (AUD-YYYYMMDD-XXXX) con labels enriquecidos. */
   auditLog: AuditLogDetailResponse;
   /** Historial de auditoría paginado. SUPER_ADMIN ve todo el sistema. COMPLEX_ROL solo ve las acciones de ACCOUNTANT_ROL, SUPERVISOR_ROL y SECURITY_ROL de su complejo. */
@@ -6462,6 +6605,8 @@ export type Query = {
   /** Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). Ej: Anexo B2B / DPA a firmar. Disponible para complejos autenticados. */
   complexLegalDocuments: Array<LegalDocument>;
   complexNotifications: PaginatedNotificationsResponse;
+  /** Suscripción e historial de un complejo. Solo plataforma. */
+  complexSubscription: SubscriptionSummary;
   /** Supervisores con acceso aprobado y vigente al complejo, con su última visita y la fecha en que el sistema les retira el acceso por inactividad. */
   complexSupervisors: Array<ComplexSupervisor>;
   complexes: PaginatedComplexesResponse;
@@ -6527,6 +6672,8 @@ export type Query = {
   /** Lista los dispositivos vinculados del residente autenticado. */
   myResidentDevices: Array<ResidentDevice>;
   myResidentProfile: Resident;
+  /** Suscripción del complejo de la sesión (administración). */
+  mySubscription: SubscriptionSummary;
   /** Retorna las últimas 50 visitas del supervisor. Filtrable por estado. */
   mySupervisorVisits: Array<SupervisorVisit>;
   myUnit: MyUnitResponse;
@@ -6582,6 +6729,12 @@ export type Query = {
   sentMessages: PaginatedSentMessagesResponse;
   sentNotifications: SentNotificationPaginatedResult;
   specialNumbers: Array<SpecialNumber>;
+  /** Precios vigentes de los planes pagos. */
+  subscriptionPlanPrices: Array<SubscriptionPlanPriceView>;
+  /** Valor a cobrar a un conjunto con su configuración. Plan y ciclo opcionales para cotizar otro. */
+  subscriptionQuote: SubscriptionQuote;
+  /** Impuestos de la suscripción. Sin complexId: los globales. Con complexId: los locales de ese conjunto. */
+  subscriptionTaxes: Array<SubscriptionTax>;
   /** Estado del registro mientras la app espera en "Revisa tu correo". El enlace se abre en el navegador, así que la app solo puede enterarse consultando. No devuelve datos del usuario. */
   supervisorVerificationStatus: SupervisorVerificationStatusResponse;
   unit: Unit;
@@ -6701,6 +6854,13 @@ export type QueryAmenityScheduleExceptionsArgs = {
 };
 
 
+export type QueryAppVersionCheckArgs = {
+  app: ClientApp;
+  platform: ClientPlatform;
+  versionCode: Scalars['Int']['input'];
+};
+
+
 export type QueryAuditLogArgs = {
   referenceNumber: Scalars['String']['input'];
 };
@@ -6816,6 +6976,11 @@ export type QueryComplexNotificationsArgs = {
   complexId: Scalars['String']['input'];
   filters?: InputMaybe<FilterNotificationsInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryComplexSubscriptionArgs = {
+  complexId: Scalars['ID']['input'];
 };
 
 
@@ -7321,6 +7486,18 @@ export type QuerySentNotificationsArgs = {
 
 export type QuerySpecialNumbersArgs = {
   complexId: Scalars['String']['input'];
+};
+
+
+export type QuerySubscriptionQuoteArgs = {
+  complexId: Scalars['ID']['input'];
+  cycle?: InputMaybe<BillingCycle>;
+  plan?: InputMaybe<ComplexPlan>;
+};
+
+
+export type QuerySubscriptionTaxesArgs = {
+  complexId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -7832,6 +8009,22 @@ export type RemoveStaffMemberResponse = {
   success: Scalars['Boolean']['output'];
 };
 
+/** Registrar el pago de un periodo de suscripción */
+export type RenewSubscriptionInput = {
+  /** Valor pagado. Vacío = el precio configurado del plan. */
+  amount?: InputMaybe<Scalars['Float']['input']>;
+  complexId: Scalars['ID']['input'];
+  cycle: BillingCycle;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  /** Fecha del pago. Vacío = ahora. */
+  paidAt?: InputMaybe<Scalars['DateTime']['input']>;
+  paymentReference?: InputMaybe<Scalars['String']['input']>;
+  /** Plan pagado. FREE no se puede pagar: es solo la prueba. */
+  plan: ComplexPlan;
+  /** Inicio del periodo pagado. Vacío = al terminar el periodo vigente (o hoy, si ya venció). */
+  startsAt?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
 export type ReportConversationInput = {
   /** Además de reportar, bloquear al otro vecino */
   alsoBlock?: InputMaybe<Scalars['Boolean']['input']>;
@@ -8148,6 +8341,14 @@ export type ResidentialComplex = {
   state?: Maybe<Scalars['String']['output']>;
   /** Estado operativo del complejo */
   status: ComplexStatus;
+  /** Días para vencer; 0 o negativo si ya venció */
+  subscriptionDaysLeft?: Maybe<Scalars['Int']['output']>;
+  /** Vencimiento del periodo de suscripción vigente. Vacío = sin suscripción registrada. */
+  subscriptionEndsAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Valor de la suscripción del conjunto (subtotal, impuestos y total). Solo SUPER_ADMIN y cumplimiento; vacío para los demás. */
+  subscriptionQuote?: Maybe<SubscriptionQuote>;
+  /** Estado de la suscripción calculado con su vencimiento */
+  subscriptionStatus: SubscriptionStatus;
   /** Días sin visita tras los cuales el sistema le retira el acceso a un supervisor */
   supervisorInactivityDays: Scalars['Int']['output'];
   /** token version */
@@ -8389,6 +8590,21 @@ export type SaveSentMessageInput = {
   unitNumber: Scalars['String']['input'];
 };
 
+/** Crear o editar un impuesto de la suscripción */
+export type SaveSubscriptionTaxInput = {
+  /** Conjunto al que aplica (impuesto local). Vacío = global. Solo al crear: un impuesto no cambia de alcance. */
+  complexId?: InputMaybe<Scalars['ID']['input']>;
+  /** Vacío = crear uno nuevo */
+  id?: InputMaybe<Scalars['ID']['input']>;
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Vacío al crear = CHARGE (se suma) */
+  kind?: InputMaybe<SubscriptionTaxKind>;
+  name: Scalars['String']['input'];
+  /** Tarifa en porcentaje (19 = 19 %) */
+  rate: Scalars['Float']['input'];
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type ScheduleVisitInput = {
   /** ID del complejo */
   complexId: Scalars['String']['input'];
@@ -8507,6 +8723,24 @@ export type SetAmenitySchedulesInput = {
   schedules: Array<AmenityScheduleInput>;
 };
 
+/** Fijar la versión mínima obligatoria de una app */
+export type SetAppVersionPolicyInput = {
+  app: ClientApp;
+  message?: InputMaybe<Scalars['String']['input']>;
+  /** 0 = no se obliga a nadie */
+  minVersionCode: Scalars['Int']['input'];
+  platform: ClientPlatform;
+};
+
+/** Cómo se le cobra a un conjunto */
+export type SetComplexPricingInput = {
+  complexId: Scalars['ID']['input'];
+  cycle: BillingCycle;
+  mode: SubscriptionPricingMode;
+  /** Valor por unidad (PER_UNIT) o valor mensual fijo (FIXED), antes de impuestos. No aplica a PLAN. */
+  price?: InputMaybe<Scalars['Float']['input']>;
+};
+
 /** Datos para configurar o actualizar la tarifa de parqueadero */
 export type SetParkingRateInput = {
   /** ID del complejo residencial */
@@ -8524,6 +8758,14 @@ export type SetParkingRateInput = {
 export type SetPasswordResponse = {
   __typename?: 'SetPasswordResponse';
   success: Scalars['Boolean']['output'];
+};
+
+/** Precio de un plan */
+export type SetPlanPriceInput = {
+  /** Precio anual. Vacío = 10 mensualidades. */
+  annualPrice?: InputMaybe<Scalars['Float']['input']>;
+  monthlyPrice: Scalars['Float']['input'];
+  plan: ComplexPlan;
 };
 
 export type SimplePermissionResponse = {
@@ -8625,6 +8867,186 @@ export type StaffMemberAction =
   | 'CREATED'
   /** Usuario existente reactivado y reintegrado a este complejo */
   | 'REINTEGRATED';
+
+/** Periodo de suscripción de un complejo */
+export type SubscriptionPeriod = {
+  __typename?: 'SubscriptionPeriod';
+  /** Valor pagado (COP): subtotal + impuestos − retenciones del conjunto */
+  amount?: Maybe<Scalars['Float']['output']>;
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdById?: Maybe<Scalars['String']['output']>;
+  /** Ciclo pagado. Vacío en la prueba gratis y el periodo inicial. */
+  cycle?: Maybe<BillingCycle>;
+  endsAt: Scalars['DateTime']['output'];
+  /** Motivo de los días gratis (prueba y cortesía) */
+  freeReason?: Maybe<FreePeriodReason>;
+  id: Scalars['ID']['output'];
+  kind: SubscriptionPeriodKind;
+  notes?: Maybe<Scalars['String']['output']>;
+  paidAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Referencia del pago (número de transferencia, consignación…) */
+  paymentReference?: Maybe<Scalars['String']['output']>;
+  paymentUpdatedAt?: Maybe<Scalars['DateTime']['output']>;
+  plan: ComplexPlan;
+  /** Modalidad con la que se calculó el cobro */
+  pricingMode?: Maybe<SubscriptionPricingMode>;
+  startsAt: Scalars['DateTime']['output'];
+  /** Valor antes de impuestos */
+  subtotal?: Maybe<Scalars['Float']['output']>;
+  /** Total de impuestos */
+  taxAmount?: Maybe<Scalars['Float']['output']>;
+  /** Impuestos aplicados, con la tarifa vigente al pagar */
+  taxes?: Maybe<Array<SubscriptionTaxLine>>;
+  /** Unidades cobradas (modalidad por unidad) */
+  unitCount?: Maybe<Scalars['Int']['output']>;
+  /** Valor por unidad */
+  unitPrice?: Maybe<Scalars['Float']['output']>;
+  /** Quién corrigió el pago por última vez */
+  updatedById?: Maybe<Scalars['String']['output']>;
+  /** Total retenido por el conjunto (retención en la fuente…) */
+  withholdingAmount?: Maybe<Scalars['Float']['output']>;
+};
+
+/** Origen de un periodo de suscripción */
+export type SubscriptionPeriodKind =
+  /** Días gratis de cortesía */
+  | 'COURTESY'
+  /** Periodo inicial al lanzar las suscripciones */
+  | 'INITIAL'
+  /** Periodo pagado */
+  | 'PAID'
+  /** Prueba gratis */
+  | 'TRIAL';
+
+/** Precio vigente de un plan */
+export type SubscriptionPlanPriceView = {
+  __typename?: 'SubscriptionPlanPriceView';
+  /** Precio anual efectivo */
+  annualPrice: Scalars['Float']['output'];
+  /** true si el anual se fijó a mano; false = 10 mensualidades */
+  annualPriceIsCustom: Scalars['Boolean']['output'];
+  monthlyPrice: Scalars['Float']['output'];
+  plan: ComplexPlan;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+/** Cómo se le cobra a un conjunto */
+export type SubscriptionPricing = {
+  __typename?: 'SubscriptionPricing';
+  cycle: BillingCycle;
+  mode: SubscriptionPricingMode;
+  /** Valor por unidad (PER_UNIT) o valor mensual fijo (FIXED), antes de impuestos */
+  price?: Maybe<Scalars['Float']['output']>;
+};
+
+/** Modalidad de cobro de la suscripción del conjunto */
+export type SubscriptionPricingMode =
+  /** Valor fijo acordado con el conjunto */
+  | 'FIXED'
+  /** Valor por unidad × unidades */
+  | 'PER_UNIT'
+  /** Precio de lista del plan */
+  | 'PLAN';
+
+/** Valor a cobrar al conjunto, con su desglose */
+export type SubscriptionQuote = {
+  __typename?: 'SubscriptionQuote';
+  /** false si falta configurar el precio: no hay valor que cobrar */
+  configured: Scalars['Boolean']['output'];
+  cycle: BillingCycle;
+  /** Valor facturado: subtotal + impuestos */
+  invoiceTotal: Scalars['Float']['output'];
+  /** Valor de un mes antes de impuestos */
+  monthlySubtotal: Scalars['Float']['output'];
+  /** Meses que se cobran (anual = 10) */
+  monthsCharged: Scalars['Int']['output'];
+  plan: ComplexPlan;
+  /** Valor por unidad o valor fijo mensual configurado */
+  price?: Maybe<Scalars['Float']['output']>;
+  pricingMode: SubscriptionPricingMode;
+  subtotal: Scalars['Float']['output'];
+  /** Impuestos que se suman (IVA) */
+  taxAmount: Scalars['Float']['output'];
+  taxes: Array<SubscriptionTaxLine>;
+  /** Lo que paga el conjunto: facturado − retenciones */
+  total: Scalars['Float']['output'];
+  /** Unidades que se cobran (por unidad) */
+  unitCount: Scalars['Int']['output'];
+  /** De dónde salen las unidades: REGISTERED (registradas) o DECLARED (declaradas al inscribirse) */
+  unitCountSource: Scalars['String']['output'];
+  /** Lo que retiene el conjunto (retención en la fuente…) */
+  withholdingAmount: Scalars['Float']['output'];
+};
+
+/** Estado de la suscripción del complejo, calculado a partir de su vencimiento */
+export type SubscriptionStatus =
+  /** Vigente */
+  | 'ACTIVE'
+  /** Por vencer (15 días o menos) */
+  | 'EXPIRING'
+  /** Vencida, en periodo de gracia */
+  | 'GRACE'
+  /** Sin suscripción registrada */
+  | 'NONE'
+  /** Suspendida por falta de pago */
+  | 'SUSPENDED';
+
+/** Estado de la suscripción de un complejo */
+export type SubscriptionSummary = {
+  __typename?: 'SubscriptionSummary';
+  complexId: Scalars['String']['output'];
+  complexName: Scalars['String']['output'];
+  currentPeriod?: Maybe<SubscriptionPeriod>;
+  /** Días para vencer; 0 o negativo si ya venció */
+  daysLeft?: Maybe<Scalars['Int']['output']>;
+  endsAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Hasta cuándo corre la gracia antes de suspender */
+  graceEndsAt?: Maybe<Scalars['DateTime']['output']>;
+  /** Historial, el más reciente primero */
+  periods: Array<SubscriptionPeriod>;
+  plan: ComplexPlan;
+  /** Cómo se le cobra a este conjunto */
+  pricing: SubscriptionPricing;
+  /** Valor de la próxima renovación con el plan y ciclo del conjunto */
+  quote: SubscriptionQuote;
+  status: SubscriptionStatus;
+  /** Si ya usó la prueba gratis */
+  trialUsed: Scalars['Boolean']['output'];
+};
+
+/** Impuesto aplicado a la suscripción */
+export type SubscriptionTax = {
+  __typename?: 'SubscriptionTax';
+  /** Conjunto al que aplica. Vacío = global (todos los conjuntos). */
+  complexId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  kind: SubscriptionTaxKind;
+  name: Scalars['String']['output'];
+  /** Tarifa en porcentaje (19 = 19 %) */
+  rate: Scalars['Float']['output'];
+  sortOrder: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+/** Si el impuesto se suma al cobro o lo retiene el conjunto */
+export type SubscriptionTaxKind =
+  /** Se suma al subtotal (IVA) */
+  | 'CHARGE'
+  /** Lo retiene el conjunto: se descuenta de lo que paga */
+  | 'WITHHOLDING';
+
+/** Impuesto aplicado a un cobro */
+export type SubscriptionTaxLine = {
+  __typename?: 'SubscriptionTaxLine';
+  amount: Scalars['Float']['output'];
+  /** CHARGE se sumó al cobro; WITHHOLDING lo retuvo el conjunto */
+  kind: SubscriptionTaxKind;
+  name: Scalars['String']['output'];
+  /** Tarifa en porcentaje (19 = 19 %) */
+  rate: Scalars['Float']['output'];
+};
 
 /** Solicitud de acceso de un supervisor a un complejo residencial */
 export type SupervisorAccessRequest = {
@@ -9261,6 +9683,19 @@ export type UpdateSpecialNumberInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   order?: InputMaybe<Scalars['Int']['input']>;
   phoneNumber?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Corregir un pago registrado. Solo cambia lo que se envía; el motivo queda en el historial. */
+export type UpdateSubscriptionPaymentInput = {
+  /** Valor que pagó el conjunto, ya descontadas sus retenciones */
+  amount?: InputMaybe<Scalars['Float']['input']>;
+  paidAt?: InputMaybe<Scalars['DateTime']['input']>;
+  paymentReference?: InputMaybe<Scalars['String']['input']>;
+  periodId: Scalars['ID']['input'];
+  /** Motivo de la corrección */
+  reason: Scalars['String']['input'];
+  /** true = desglosar con los impuestos vigentes del conjunto (globales y locales) en vez de las tarifas guardadas al pagar. Sirve cuando el pago se registró antes de configurar una retención. */
+  useCurrentTaxes?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type UpdateUnitAssetInput = {
@@ -10402,6 +10837,15 @@ export type CancelAmenityBookingMutationVariables = Exact<{
 
 export type CancelAmenityBookingMutation = { __typename: 'Mutation', cancelAmenityBooking: { __typename: 'AmenityBooking', id: string, status: AmenityBookingStatus, cancellationReason?: string | null, feeAmount: number } };
 
+export type AppVersionCheckQueryVariables = Exact<{
+  app: ClientApp;
+  platform: ClientPlatform;
+  versionCode: Scalars['Int']['input'];
+}>;
+
+
+export type AppVersionCheckQuery = { __typename: 'Query', appVersionCheck: { __typename: 'AppVersionCheck', updateRequired: boolean, minVersionCode: number, message?: string | null } };
+
 export type LoginResidentMutationVariables = Exact<{
   input: LoginResidentInput;
 }>;
@@ -11196,6 +11640,7 @@ export const AmenityBookingDocument = {"__meta__":{"hash":"e984465b6664419e047de
 export const MyAmenityCouncilQuotaDocument = {"__meta__":{"hash":"d2e8c4af47317916fcf4b18d981f20abb7da4c47b23d982f73d475437700eeec"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyAmenityCouncilQuota"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myAmenityCouncilQuota"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"amenityId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"amenityId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilMember"}},{"kind":"Field","name":{"kind":"Name","value":"bookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"used"}},{"kind":"Field","name":{"kind":"Name","value":"remaining"}},{"kind":"Field","name":{"kind":"Name","value":"year"}}]}}]}}]} as unknown as DocumentNode<MyAmenityCouncilQuotaQuery, MyAmenityCouncilQuotaQueryVariables>;
 export const CreateAmenityBookingDocument = {"__meta__":{"hash":"1becebb0f68d4fbc58342ddf95b555478f15e77636b752600de213b85e6256d9"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"createAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"Field","name":{"kind":"Name","value":"attendees"}},{"kind":"Field","name":{"kind":"Name","value":"purpose"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"accessCode"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"isCouncilFreeBooking"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"blockedUntilAt"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningByComplex"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"directIncomeId"}},{"kind":"Field","name":{"kind":"Name","value":"directPaymentAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundAmount"}},{"kind":"Field","name":{"kind":"Name","value":"refundedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"durationUnit"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineDays"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationDeadlineHours"}},{"kind":"Field","name":{"kind":"Name","value":"lateCancellationFeePercent"}},{"kind":"Field","name":{"kind":"Name","value":"councilFreeBookingsPerYear"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningServiceAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"cleaningFeeAmount"}}]}}]}}]}}]} as unknown as DocumentNode<CreateAmenityBookingMutation, CreateAmenityBookingMutationVariables>;
 export const CancelAmenityBookingDocument = {"__meta__":{"hash":"68bb76b7f7ae7d20e1cc7fc6dc60fdd5373e900a0a7ae02c1995efa8caf3db5b"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelAmenityBooking"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CancelAmenityBookingInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"cancelAmenityBooking"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"cancellationReason"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}}]}}]}}]} as unknown as DocumentNode<CancelAmenityBookingMutation, CancelAmenityBookingMutationVariables>;
+export const AppVersionCheckDocument = {"__meta__":{"hash":"0736cc5c1481e16d3b38e3a1c604f74416d82eef96f6190e7a628745eae25c26"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AppVersionCheck"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"app"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ClientApp"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"platform"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ClientPlatform"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"versionCode"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"appVersionCheck"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"app"},"value":{"kind":"Variable","name":{"kind":"Name","value":"app"}}},{"kind":"Argument","name":{"kind":"Name","value":"platform"},"value":{"kind":"Variable","name":{"kind":"Name","value":"platform"}}},{"kind":"Argument","name":{"kind":"Name","value":"versionCode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"versionCode"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"updateRequired"}},{"kind":"Field","name":{"kind":"Name","value":"minVersionCode"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<AppVersionCheckQuery, AppVersionCheckQueryVariables>;
 export const LoginResidentDocument = {"__meta__":{"hash":"dfe720230a9f93cc58ff14202b91594297697afd16651f2b954235c0c08e23c3"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginResident"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResidentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"loginResident"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<LoginResidentMutation, LoginResidentMutationVariables>;
 export const ResendResidentSystemCodeDocument = {"__meta__":{"hash":"259772604e7d5b7cf5010f8cbbd14f9be617ad3fea7db7cd03eb75457e6603e8"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResendResidentSystemCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identity"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"resendResidentSystemCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identity"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<ResendResidentSystemCodeMutation, ResendResidentSystemCodeMutationVariables>;
 export const RefreshTokenDocument = {"__meta__":{"hash":"f5b062a6483d25de9c88365cc6277c3bac650003225ba77a09ffb299ed9cdbb9"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RefreshToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"refreshToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<RefreshTokenMutation, RefreshTokenMutationVariables>;
