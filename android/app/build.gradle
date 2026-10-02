@@ -161,6 +161,18 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    // CMake 3.31 trae ninja 1.12, que sí maneja rutas de más de 260
+    // caracteres en Windows. Con el 3.22.1 por defecto (ninja 1.10) el build
+    // de release falla al crear la carpeta del codegen de librerías con nombre
+    // largo, p. ej. sp-react-native-in-app-updates:
+    //   ninja: error: mkdir(SpReactNativeInAppUpdatesSpec_autolinked_build/...): No such file or directory
+    // Requiere además LongPathsEnabled=1 en Windows (ya activo en esta máquina).
+    externalNativeBuild {
+        cmake {
+            version "3.31.6"
+        }
+    }
+
     namespace "com.alternaqj.remotelink"
     defaultConfig {
         applicationId "com.alternaqj.remotelink"
