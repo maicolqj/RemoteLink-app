@@ -23,6 +23,13 @@ import {
   type WhatsAppLoginChallenge,
   type DeviceAuthError,
 } from '../../../infraestructure/services/deviceAuth.service';
+import {
+  getInstalledWhatsApps,
+  openWhatsAppChat,
+  phoneFromWaLink,
+  WHATSAPP_APP_LABEL,
+  type WhatsAppPackage,
+} from '../../../shared/modules/WhatsAppLauncherModule';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
@@ -56,6 +63,11 @@ export default function WhatsAppLoginScreen() {
   const [needsAccessCode, setNeedsAccessCode] = useState(false);
   const [accessCode, setAccessCode] = useState('');
 
+  // Con WhatsApp y WhatsApp Business instalados se ofrece un botón por cada
+  // uno: el link `wa.me` abre el que Android tenga por defecto, que puede no
+  // ser el de la línea registrada.
+  const [whatsApps, setWhatsApps] = useState<WhatsAppPackage[]>([]);
+
   const challengeIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,6 +80,10 @@ export default function WhatsAppLoginScreen() {
   }, []);
 
   useEffect(() => stopTimers, [stopTimers]);
+
+  useEffect(() => {
+    getInstalledWhatsApps().then(setWhatsApps);
+  }, []);
 
   useEffect(() => {
     if (route.params?.identity) return;
@@ -192,8 +208,10 @@ export default function WhatsAppLoginScreen() {
     }
   }, [identity, startWaiting]);
 
-  const openWhatsApp = useCallback(async () => {
+  const openWhatsApp = useCallback(async (pkg?: WhatsAppPackage) => {
     if (!challenge) return;
+    const phone = phoneFromWaLink(challenge.whatsappUrl);
+    if (pkg && phone && await openWhatsAppChat(pkg, phone, challenge.messageText)) return;
     try {
       await Linking.openURL(challenge.whatsappUrl);
     } catch {
@@ -326,14 +344,37 @@ export default function WhatsAppLoginScreen() {
             {challenge.warning}
           </AuthBanner>
 
-          <AuthButton
-            text="Abrir WhatsApp y enviar"
-            onPress={openWhatsApp}
-            disabled={expired || isRedeeming}
-            tint={WHATSAPP_GREEN}
-            icon="logo-whatsapp"
-            iconLibrary="ionicons"
-          />
+          {/* El servidor solo acepta el mensaje si sale de la línea registrada
+              y, si no coincide, lo descarta sin avisar: por eso se dice antes. */}
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textTertiary}>
+            {whatsApps.length > 1
+              ? 'Tienes más de un WhatsApp. Elige el de la línea que registraste en tu conjunto: desde otra no podrás entrar.'
+              : 'Envíalo desde el WhatsApp de la línea que registraste en tu conjunto: desde otra no podrás entrar.'}
+          </CustomTextComponent>
+
+          {whatsApps.length > 1 ? (
+            whatsApps.map((pkg, i) => (
+              <AuthButton
+                key={pkg}
+                text={`Enviar con ${WHATSAPP_APP_LABEL[pkg]}`}
+                onPress={() => openWhatsApp(pkg)}
+                disabled={expired || isRedeeming}
+                tint={WHATSAPP_GREEN}
+                variant={i === 0 ? 'primary' : 'secondary'}
+                icon="logo-whatsapp"
+                iconLibrary="ionicons"
+              />
+            ))
+          ) : (
+            <AuthButton
+              text="Abrir WhatsApp y enviar"
+              onPress={() => openWhatsApp(whatsApps[0])}
+              disabled={expired || isRedeeming}
+              tint={WHATSAPP_GREEN}
+              icon="logo-whatsapp"
+              iconLibrary="ionicons"
+            />
+          )}
 
           {/* Estado de espera: va pegado al botón, que es la acción que lo
               produce, y no al final de la tarjeta. */}
