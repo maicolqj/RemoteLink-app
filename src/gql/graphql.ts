@@ -3860,6 +3860,7 @@ export type Mutation = {
   updateMaintenanceLocationTag: MaintenanceLocationTag;
   updateMaintenanceVendor: MaintenanceVendor;
   updateMarketplaceSettings: MarketplaceSettings;
+  updateMyComplexProfile: ResidentialComplex;
   /** Update an existing permission */
   updatePermission: UpdatePermissionResponse;
   updatePet: Pet;
@@ -5268,6 +5269,11 @@ export type MutationUpdateMaintenanceVendorArgs = {
 
 export type MutationUpdateMarketplaceSettingsArgs = {
   input: UpdateMarketplaceSettingsInput;
+};
+
+
+export type MutationUpdateMyComplexProfileArgs = {
+  input: UpdateComplexProfileInput;
 };
 
 
@@ -9680,6 +9686,11 @@ export type UpdateComplexInput = {
   type?: InputMaybe<ComplexType>;
   website?: InputMaybe<Scalars['String']['input']>;
   zipCode?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateComplexProfileInput = {
+  phoneNumber?: InputMaybe<Scalars['String']['input']>;
+  website?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateComplexScheduleInput = {
