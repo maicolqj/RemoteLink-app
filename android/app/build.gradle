@@ -179,7 +179,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Súbelo en 1 en CADA subida a Play, aunque el versionName no cambie.
-        versionCode 12
+        versionCode 13
         versionName appVersionName
     }
     signingConfigs {
