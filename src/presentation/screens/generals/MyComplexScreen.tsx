@@ -91,7 +91,7 @@ export default function MyComplexScreen() {
     }
   }, [complexId, showError]);
 
-  // En cada foco: al volver de un documento confirmado, el contador baja.
+  // En cada foco: al volver de un documento (abrirlo cuenta como leído), el contador baja.
   useFocusEffect(
     useCallback(() => {
       load();
@@ -291,8 +291,8 @@ export default function MyComplexScreen() {
             <View style={gs.flex1}>
               <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary}>
                 {pendingAcknowledgements === 1
-                  ? 'Tienes 1 documento por confirmar'
-                  : `Tienes ${pendingAcknowledgements} documentos por confirmar`}
+                  ? 'Tienes 1 documento por leer'
+                  : `Tienes ${pendingAcknowledgements} documentos por leer`}
               </CustomTextComponent>
               <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary}>
                 {onlyPending ? 'Toca para ver todos los documentos' : 'La administración te pide leerlos. Toca para verlos.'}
@@ -457,8 +457,8 @@ function DocumentRow({ item, onPress }: { item: MyComplexDocument; onPress: () =
         </CustomTextComponent>
         {(pendingAck || acknowledgedAt || isRecent(doc.contentUpdatedAt) || doc.audience === 'OWNERS_ONLY') && (
           <View style={styles.chips}>
-            {pendingAck && <StatusChip label="Por confirmar" variant="warning" />}
-            {!!acknowledgedAt && doc.requiresAcknowledgement && <StatusChip label="Confirmado" variant="success" />}
+            {pendingAck && <StatusChip label="Por leer" variant="warning" />}
+            {!!acknowledgedAt && doc.requiresAcknowledgement && <StatusChip label="Leído" variant="success" />}
             {isRecent(doc.contentUpdatedAt) && !acknowledgedAt && <StatusChip label="Nuevo" variant="info" />}
             {doc.audience === 'OWNERS_ONLY' && <StatusChip label="Propietarios" variant="neutral" />}
           </View>

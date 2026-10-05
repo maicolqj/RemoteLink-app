@@ -7,7 +7,6 @@ import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import CustomTextComponent from '../../components/CustomTextComponent';
-import CustomButtonComponent from '../../components/CustomButtonComponent';
 import AppHeader from '../../components/AppHeader';
 import EmptyState from '../../components/EmptyState';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -16,10 +15,7 @@ import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
 import apolloClientInstance, { API_BASE_URL } from '../../../data/lib/apollo/client';
-import {
-  ACKNOWLEDGE_COMPLEX_DOCUMENT,
-  GET_MY_COMPLEX_DOCUMENT,
-} from '../../../domain/graphql/complex-info.queries';
+import { GET_MY_COMPLEX_DOCUMENT } from '../../../domain/graphql/complex-info.queries';
 import type { MyComplexDocument } from '../../../domain/responses/ComplexInfoResponseModel';
 import {
   complexDocumentFileUrl,
@@ -40,8 +36,9 @@ const TEXT_SIZES = [15, 17, 19, 22];
 
 /**
  * Un documento de "Mi Conjunto": su texto (del Word) con el tema de la app, o
- * el PDF oficial dentro de la app. Si la administración pide confirmar la
- * lectura, el botón "He leído y acepto" queda fijo abajo.
+ * el PDF oficial dentro de la app. Si la administración lleva registro de
+ * lectura, abrirlo ya cuenta como leído (lo registra el servidor al
+ * entregarlo) y abajo se le dice al residente.
  */
 export default function ComplexDocumentScreen() {
   const navigation = useNavigation();
@@ -52,7 +49,7 @@ export default function ComplexDocumentScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const gs = useGlobalStyles();
-  const { showError, showQuestion, showSuccess } = useAlert();
+  const { showError } = useAlert();
 
   const [item, setItem] = useState<MyComplexDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +57,6 @@ export default function ComplexDocumentScreen() {
   const [textSize, setTextSize] = useState(1);
   const [token, setToken] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [acknowledging, setAcknowledging] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -97,38 +93,6 @@ export default function ComplexDocumentScreen() {
       setSharing(false);
     }
   }, [item, showError]);
-
-  const acknowledge = useCallback(() => {
-    if (!item) return;
-    showQuestion(
-      `Confirmas que leíste "${item.document.title}" y que conoces su contenido. La administración verá que lo confirmaste.`,
-      'He leído y acepto',
-      {
-        buttons: [
-          { text: 'Cancelar', style: 'secondary', onPress: () => {} },
-          {
-            text: 'Confirmar',
-            style: 'primary',
-            onPress: async () => {
-              setAcknowledging(true);
-              try {
-                const { data } = await apolloClientInstance.mutate<{
-                  acknowledgeComplexDocument: { acknowledgedAt: string };
-                }>({ mutation: ACKNOWLEDGE_COMPLEX_DOCUMENT, variables: { id: item.document.id } });
-                const at = data?.acknowledgeComplexDocument.acknowledgedAt ?? new Date().toISOString();
-                setItem(prev => (prev ? { ...prev, acknowledgedAt: at } : prev));
-                showSuccess('Quedó registrada tu confirmación de lectura.', 'Listo');
-              } catch (e: any) {
-                showError(e?.message ?? 'No se pudo registrar la confirmación.');
-              } finally {
-                setAcknowledging(false);
-              }
-            },
-          },
-        ],
-      },
-    );
-  }, [item, showQuestion, showSuccess, showError]);
 
   // Los enlaces del documento se abren fuera del lector.
   const handleShouldStartLoad = useCallback((request: WebViewNavigation) => {
@@ -303,36 +267,19 @@ export default function ComplexDocumentScreen() {
         )}
       </View>
 
-      {/* ── Confirmación de lectura ─────────────────────────── */}
-      {doc.requiresAcknowledgement && (
+      {/* ── Registro de lectura ─────────────────────────────── */}
+      {doc.requiresAcknowledgement && !!acknowledgedAt && (
         <View
           style={[
             styles.footer,
             { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: insets.bottom + SPACING.sm },
           ]}>
-          {acknowledgedAt ? (
-            <View style={styles.ackDone}>
-              <Icon name="verified" size={20} color={colors.success} />
-              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={gs.flex1}>
-                Confirmaste la lectura de esta versión el {formatDocDate(acknowledgedAt)}.
-              </CustomTextComponent>
-            </View>
-          ) : (
-            <>
-              <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary} textAlign="center">
-                La administración te pide confirmar que leíste este documento.
-              </CustomTextComponent>
-              <CustomButtonComponent
-                text="He leído y acepto"
-                onPress={acknowledge}
-                isLoading={acknowledging}
-                disabled={acknowledging}
-                iconLeft={{ name: 'check-circle', type: 'material', color: colors.textInverse, size: 18 }}
-                style={[styles.ackBtn, { backgroundColor: colors.primary }]}
-                textStyle={{ color: colors.textInverse, fontSize: FONT_SIZE.md }}
-              />
-            </>
-          )}
+          <View style={styles.ackDone}>
+            <Icon name="verified" size={20} color={colors.success} />
+            <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} style={gs.flex1}>
+              La administración ve que abriste este documento el {formatDocDate(acknowledgedAt)}.
+            </CustomTextComponent>
+          </View>
         </View>
       )}
     </View>
@@ -394,9 +341,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     gap: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  ackBtn: {
-    borderRadius: RADIUS.md,
   },
   ackDone: {
     flexDirection: 'row',
