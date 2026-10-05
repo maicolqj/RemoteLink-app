@@ -1,7 +1,7 @@
 import { gql } from '@apollo/client';
 
 /**
- * "Mi Conjunto": datos del conjunto, directorio de contactos y documentos
+ * "Mi Conjunto": datos del conjunto, directorio de contactos, horarios y documentos
  * publicados para el residente. El texto de cada documento NO viaja aquí
  * (pesa): se pide al abrirlo con MY_COMPLEX_DOCUMENT.
  */
@@ -36,6 +36,17 @@ export const GET_MY_COMPLEX_INFO = gql`
         email
         schedule
         notes
+      }
+      schedules {
+        id
+        category
+        name
+        slots {
+          dayOfWeek
+          openTime
+          closeTime
+        }
+        note
       }
       documents {
         acknowledgedAt

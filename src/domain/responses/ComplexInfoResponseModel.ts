@@ -20,6 +20,32 @@ export type ComplexContactCategory =
   | 'SERVICE'
   | 'OTHER';
 
+export type ComplexScheduleCategory =
+  | 'ADMINISTRATION'
+  | 'SECURITY'
+  | 'WASTE'
+  | 'RECYCLING'
+  | 'COMMON_AREA'
+  | 'SERVICE'
+  | 'OTHER';
+
+/** Franja de un día. 0 = domingo. Cierre menor que apertura = cruza la medianoche. */
+export interface ComplexScheduleSlot {
+  dayOfWeek: number;
+  /** HH:mm */
+  openTime: string;
+  /** HH:mm */
+  closeTime: string;
+}
+
+export interface ComplexSchedule {
+  id: string;
+  category: ComplexScheduleCategory;
+  name: string;
+  slots: ComplexScheduleSlot[];
+  note?: string | null;
+}
+
 export interface ComplexPublicInfo {
   id: string;
   name: string;
@@ -84,6 +110,7 @@ export interface MyComplexInfo {
   complex: ComplexPublicInfo;
   settings: ComplexInfoSettings;
   contacts: ComplexContact[];
+  schedules: ComplexSchedule[];
   documents: MyComplexDocument[];
   pendingAcknowledgements: number;
 }

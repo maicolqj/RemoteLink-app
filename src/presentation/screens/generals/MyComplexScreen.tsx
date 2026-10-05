@@ -29,24 +29,32 @@ import type {
   ComplexContact,
   ComplexContactCategory,
   ComplexDocumentCategory,
+  ComplexSchedule,
   MyComplexDocument,
   MyComplexInfo,
 } from '../../../domain/responses/ComplexInfoResponseModel';
 import {
   CONTACT_CATEGORY,
+  DAY_LABELS,
   DOCUMENT_CATEGORY,
+  SCHEDULE_CATEGORY,
+  WEEK_ORDER,
+  bogotaWeekday,
   formatDocDate,
+  formatSlot,
   isRecent,
+  scheduleStatus,
 } from './complex-info.shared';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 
-type Section = 'documents' | 'contacts';
+type Section = 'documents' | 'schedules' | 'contacts';
 
 /**
  * "Mi Conjunto": lo que la administración publica para los residentes —manual
- * de convivencia, reglamento, actas, estados financieros— y el directorio de
- * contactos del conjunto, con los datos generales arriba.
+ * de convivencia, reglamento, actas, estados financieros—, los horarios
+ * (atención, shut de basuras, reciclaje…) y el directorio de contactos del
+ * conjunto, con los datos generales arriba.
  */
 export default function MyComplexScreen() {
   const navigation = useNavigation();
@@ -140,6 +148,15 @@ export default function MyComplexScreen() {
     });
     return groups;
   }, [data, term, onlyPending]);
+
+  const schedules = useMemo(
+    () =>
+      (data?.schedules ?? []).filter(sc => {
+        if (!term) return true;
+        return [sc.name, sc.note, SCHEDULE_CATEGORY[sc.category].label].some(v => (v ?? '').toLowerCase().includes(term));
+      }),
+    [data, term],
+  );
 
   const contactGroups = useMemo(() => {
     const contacts = (data?.contacts ?? []).filter(c => {
@@ -289,6 +306,7 @@ export default function MyComplexScreen() {
         <View style={[styles.segment, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {([
             { key: 'documents', label: `Documentos · ${data.documents.length}` },
+            { key: 'schedules', label: `Horarios · ${data.schedules.length}` },
             { key: 'contacts', label: `Contactos · ${data.contacts.length}` },
           ] as const).map(s => {
             const active = section === s.key;
@@ -301,7 +319,8 @@ export default function MyComplexScreen() {
                 <CustomTextComponent
                   fontSize={FONT_SIZE.sm}
                   fontWeight={FONT_WEIGHT.semibold as any}
-                  color={active ? colors.textInverse : colors.textSecondary}>
+                  color={active ? colors.textInverse : colors.textSecondary}
+                  numberOfLines={1}>
                   {s.label}
                 </CustomTextComponent>
               </TouchableOpacity>
@@ -314,7 +333,9 @@ export default function MyComplexScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder={section === 'documents' ? 'Buscar un documento' : 'Buscar un contacto'}
+            placeholder={
+              section === 'documents' ? 'Buscar un documento' : section === 'schedules' ? 'Buscar un horario' : 'Buscar un contacto'
+            }
             placeholderTextColor={colors.textTertiary}
             style={[styles.searchInput, { color: colors.textPrimary }]}
             returnKeyType="search"
@@ -349,6 +370,18 @@ export default function MyComplexScreen() {
                 </Card>
               </View>
             ))
+          )
+        ) : section === 'schedules' ? (
+          schedules.length === 0 ? (
+            <Card>
+              <CustomTextComponent fontSize={FONT_SIZE.sm} color={colors.textSecondary} textAlign="center">
+                {data.schedules.length === 0
+                  ? 'La administración aún no ha publicado horarios.'
+                  : 'Ningún horario coincide con tu búsqueda.'}
+              </CustomTextComponent>
+            </Card>
+          ) : (
+            schedules.map(sc => <ScheduleCard key={sc.id} schedule={sc} />)
           )
         ) : contactGroups.length === 0 ? (
           <Card>
@@ -433,6 +466,81 @@ function DocumentRow({ item, onPress }: { item: MyComplexDocument; onPress: () =
       </View>
       <Icon name="chevron-right" size={22} color={colors.textTertiary} />
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Un horario: si está abierto ahora (hora del conjunto), la semana con el día
+ * de hoy resaltado y la nota de la administración.
+ */
+function ScheduleCard({ schedule }: { schedule: ComplexSchedule }) {
+  const { colors } = useTheme();
+  const gs = useGlobalStyles();
+  const category = SCHEDULE_CATEGORY[schedule.category];
+  const status = scheduleStatus(schedule.slots);
+  const today = bogotaWeekday();
+
+  return (
+    <Card>
+      <View style={styles.scheduleHeader}>
+        <View style={[styles.rowIcon, { backgroundColor: colors.primarySurface }]}>
+          <Icon name={category.icon} size={20} color={colors.primary} />
+        </View>
+        <View style={gs.flex1}>
+          <CustomTextComponent fontSize={FONT_SIZE.md} fontWeight={FONT_WEIGHT.semibold as any} color={colors.textPrimary}>
+            {schedule.name}
+          </CustomTextComponent>
+          {status.detail && (
+            <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary}>
+              {status.detail}
+            </CustomTextComponent>
+          )}
+        </View>
+        {schedule.slots.length > 0 && (
+          <StatusChip label={status.open ? 'Abierto' : 'Cerrado'} variant={status.open ? 'success' : 'neutral'} />
+        )}
+      </View>
+
+      <View style={styles.week}>
+        {WEEK_ORDER.map(day => {
+          const daySlots = schedule.slots.filter(sl => sl.dayOfWeek === day);
+          const isToday = day === today;
+          const weight = (isToday ? FONT_WEIGHT.semibold : FONT_WEIGHT.regular) as any;
+          return (
+            <View
+              key={day}
+              style={[styles.weekRow, isToday && { backgroundColor: colors.primarySurface }]}
+              accessibilityLabel={`${DAY_LABELS[day]}: ${daySlots.length ? daySlots.map(formatSlot).join(' y ') : 'cerrado'}`}>
+              <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={weight} color={isToday ? colors.primary : colors.textSecondary} style={styles.weekDay}>
+                {isToday ? 'Hoy' : DAY_LABELS[day]}
+              </CustomTextComponent>
+              <View style={gs.flex1}>
+                {daySlots.length === 0 ? (
+                  <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={weight} color={colors.textTertiary}>
+                    Cerrado
+                  </CustomTextComponent>
+                ) : (
+                  daySlots.map((sl, i) => (
+                    <CustomTextComponent key={i} fontSize={FONT_SIZE.sm} fontWeight={weight} color={colors.textPrimary}>
+                      {formatSlot(sl)}
+                    </CustomTextComponent>
+                  ))
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      {!!schedule.note && (
+        <View style={styles.inline}>
+          <Icon name="info-outline" size={14} color={colors.textTertiary} />
+          <CustomTextComponent fontSize={FONT_SIZE.xs} color={colors.textSecondary} style={gs.flex1}>
+            {schedule.note}
+          </CustomTextComponent>
+        </View>
+      )}
+    </Card>
   );
 }
 
@@ -613,6 +721,24 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scheduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  week: {
+    marginTop: SPACING.sm,
+    gap: 2,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+  },
+  weekDay: {
+    width: 96,
   },
   rowDivider: {
     marginLeft: SPACING.md + 40 + SPACING.sm,
