@@ -211,20 +211,60 @@ const authLink = setContext(async (_, { headers, ...context }) => {
 
 // ==================== ERROR LINK ====================
 
+// El backend no responde UNAUTHENTICATED: cada falla de sesión trae su propio
+// code (SESSION_TERMINATED, SESSION_EXPIRED…) con statusCode 401 y el mensaje
+// en español. Mirar solo UNAUTHENTICATED o el texto en inglés dejaba pasar esos
+// errores: la app ni renovaba ni salía al login y las pantallas quedaban vacías
+// hasta cerrar sesión a mano. No basta el 401 solo: también lo usan errores de
+// negocio como una clave de acceso equivocada, que no deben cerrar la sesión.
+type AuthErrorShape = { message: string; extensions?: Record<string, unknown> };
+
+/** Renovar el access token lo resuelve. */
+const REFRESHABLE_AUTH_CODES = new Set([
+  'UNAUTHENTICATED',
+  'UNAUTHORIZED',
+  'SESSION_EXPIRED',
+  'TOKEN_EXPIRED',
+  'TOKEN_REVOKED',
+  'INVALID_TOKEN',
+]);
+
+/** La sesión o la cuenta ya no existen: renovar no sirve, toca volver al login. */
+const TERMINAL_AUTH_CODES = new Set([
+  'SESSION_TERMINATED',
+  'INVALID_TOKEN_TYPE',
+  'USER_NOT_FOUND',
+  'USER_DELETED',
+  'COMPLEX_NOT_FOUND',
+  'COMPLEX_INACTIVE',
+]);
+
+const isTerminalAuthError = ({ extensions }: AuthErrorShape): boolean =>
+  extensions?.statusCode === 401 && TERMINAL_AUTH_CODES.has(extensions?.code as string);
+
+const isAuthError = (err: AuthErrorShape): boolean => {
+  const code = err.extensions?.code as string;
+  const message = err.message.toLowerCase();
+  return (
+    REFRESHABLE_AUTH_CODES.has(code) ||
+    isTerminalAuthError(err) ||
+    message.includes('unauthorized') ||
+    message.includes('token expired') ||
+    message.includes('invalid token') ||
+    message.includes('jwt expired')
+  );
+};
+
 export const errorLink = new ErrorLink(({ error, operation, forward }) => {
   if (CombinedGraphQLErrors.is(error)) {
-    const hasAuthError = error.errors?.some(({ message, extensions }) => {
-      const code = extensions?.code as string;
-      return (
-        code === 'UNAUTHENTICATED' ||
-        message.toLowerCase().includes('unauthorized') ||
-        message.toLowerCase().includes('token expired') ||
-        message.toLowerCase().includes('invalid token') ||
-        message.toLowerCase().includes('jwt expired')
-      );
-    });
+    const hasAuthError = error.errors?.some(isAuthError);
 
     if (hasAuthError && !operation.getContext().skipAuth) {
+      if (error.errors?.some(isTerminalAuthError)) {
+        handleForceLogout();
+        return;
+      }
+
       return new Observable<FetchResult>(observer => {
         if (!refreshPromise) {
           refreshPromise = attemptTokenRefresh().finally((): void => { refreshPromise = null; });
@@ -235,7 +275,17 @@ export const errorLink = new ErrorLink(({ error, operation, forward }) => {
               operation.setContext(({ headers: h = {} }: { headers: Record<string, string> }) => ({
                 headers: { ...h, authorization: `Bearer ${newToken}` },
               }));
-              forward(operation).subscribe(observer);
+              // Si con el token recién emitido el servidor sigue rechazando la
+              // sesión, no queda nada por intentar: se sale al login en vez de
+              // dejar la pantalla sin datos.
+              forward(operation).subscribe({
+                next: result => {
+                  if (result.errors?.some(isAuthError)) handleForceLogout();
+                  observer.next(result);
+                },
+                error: err => observer.error(err),
+                complete: () => observer.complete(),
+              });
             } else {
               handleForceLogout();
               observer.error(error);
@@ -265,11 +315,26 @@ export const errorLink = new ErrorLink(({ error, operation, forward }) => {
 
 // ==================== RETRY LINK ====================
 
+// Reintenta solo los fallos de transporte (cambio de wifi a datos, red que aún
+// no levanta al abrir la app). Antes exigía un error sin `message`, y como todo
+// error trae uno, nunca reintentaba: el primer "Network request failed" del
+// arranque dejaba la pantalla vacía.
 const retryLink = new RetryLink({
-  delay: { initial: 300, max: Infinity, jitter: true },
+  delay: { initial: 300, max: 5_000, jitter: true },
   attempts: {
     max: 3,
-    retryIf: (error: { message?: string }) => !!error && !error.message,
+    retryIf: (error) => {
+      if (!error) return false;
+
+      // El servidor respondió y rechazó la operación: repetirla da lo mismo.
+      if (CombinedGraphQLErrors.is(error) || CombinedProtocolErrors.is(error)) return false;
+
+      // 4xx es un problema de la petición, salvo 408 y 429, que piden repetirla.
+      const status = (error as { statusCode?: number }).statusCode;
+      if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
+
+      return true;
+    },
   },
 });
 

@@ -142,12 +142,43 @@ function ProfileBootstrap() {
   const resident        = useAuthStore(s => s.resident);
   const setResident     = useAuthStore(s => s.setResident);
 
+  // Sin la ficha del residente las pantallas no saben su conjunto ni su unidad
+  // y quedan vacías. Un solo intento fallido —red que aún no levanta al abrir la
+  // app tras días quieta— las dejaba así hasta cerrar sesión, así que se
+  // reintenta con espera creciente y otra vez al volver la app al frente.
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     if (!isAuthenticated || resident) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
     fetchMyResidentProfile()
-      .then(setResident)
-      .catch(err => console.warn('[ProfileBootstrap]', err));
-  }, [isAuthenticated, resident, setResident]);
+      .then(profile => { if (!cancelled) setResident(profile); })
+      .catch(err => {
+        console.warn('[ProfileBootstrap]', err);
+        if (cancelled) return;
+        const delay = Math.min(2_000 * 2 ** attempt, 30_000);
+        retryTimer = setTimeout(() => setAttempt(a => a + 1), delay);
+      });
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [isAuthenticated, resident, setResident, attempt]);
+
+  useEffect(() => {
+    if (!isAuthenticated || resident) return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') setAttempt(a => a + 1);
+    });
+    return () => sub.remove();
+  }, [isAuthenticated, resident]);
+
+  useEffect(() => {
+    if (!isAuthenticated) setAttempt(0);
+  }, [isAuthenticated]);
 
   return null;
 }
