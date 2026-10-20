@@ -1,0 +1,88 @@
+# Compila la app de iOS sin firmar en un macOS de GitHub.
+# Sirve para saber que `pod install` y el build nativo pasan sin tener un Mac.
+# No genera un .ipa instalable: la firma y TestFlight llegan cuando exista la
+# cuenta de Apple Developer.
+name: iOS build (sin firma)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'src/**'
+      - 'App.tsx'
+      - 'index.js'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - 'Gemfile'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      # babel.config.js elige el .env según BUILD_ENV; Release empaqueta el JS
+      BUILD_ENV: production
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Instalar dependencias JS
+        run: yarn install --frozen-lockfile
+
+      # Los .env no se versionan. Para compilar basta la plantilla con valores
+      # de ejemplo; nunca se meten llaves reales en este repo público.
+      - name: Crear .env.production de ejemplo
+        run: cp .env.example .env.production
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Caché de Pods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('yarn.lock', 'ios/Podfile') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - name: pod install
+        working-directory: ios
+        run: bundle exec pod install
+
+      - name: Compilar (Release, iphoneos, sin firma)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/remotelink.xcworkspace \
+            -scheme remotelink \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee xcodebuild.log | xcbeautify
+
+      - name: Subir log de xcodebuild
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
+          retention-days: 7
