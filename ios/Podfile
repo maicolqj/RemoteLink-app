@@ -8,9 +8,7 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# @react-native-firebase exige frameworks estáticos (los pods de Firebase traen Swift)
-$RNFirebaseAsStaticFramework = true
-linkage = ENV['USE_FRAMEWORKS'] || 'static'
+linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
@@ -18,6 +16,12 @@ end
 
 target 'remotelink' do
   config = use_native_modules!
+
+  # Los pods Swift de Firebase necesitan módulos en sus dependencias ObjC.
+  # Se activan solo aquí en vez de use_frameworks!, que rompe los headers
+  # de React en @react-native-firebase
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
 
   use_react_native!(
     :path => config[:reactNativePath],
@@ -32,14 +36,5 @@ target 'remotelink' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
-
-    # Con frameworks estáticos, los headers de RNFB importan los de React-Core
-    # (no modulares) y clang lo trata como error
-    installer.pods_project.targets.each do |target|
-      next unless target.name.start_with?('RNFB')
-      target.build_configurations.each do |config|
-        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      end
-    end
   end
 end
