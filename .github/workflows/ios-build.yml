@@ -28,10 +28,6 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 60
-    env:
-      # babel.config.js elige el .env según BUILD_ENV; Release empaqueta el JS
-      BUILD_ENV: production
-      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +61,12 @@ jobs:
         run: bundle exec pod install
 
       - name: Compilar (Release, iphoneos, sin firma)
+        # Solo aquí: con NODE_ENV=production en el install, yarn omite las
+        # devDependencies (patch-package incluido). babel.config.js elige el
+        # .env según BUILD_ENV al empaquetar el JS.
+        env:
+          BUILD_ENV: production
+          NODE_ENV: production
         run: |
           set -o pipefail
           xcodebuild \
