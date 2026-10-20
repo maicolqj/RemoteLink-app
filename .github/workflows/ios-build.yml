@@ -26,10 +26,18 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-15
+    # SDK de iOS 26: lo pide react-native-camera-kit 18 y la App Store
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Versión de Xcode
+        run: xcodebuild -version
 
       - uses: actions/setup-node@v4
         with:
