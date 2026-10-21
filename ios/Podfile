@@ -17,6 +17,12 @@ end
 target 'remotelink' do
   config = use_native_modules!
 
+  # Los pods Swift de Firebase necesitan módulos en sus dependencias ObjC.
+  # Se activan solo aquí en vez de use_frameworks!, que rompe los headers
+  # de React en @react-native-firebase
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
