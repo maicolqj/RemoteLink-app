@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { Linking, NativeModules, Platform } from 'react-native';
 
 export type WhatsAppPackage = 'com.whatsapp' | 'com.whatsapp.w4b';
 
@@ -17,10 +17,30 @@ export const WHATSAPP_APP_LABEL: Record<WhatsAppPackage, string> = {
 };
 
 /**
- * Apps de WhatsApp instaladas. En iOS (o sin el módulo nativo) devuelve vacío y
+ * En iOS no hay paquetes: cada app registra su esquema de URL. Los dos van en
+ * LSApplicationQueriesSchemes del Info.plist; sin eso canOpenURL dice que no.
+ */
+const IOS_SCHEME: Record<WhatsAppPackage, string> = {
+  'com.whatsapp': 'whatsapp',
+  'com.whatsapp.w4b': 'whatsapp-smb',
+};
+
+const IOS_PACKAGES = Object.keys(IOS_SCHEME) as WhatsAppPackage[];
+
+const iosChatUrl = (pkg: WhatsAppPackage, phone: string, text: string) =>
+  `${IOS_SCHEME[pkg]}://send?phone=${phone}&text=${encodeURIComponent(text)}`;
+
+/**
+ * Apps de WhatsApp instaladas. Sin el módulo nativo en Android devuelve vacío y
  * quien llama cae al link `wa.me` de siempre.
  */
 export async function getInstalledWhatsApps(): Promise<WhatsAppPackage[]> {
+  if (Platform.OS === 'ios') {
+    const installed = await Promise.all(
+      IOS_PACKAGES.map(pkg => Linking.canOpenURL(`${IOS_SCHEME[pkg]}://`).catch(() => false)),
+    );
+    return IOS_PACKAGES.filter((_, i) => installed[i]);
+  }
   if (!native) return [];
   try {
     const apps = await native.getInstalledApps();
@@ -32,6 +52,14 @@ export async function getInstalledWhatsApps(): Promise<WhatsAppPackage[]> {
 
 /** Abre el chat en la app indicada. `false` si no se pudo. */
 export async function openWhatsAppChat(pkg: WhatsAppPackage, phone: string, text: string): Promise<boolean> {
+  if (Platform.OS === 'ios') {
+    try {
+      await Linking.openURL(iosChatUrl(pkg, phone, text));
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (!native) return false;
   try {
     return await native.openChat(pkg, phone, text);
