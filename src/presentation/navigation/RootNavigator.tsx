@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { trackScreen } from '../../infraestructure/services/observability';
 import {
   NavigationContainer,
   DarkTheme,
@@ -613,6 +614,16 @@ function NotificationBootstrap({
 
 // ─── Inner navigator (has access to ThemeContext) ─────────────────────────────
 
+/** Pantalla vista para PostHog; solo el nombre de la ruta, sin parámetros. */
+let lastTrackedScreen: string | undefined;
+function trackCurrentScreen(ref: NavigationContainerRef<RootStackParamList> | null) {
+  const name = ref?.getCurrentRoute()?.name;
+  if (name && name !== lastTrackedScreen) {
+    lastTrackedScreen = name;
+    trackScreen(name);
+  }
+}
+
 function ThemedNavigator() {
   const { isDark } = useTheme();
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
@@ -626,7 +637,9 @@ function ThemedNavigator() {
       />
       <NavigationContainer
         ref={navigationRef}
-        theme={isDark ? navDarkTheme : navLightTheme}>
+        theme={isDark ? navDarkTheme : navLightTheme}
+        onReady={() => trackCurrentScreen(navigationRef.current)}
+        onStateChange={() => trackCurrentScreen(navigationRef.current)}>
         <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
