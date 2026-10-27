@@ -17,4 +17,7 @@ const config = {
   },
 };
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const { withSentryConfig } = require('@sentry/react-native/metro');
+
+// Sentry agrega debug ids al bundle para cruzarlo con sus source maps.
+module.exports = withSentryConfig(mergeConfig(getDefaultConfig(__dirname), config));

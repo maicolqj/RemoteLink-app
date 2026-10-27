@@ -4,6 +4,12 @@ apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
+// Source maps a Sentry solo cuando el build tiene SENTRY_AUTH_TOKEN (y
+// SENTRY_ORG / SENTRY_PROJECT). Sin token se compila igual, sin subirlos.
+if (System.getenv("SENTRY_AUTH_TOKEN")) {
+    apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
+}
+
 
 // Los nombres tienen que coincidir EXACTO con los archivos de
 // node_modules/react-native-vector-icons/Fonts. Aquí decía 'IonicIcons.ttf',
@@ -179,7 +185,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Súbelo en 1 en CADA subida a Play, aunque el versionName no cambie.
-        versionCode 14
+        versionCode 16
         versionName appVersionName
     }
     signingConfigs {
