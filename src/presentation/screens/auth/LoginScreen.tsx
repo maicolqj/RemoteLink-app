@@ -13,6 +13,7 @@ import AuthMethodRow from '../../components/auth/AuthMethodRow';
 import AuthSection from '../../components/auth/AuthSection';
 import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
+import { useAuthStore } from '../../store/auth.store';
 import {
   defaultDeviceLabel,
   getLastIdentity,
@@ -118,6 +119,15 @@ export default function LoginScreen() {
    */
   const [deadEnd, setDeadEnd] = useState(route.params?.notice ?? '');
 
+  /**
+   * Por qué el servidor cerró la sesión anterior (p. ej. la administración
+   * suspendió la residencia). Se lee una sola vez al montar y se muestra en
+   * los dos pasos hasta que el residente vuelva a intentar entrar.
+   */
+  const [sessionNotice, setSessionNotice] = useState(
+    () => useAuthStore.getState().consumeLogoutNotice() ?? '',
+  );
+
   // El canal de WhatsApp entrante se oculta si el servidor ya respondió
   // WA_LOGIN_NOT_CONFIGURED (le falta WHATSAPP_BUSINESS_NUMBER).
   const [waAvailable, setWaAvailable] = useState(true);
@@ -212,6 +222,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     setCodeError('');
     setDeadEnd('');
+    setSessionNotice('');
     try {
       const result = await loginWithAccessCode(code, identity, defaultDeviceLabel());
       await persistSession(result);
@@ -328,6 +339,10 @@ export default function LoginScreen() {
       showBack={!isIdentityStep}
       onBack={backToIdentity}
       footer={footer}>
+
+      {/* Viene del servidor: la sesión anterior se cerró por una decisión de
+          la administración, no por un fallo de la app. */}
+      {sessionNotice ? <AuthBanner tone="warning">{sessionNotice}</AuthBanner> : null}
 
       {isIdentityStep ? (
         <>
