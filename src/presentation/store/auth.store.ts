@@ -58,6 +58,13 @@ interface AuthState {
    * AlertProvider muestra uno a la vez y el segundo pisa al primero.
    */
   sessionRestored: boolean;
+  /**
+   * Por qué el servidor cerró la sesión (residencia suspendida, cuenta
+   * suspendida, sesión cerrada desde otro lado). Sobrevive al `logout` para
+   * que el login lo muestre una vez; sin esto el residente volvía al login sin
+   * saber qué pasó.
+   */
+  logoutNotice: string | null;
 
   setSession: (accessToken: string, sessionId: string) => void;
   setResident: (resident: Resident) => void;
@@ -66,6 +73,9 @@ interface AuthState {
   /** ¿El conjunto tiene encendido este módulo? */
   isModuleEnabled: (module: string) => boolean;
   logout: () => Promise<void>;
+  setLogoutNotice: (notice: string | null) => void;
+  /** Devuelve el aviso pendiente y lo borra: se muestra una sola vez. */
+  consumeLogoutNotice: () => string | null;
   hasRole: (role: string) => boolean;
   hydrateSession: () => Promise<'authenticated' | 'biometric_required' | 'unauthenticated'>;
 }
@@ -98,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   hydrating: true,
   sessionRestored: false,
+  logoutNotice: null,
 
   setSession: (token, sessionId) =>
     set({ token, sessionId, isAuthenticated: true }),
@@ -130,6 +141,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // cuenta que entre después en este equipo.
     await clearPanicSelfUserId();
     set({ resident: null, token: null, sessionId: null, isAuthenticated: false, sessionRestored: false });
+  },
+
+  setLogoutNotice: (notice) => set({ logoutNotice: notice }),
+
+  consumeLogoutNotice: () => {
+    const notice = get().logoutNotice;
+    if (notice) set({ logoutNotice: null });
+    return notice;
   },
 
   hasRole: (role: string) => {

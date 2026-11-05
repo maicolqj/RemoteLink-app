@@ -1,4 +1,4 @@
-import apolloClient from '../../data/lib/apollo/client';
+import apolloClient, { isTerminalAuthCode } from '../../data/lib/apollo/client';
 import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN, RESEND_SYSTEM_CODE } from '../../domain/graphql/auth.queries';
 import SecureStorageService from './SecureStorageService';
 import { getApiErrorMessage, parseApiError, type ParsedApiError } from '../utils/apiError';
@@ -69,7 +69,18 @@ export async function refreshSession(): Promise<string | null> {
       fetchPolicy: 'no-cache',
     });
 
-    if (error || !data?.refreshToken) return null;
+    if (error || !data?.refreshToken) {
+      // El servidor revocó la sesión (residencia o cuenta suspendida, sesión
+      // cerrada): se guarda su mensaje para que el login explique por qué.
+      if (error) {
+        const parsed = parseApiError(error);
+        if (isTerminalAuthCode(parsed.code)) {
+          const { useAuthStore } = await import('../../presentation/store/auth.store');
+          useAuthStore.getState().setLogoutNotice(parsed.message);
+        }
+      }
+      return null;
+    }
 
     const r = data.refreshToken;
     await SecureStorageService.saveTokens({

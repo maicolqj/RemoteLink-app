@@ -112,7 +112,16 @@ const attemptTokenRefresh = async (): Promise<string | null> => {
   }
 };
 
-const handleForceLogout = async () => {
+/**
+ * Cierra la sesión local. `notice` es el mensaje del servidor que explica por
+ * qué (ya viene en español): el login lo muestra para que el residente sepa
+ * que fue la administración y no un fallo de la app.
+ */
+const handleForceLogout = async (notice?: string) => {
+  if (notice) {
+    const { useAuthStore } = await import('../../../presentation/store/auth.store');
+    useAuthStore.getState().setLogoutNotice(notice);
+  }
   await SecureStorageService.clearTokens();
   if (onLogoutCallback) {
     onLogoutCallback();
@@ -239,6 +248,9 @@ const TERMINAL_AUTH_CODES = new Set([
   'COMPLEX_INACTIVE',
 ]);
 
+export const isTerminalAuthCode = (code?: string): boolean =>
+  !!code && TERMINAL_AUTH_CODES.has(code);
+
 const isTerminalAuthError = ({ extensions }: AuthErrorShape): boolean =>
   extensions?.statusCode === 401 && TERMINAL_AUTH_CODES.has(extensions?.code as string);
 
@@ -260,8 +272,9 @@ export const errorLink = new ErrorLink(({ error, operation, forward }) => {
     const hasAuthError = error.errors?.some(isAuthError);
 
     if (hasAuthError && !operation.getContext().skipAuth) {
-      if (error.errors?.some(isTerminalAuthError)) {
-        handleForceLogout();
+      const terminal = error.errors?.find(isTerminalAuthError);
+      if (terminal) {
+        handleForceLogout(terminal.message);
         return;
       }
 
