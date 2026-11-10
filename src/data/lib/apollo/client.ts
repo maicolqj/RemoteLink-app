@@ -47,6 +47,7 @@ import { PATH_SERVER, PATH_SERVER_LOCAL_ANDROID, PATH_SERVER_LOCAL_IOS, STAGE } 
 import persistedDocuments from '../../../gql/persisted-documents.json';
 
 import { loadErrorMessages, loadDevMessages } from '@apollo/client/dev';
+import { useCommunityAccessStore } from '../../../presentation/store/community-access.store';
 
 // ==================== CONFIGURACIÓN ====================
 
@@ -269,6 +270,17 @@ const isAuthError = (err: AuthErrorShape): boolean => {
 
 export const errorLink = new ErrorLink(({ error, operation, forward }) => {
   if (CombinedGraphQLErrors.is(error)) {
+    // La administración no renovó y ya se enviaron los avisos: no cierra sesión.
+    const codes = error.errors?.map(e => e.extensions?.code);
+    if (codes?.includes('SUBSCRIPTION_ACCESS_CUT')) {
+      useCommunityAccessStore.getState().markAccessCut();
+      return;
+    }
+    if (codes?.includes('SUBSCRIPTION_PANIC_CUT')) {
+      useCommunityAccessStore.getState().markPanicCut();
+      return;
+    }
+
     const hasAuthError = error.errors?.some(isAuthError);
 
     if (hasAuthError && !operation.getContext().skipAuth) {

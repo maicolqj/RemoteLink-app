@@ -14,6 +14,7 @@ import AuthStack from './stacks/AuthStack';
 import LegalScreen from '../screens/generals/LegalScreen';
 import ApproveDeviceScreen from '../screens/generals/ApproveDeviceScreen';
 import { PanicFAB } from '../components/PanicFAB';
+import { CommunityAccessGate } from '../components/CommunityAccessGate';
 import { BiometricEnrollmentPrompt } from '../components/BiometricEnrollmentPrompt';
 import { ModuleRouteGuard } from '../components/ModuleRouteGuard';
 import { AppProviders } from '../providers/AppProviders';
@@ -672,6 +673,7 @@ function ThemedNavigator() {
           />
         </Stack.Navigator>
       </NavigationContainer>
+      {isAuthenticated && <CommunityAccessGate />}
       {isAuthenticated && <PanicFAB />}
     </AuthGate>
   );
