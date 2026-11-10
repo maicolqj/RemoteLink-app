@@ -13,6 +13,7 @@ import notifee, {
   AndroidImportance,
   AndroidVisibility,
 } from '@notifee/react-native';
+import { NATIVE_CALL_NOTIFICATION, cancelNativeCallNotification } from './nativeIntercomCall';
 
 export const INTERCOM_PUSH = {
   INCOMING: 'INTERCOM_CALL_INCOMING',
@@ -86,11 +87,16 @@ export async function showIncomingCallNotification(data: Record<string, string>)
 export async function cancelCallNotification(callId?: string): Promise<void> {
   if (!callId) return;
   await notifee.cancelNotification(notificationId(callId)).catch(() => {});
+  await cancelNativeCallNotification(callId);
 }
 
 /** Atiende un push de citofonía en segundo plano. Devuelve true si era uno. */
 export async function handleIntercomPushInBackground(data: Record<string, string>): Promise<boolean> {
   if (!isIntercomPush(data)) return false;
+  // En Android la publica (y la quita) IntercomCallReceiver, en Kotlin: corre
+  // también con la app cerrada, donde este handler no llega. Pintarla aquí
+  // además dejaba dos notificaciones timbrando.
+  if (NATIVE_CALL_NOTIFICATION) return true;
   if (data.type === INTERCOM_PUSH.INCOMING) {
     await showIncomingCallNotification(data);
   } else {

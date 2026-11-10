@@ -95,6 +95,18 @@
           <action android:name="com.google.android.c2dm.intent.RECEIVE" />
         </intent-filter>
       </receiver>
+      <!-- Llamada de citofonía por la app con la app CERRADA. Nativo por lo
+         mismo que el pánico: con la app cerrada Android no deja correr el
+         handler de JS. Prioridad por debajo del pánico. No aborta el
+         broadcast. Ver intercom/IntercomCallReceiver.kt. -->
+      <receiver
+        android:name=".intercom.IntercomCallReceiver"
+        android:exported="true"
+        android:permission="com.google.android.c2dm.permission.SEND">
+        <intent-filter android:priority="997">
+            <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        </intent-filter>
+      </receiver>
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

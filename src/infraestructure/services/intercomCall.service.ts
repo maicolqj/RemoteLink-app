@@ -14,7 +14,7 @@
 // conexión vive allí.
 // =============================================================================
 
-import { PermissionsAndroid, Platform } from 'react-native';
+import { AppState, PermissionsAndroid, Platform } from 'react-native';
 import InCallManager from 'react-native-incall-manager';
 import {
   RTCIceCandidate,
@@ -34,6 +34,7 @@ import {
   START_SECURITY_INTERCOM_CALL,
 } from '../../domain/graphql/intercom';
 import { cancelCallNotification } from './intercomPush';
+import { cancelNativeCallNotification, consumeNativeCallLaunch } from './nativeIntercomCall';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,24 @@ class IntercomCallService {
   private deviceId = '';
   private pendingAction: { callId?: string; action: 'answer' | 'decline' } | null = null;
 
+  /**
+   * Con la app en pantalla timbra JS. Fuera de ella ya timbra la notificación
+   * nativa (IntercomCallReceiver): sonar también aquí eran dos timbres a la vez.
+   */
+  private startRingingIfVisible(): void {
+    if (this.pendingAction || AppState.currentState !== 'active') return;
+    const info = this.info;
+    if (!info || info.state !== 'RINGING') return;
+    void cancelNativeCallNotification(info.callId);
+    InCallManager.startRingtone('_DEFAULT_', [800, 600], 'playback', 30);
+  }
+
+  /** Lo elegido en la notificación nativa (Contestar / Rechazar) pasa a ser la acción pendiente. */
+  private async takeNativeLaunch(): Promise<void> {
+    const launch = await consumeNativeCallLaunch();
+    if (launch && launch.action !== 'open') this.pendingAction = { action: launch.action, callId: launch.callId };
+  }
+
   setDeviceId(deviceId: string): void {
     this.deviceId = deviceId;
   }
@@ -137,8 +156,11 @@ class IntercomCallService {
    * el socket no estaba cuando sonó, así que se pregunta a la API.
    */
   async restore(): Promise<IntercomCallInfo | null> {
+    await this.takeNativeLaunch();
     if (this.info) {
       await this.applyPendingAction();
+      // Volvió al frente con la llamada sonando: ahora timbra la app.
+      this.startRingingIfVisible();
       return this.getCall();
     }
     try {
@@ -407,7 +429,7 @@ class IntercomCallService {
       onHold: false,
     };
     // Si ya se eligió en la notificación, no se hace sonar otra vez.
-    if (!this.pendingAction) InCallManager.startRingtone('_DEFAULT_', [800, 600], 'playback', 30);
+    this.startRingingIfVisible();
     this.changed();
   }
 
