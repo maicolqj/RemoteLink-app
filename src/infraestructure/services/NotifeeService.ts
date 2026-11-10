@@ -1,4 +1,6 @@
 import { useVisitsStore } from '../../presentation/store/visits.store';
+import { intercomActionFromPress, isIntercomPush } from './intercomPush';
+import { intercomCallService } from './intercomCall.service';
 import { usePanicStore } from '../../presentation/store/panic.store';
 import { useSettingsStore } from '../../presentation/store/settings.store';
 import notifee, {
@@ -298,6 +300,17 @@ export function initNotifeeForegroundListener(
   return notifee.onForegroundEvent(({ type, detail }: Event) => {
     const data = (detail.notification?.data ?? {}) as Record<string, string>;
 
+    // Llamada con portería: se aplica lo elegido y se abre la pantalla.
+    if (isIntercomPush(data) && (type === EventType.PRESS || type === EventType.ACTION_PRESS)) {
+      const action = intercomActionFromPress(detail.pressAction?.id);
+      if (action !== 'open') intercomCallService.setPendingAction(action, data.callId);
+      void intercomCallService.restore().then(info => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (info) (navigationRef as any).navigate('IntercomCall');
+      });
+      return;
+    }
+
     switch (type) {
       case EventType.PRESS:
         if (data.type === 'PANIC_ALERT') {
@@ -325,6 +338,13 @@ export function initNotifeeForegroundListener(
 
 export async function handleNotifeeBackgroundEvent({ type, detail }: Event): Promise<void> {
   const data = (detail.notification?.data ?? {}) as Record<string, string>;
+
+  // Llamada con portería: se recuerda lo elegido; la app lo aplica al abrir.
+  if (isIntercomPush(data) && (type === EventType.PRESS || type === EventType.ACTION_PRESS)) {
+    const action = intercomActionFromPress(detail.pressAction?.id);
+    if (action !== 'open') intercomCallService.setPendingAction(action, data.callId);
+    return;
+  }
 
   // Press on a panic notification while app is background/killed: the press
   // launches the activity; seed the store so the modal shows as soon as JS mounts.

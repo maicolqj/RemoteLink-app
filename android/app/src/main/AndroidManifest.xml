@@ -7,6 +7,9 @@
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Llamadas con portería por la app (WebRTC): micrófono y estado de la red. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Required for push notifications on Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required for panic full-screen alert on locked screen (Android 10+) -->

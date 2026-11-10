@@ -1,4 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import IntercomCallScreen from '../screens/generals/IntercomCallScreen';
+import { IntercomCallBootstrap } from '../components/calls/IntercomCallBootstrap';
+import { intercomCallService } from '../../infraestructure/services/intercomCall.service';
+import { intercomActionFromPress, isIntercomPush } from '../../infraestructure/services/intercomPush';
 import { trackScreen } from '../../infraestructure/services/observability';
 import {
   NavigationContainer,
@@ -387,7 +391,14 @@ function NotificationBootstrap({
         // from killed state (visits, payments, etc.).
         const notifeeInitial = await notifee.getInitialNotification();
         const notifeeData = notifeeInitial?.notification?.data as FCMData | undefined;
-        if (notifeeData?.type === 'PANIC_ALERT') {
+        // Llamada con portería: se recuerda lo que eligió (Contestar/Rechazar)
+        // y IntercomCallBootstrap la recupera de la API.
+        if (isIntercomPush(notifeeData as Record<string, unknown> | undefined)) {
+          const action = intercomActionFromPress(notifeeInitial?.pressAction?.id);
+          if (action !== 'open') {
+            intercomCallService.setPendingAction(action, (notifeeData as Record<string, string>).callId);
+          }
+        } else if (notifeeData?.type === 'PANIC_ALERT') {
           handlePanic(notifeeData);
         } else if (notifeeData && navReady) {
           // La solicitud de ingreso llega data-only (la muestra Notifee), así que
@@ -642,6 +653,7 @@ function ThemedNavigator() {
         onStateChange={() => trackCurrentScreen(navigationRef.current)}>
         <ProfileBootstrap />
         <NotificationBootstrap navigationRef={navigationRef} />
+        {isAuthenticated && <IntercomCallBootstrap navigationRef={navigationRef} />}
         <DeviceSecurityBootstrap navigationRef={navigationRef} />
         <BiometricEnrollmentPrompt />
         {/* Apagar un módulo tiene que sacar de sus pantallas a quien ya estaba
@@ -657,6 +669,12 @@ function ThemedNavigator() {
                 name="ApproveDevice"
                 component={ApproveDeviceScreen}
                 options={{ animation: 'slide_from_bottom' }}
+              />
+              {/* Llamada con portería por la app: suena desde cualquier pantalla. */}
+              <Stack.Screen
+                name="IntercomCall"
+                component={IntercomCallScreen}
+                options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
               />
             </>
           ) : (

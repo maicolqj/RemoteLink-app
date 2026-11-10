@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMutation } from '@apollo/client/react';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import CustomTextComponent from '../../components/CustomTextComponent';
 import Avatar from '../../components/Avatar';
@@ -14,7 +13,7 @@ import { useTheme } from '../../providers/context/ThemeContext';
 import { useAlert } from '../../providers/context/AlertContext';
 import { useCoachmark, useCoachmarkTarget, type CoachStep } from '../../providers/context/CoachmarkContext';
 import { useGlobalStyles } from '../../styles/useGlobalStyles';
-import { REQUEST_SECURITY_CALL } from '../../../domain/graphql/security.mutations';
+import { SecurityCallSheet } from '../../components/calls/SecurityCallSheet';
 import { useAuthStore, moduleEnabledIn } from '../../store/auth.store';
 import { useMarketplaceChatStore } from '../../store/marketplace-chat.store';
 import { useNotificationsStore } from '../../store/notifications.store';
@@ -76,7 +75,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HomeNavProp>();
   const { colors } = useTheme();
-  const { showAlert, showSuccess, showError } = useAlert();
+  const { showSuccess, showError } = useAlert();
   const gs = useGlobalStyles();
 
   const resident = useAuthStore(s => s.resident);
@@ -102,7 +101,6 @@ export default function HomeScreen() {
   const balanceData = useFinancesStore(s => s.balance);
   const fetchBalance = useFinancesStore(s => s.fetchBalance);
 
-  const [requestSecurityCall, { loading: requestingCall }] = useMutation(REQUEST_SECURITY_CALL);
 
   // El menú de votaciones solo aparece si la administración lo habilitó. Vive
   // en un store porque también cambia por socket, sin que el Home recargue.
@@ -116,38 +114,13 @@ export default function HomeScreen() {
   const balanceRef = useCoachmarkTarget('home.balance');
   const quickActionsRef = useCoachmarkTarget('home.quickActions');
 
-  // Ask the gatehouse to call this unit. Backend resolves the unit from the
-  // authenticated user and fans out push + socket to the SECURITY role.
+  // "Llamar a portería": con varias porterías el residente elige a cuál, y
+  // según el conjunto puede pedir que lo llamen o llamar por la app.
+  const [securityCallOpen, setSecurityCallOpen] = useState(false);
   const handleRequestSecurityCall = useCallback(() => {
-    const complexId = resident?.complex?.id;
-    if (!complexId || requestingCall) return;
-    showAlert({
-      type: 'question',
-      title: 'Solicitar llamada de portería',
-      description: '¿Pedir a seguridad que se comunique con tu unidad?',
-      buttons: [
-        { text: 'Cancelar', style: 'text', onPress: () => {} },
-        {
-          text: 'Solicitar',
-          style: 'primary',
-          onPress: async () => {
-            try {
-              const { data } = await requestSecurityCall({ variables: { complexId } });
-              const res = (data as any)?.requestSecurityCall;
-              if (res?.success === false) {
-                showError(res.message ?? 'No hay personal de seguridad disponible en este momento.');
-                return;
-              }
-              showSuccess('Portería recibió tu solicitud y te llamará en breve.', 'Solicitud enviada');
-            } catch (err) {
-              if (__DEV__) console.warn('[Home] requestSecurityCall error:', err);
-              showError('No se pudo enviar la solicitud. Intenta de nuevo.');
-            }
-          },
-        },
-      ],
-    });
-  }, [resident, requestingCall, requestSecurityCall, showAlert, showSuccess, showError]);
+    if (!resident?.complex?.id) return;
+    setSecurityCallOpen(true);
+  }, [resident]);
 
   // Resident hydrates asynchronously after the screen mounts, and every fetch
   // below needs it (balance needs unit/complex ids; notifications self-guard on
@@ -312,7 +285,6 @@ export default function HomeScreen() {
               ref={securityCallRef}
               style={[styles.callBtn, { backgroundColor: colors.primarySurface }]}
               onPress={handleRequestSecurityCall}
-              disabled={requestingCall}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
               accessibilityLabel="Solicitar que portería llame a tu unidad">
@@ -505,6 +477,14 @@ export default function HomeScreen() {
           </Card>
         )}
       </ScrollView>
+
+      <SecurityCallSheet
+        visible={securityCallOpen}
+        complexId={resident?.complex?.id}
+        onClose={() => setSecurityCallOpen(false)}
+        onRequested={message => showSuccess(message, 'Solicitud enviada')}
+        onError={message => showError(message)}
+      />
     </View>
   );
 }

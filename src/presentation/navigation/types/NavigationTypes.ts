@@ -153,6 +153,8 @@ export type RootStackParamList = {
   // Documentos legales en WebView. Vive en el root (fuera del condicional de
   // sesión) para ser alcanzable tanto desde el login como desde Ajustes.
   Legal: { url: string; title: string };
+  // Llamada con portería por la app. En el root: suena desde cualquier pantalla.
+  IntercomCall: undefined;
 };
 
 // Cross-stack navigation helper types

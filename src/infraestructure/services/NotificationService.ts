@@ -1,3 +1,5 @@
+import { INTERCOM_PUSH, cancelCallNotification, isIntercomPush } from './intercomPush';
+import { intercomCallService } from './intercomCall.service';
 import {
   getMessaging,
   getToken,
@@ -284,6 +286,17 @@ export function initNotificationListeners(
     // tipo de notificación y no debe entrar en ese enum, porque nada de la app
     // del residente lo maneja ni debería.
     if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
+
+    // Llamada con portería con la app abierta: la pantalla la abre el socket.
+    // Si no estaba conectado, se le pregunta a la API por la llamada.
+    if (isIntercomPush(remoteMessage.data)) {
+      if (remoteMessage.data?.type === INTERCOM_PUSH.INCOMING) {
+        void intercomCallService.restore();
+      } else {
+        void cancelCallNotification(remoteMessage.data?.callId as string | undefined);
+      }
+      return;
+    }
 
     // Solicitud de ingreso desde otro equipo con la app ABIERTA: se abre la
     // pantalla de aprobación, que es la que tiene Aprobar / Rechazar y el código
