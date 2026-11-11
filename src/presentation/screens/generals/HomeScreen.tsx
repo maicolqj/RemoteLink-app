@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxl,
   },
   complexLabel: {
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.md,
     marginLeft: SPACING.xs,
   },
   balanceCard: {

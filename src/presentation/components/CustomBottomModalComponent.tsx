@@ -22,6 +22,7 @@ interface CustomBottomModalProps {
   showHandle?: boolean;
   heightPercentage?: number;       // 0.0–1.0 (default 0.5). Ignorado si maxHeight está definido.
   maxHeight?: number;              // Altura fija en px (toma precedencia sobre heightPercentage)
+  autoHeight?: boolean;            // Alto justo para el contenido (tope 90 % de la pantalla); ignora los dos anteriores
   backgroundColor?: string;
   overlayColor?: string;
   handleColor?: string;
@@ -49,6 +50,7 @@ const CustomBottomModal: React.FC<CustomBottomModalProps> = ({
   showHandle = true,
   heightPercentage = 0.5,
   maxHeight,
+  autoHeight = false,
   backgroundColor = '#FFFFFF',
   overlayColor = 'rgba(0,0,0,0.5)',
   handleColor = '#D1D5DB',
@@ -69,7 +71,7 @@ const CustomBottomModal: React.FC<CustomBottomModalProps> = ({
       style={[
         styles.sheet,
         {
-          height: sheetHeight,
+          ...(autoHeight ? { maxHeight: SCREEN_H * 0.9 } : { height: sheetHeight }),
           backgroundColor,
           borderTopLeftRadius: borderTopRadius,
           borderTopRightRadius: borderTopRadius,
@@ -82,7 +84,7 @@ const CustomBottomModal: React.FC<CustomBottomModalProps> = ({
       {showHandle && (
         <View style={[styles.handle, { backgroundColor: handleColor }]} />
       )}
-      <View style={[styles.content, contentStyle]}>{children}</View>
+      <View style={[!autoHeight && styles.content, contentStyle]}>{children}</View>
     </View>
   );
 

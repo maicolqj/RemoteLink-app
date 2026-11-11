@@ -5,10 +5,14 @@
 // entera, sea para pedir que le devuelvan la llamada o para llamar por la app
 // (si el conjunto lo permite). Con una sola —o sin porterías creadas— no hay
 // nada que elegir.
+//
+// La hoja toma los colores del tema (claro/oscuro) y mide lo justo para su
+// contenido; con muchas porterías la lista se desplaza y los botones quedan
+// siempre a la vista.
 // =============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useMutation } from '@apollo/client/react';
 import { useNavigation } from '@react-navigation/native';
@@ -29,6 +33,8 @@ type Props = {
   onRequested: (message: string) => void;
   onError: (message: string) => void;
 };
+
+const ON_PRIMARY = '#FFFFFF';
 
 export function SecurityCallSheet({ visible, complexId, onClose, onRequested, onError }: Props) {
   const { colors } = useTheme();
@@ -107,7 +113,6 @@ export function SecurityCallSheet({ visible, complexId, onClose, onRequested, on
         securityPostName: selected?.name,
       });
       onClose();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (navigation as any).navigate('IntercomCall');
     } catch (err) {
       onError(err instanceof Error && err.message ? err.message : 'No se pudo llamar a portería.');
@@ -116,69 +121,115 @@ export function SecurityCallSheet({ visible, complexId, onClose, onRequested, on
     }
   };
 
+  const subtitle = posts.length > 1
+    ? '¿A qué portería? Solo esa recibe tu solicitud.'
+    : selected
+      ? `Tu solicitud llega a ${selected.name}.`
+      : 'Tu solicitud llega al personal de portería.';
+
   return (
-    <CustomBottomModalComponent isVisible={visible} onClose={onClose} heightPercentage={0.6}>
-      <View style={styles.content}>
-        <CustomTextComponent style={[styles.title, { color: colors.textPrimary }]}>
-          Llamar a portería
-        </CustomTextComponent>
+    <CustomBottomModalComponent
+      isVisible={visible}
+      onClose={onClose}
+      autoHeight
+      backgroundColor={colors.surface}
+      handleColor={colors.border}
+      overlayColor={colors.overlay}
+      paddingHorizontal={20}
+      paddingBottom={28}>
+      <View style={styles.header}>
+        <View style={[styles.headerIcon, { backgroundColor: colors.primarySurface }]}>
+          <Icon name="security" size={22} color={colors.primary} />
+        </View>
+        <View style={styles.headerText}>
+          <CustomTextComponent style={[styles.title, { color: colors.textPrimary }]}>
+            Llamar a portería
+          </CustomTextComponent>
+          {!loading && (
+            <CustomTextComponent style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {subtitle}
+            </CustomTextComponent>
+          )}
+        </View>
+      </View>
 
-        {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : (
-          <>
-            {posts.length > 1 && (
-              <>
-                <CustomTextComponent style={[styles.hint, { color: colors.textSecondary }]}>
-                  ¿A qué portería? Solo esa recibe tu solicitud.
-                </CustomTextComponent>
-                {posts.map(post => {
-                  const isSelected = post.id === selectedId;
-                  return (
-                    <TouchableOpacity
-                      key={post.id}
-                      style={[
-                        styles.option,
-                        { borderColor: isSelected ? colors.primary : colors.border },
-                      ]}
-                      onPress={() => setSelectedId(post.id)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: isSelected }}>
-                      <Icon
-                        name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
-                        size={20}
-                        color={isSelected ? colors.primary : colors.textSecondary}
-                      />
-                      <View style={styles.optionText}>
-                        <CustomTextComponent style={{ color: colors.textPrimary, fontWeight: '600' }}>
-                          {post.name}
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      ) : (
+        <>
+          {posts.length > 1 && (
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}>
+              {posts.map(post => {
+                const isSelected = post.id === selectedId;
+                const online = post.guardsOnDuty > 0;
+                return (
+                  <TouchableOpacity
+                    key={post.id}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.option,
+                      {
+                        borderColor: isSelected ? colors.primary : colors.border,
+                        backgroundColor: isSelected ? colors.primarySurface : colors.background,
+                      },
+                    ]}
+                    onPress={() => setSelectedId(post.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}>
+                    <Icon
+                      name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
+                      size={22}
+                      color={isSelected ? colors.primary : colors.textTertiary}
+                    />
+                    <View style={styles.optionText}>
+                      <CustomTextComponent
+                        style={[styles.optionName, { color: colors.textPrimary }]}
+                        numberOfLines={1}>
+                        {post.name}
+                      </CustomTextComponent>
+                      <View style={styles.statusRow}>
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: online ? colors.success : colors.textTertiary },
+                          ]}
+                        />
+                        <CustomTextComponent style={[styles.optionNote, { color: colors.textSecondary }]}>
+                          {online
+                            ? `${post.guardsOnDuty} ${post.guardsOnDuty === 1 ? 'vigilante conectado' : 'vigilantes conectados'}`
+                            : 'Nadie conectado ahora'}
                         </CustomTextComponent>
-                        {post.guardsOnDuty === 0 && (
-                          <CustomTextComponent style={[styles.optionNote, { color: colors.textSecondary }]}>
-                            Nadie conectado ahora
-                          </CustomTextComponent>
-                        )}
                       </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
+          <View style={styles.actions}>
             <TouchableOpacity
+              activeOpacity={0.85}
               style={[styles.action, { backgroundColor: colors.primary }, mustChoose && styles.disabled]}
               onPress={handleRequest}
               disabled={mustChoose || requesting}>
               {requesting
-                ? <ActivityIndicator color="#fff" />
+                ? <ActivityIndicator color={ON_PRIMARY} />
                 : <>
-                    <Icon name="support-agent" size={20} color="#fff" />
-                    <CustomTextComponent style={styles.actionText}>Pedir que me llamen</CustomTextComponent>
+                    <Icon name="support-agent" size={20} color={ON_PRIMARY} />
+                    <CustomTextComponent style={[styles.actionText, { color: ON_PRIMARY }]}>
+                      Pedir que me llamen
+                    </CustomTextComponent>
                   </>}
             </TouchableOpacity>
 
             {appCallsEnabled && (
               <TouchableOpacity
+                activeOpacity={0.85}
                 style={[styles.action, styles.actionOutline, { borderColor: colors.primary }, mustChoose && styles.disabled]}
                 onPress={handleAppCall}
                 disabled={mustChoose || calling}>
@@ -192,26 +243,47 @@ export function SecurityCallSheet({ visible, complexId, onClose, onRequested, on
                     </>}
               </TouchableOpacity>
             )}
-          </>
-        )}
-      </View>
+
+            {mustChoose && (
+              <CustomTextComponent style={[styles.chooseHint, { color: colors.textSecondary }]}>
+                Elige una portería para continuar.
+              </CustomTextComponent>
+            )}
+          </View>
+        </>
+      )}
     </CustomBottomModalComponent>
   );
 }
 
+const { height: SCREEN_H } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
-  content: { paddingTop: 8, gap: 10 },
-  title: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  hint: { fontSize: 13, marginBottom: 4 },
-  loader: { marginVertical: 24 },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 12, padding: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  headerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  headerText: { flex: 1 },
+  title: { fontSize: 19, fontWeight: '700' },
+  subtitle: { fontSize: 14, lineHeight: 20, marginTop: 2 },
+  loader: { marginVertical: 28 },
+  // Con muchas porterías la lista se desplaza y los botones quedan a la vista.
+  list: { maxHeight: SCREEN_H * 0.45, flexGrow: 0 },
+  listContent: { gap: 10 },
+  option: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1.5, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16,
+  },
   optionText: { flex: 1 },
-  optionNote: { fontSize: 12, marginTop: 2 },
+  optionName: { fontSize: 16, fontWeight: '600' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  optionNote: { fontSize: 13 },
+  actions: { gap: 10, marginTop: 20 },
   action: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 12, paddingVertical: 14, marginTop: 6,
+    borderRadius: 14, minHeight: 52, paddingHorizontal: 16,
   },
   actionOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },
-  actionText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  actionText: { fontWeight: '700', fontSize: 16 },
+  chooseHint: { fontSize: 13, textAlign: 'center' },
   disabled: { opacity: 0.45 },
 });
