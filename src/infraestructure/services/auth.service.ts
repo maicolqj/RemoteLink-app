@@ -1,6 +1,7 @@
 import apolloClient, { isTerminalAuthCode } from '../../data/lib/apollo/client';
 import { LOGIN_RESIDENT, GET_MY_RESIDENT_PROFILE, REFRESH_TOKEN, RESEND_SYSTEM_CODE } from '../../domain/graphql/auth.queries';
 import SecureStorageService from './SecureStorageService';
+import { runExclusive } from './sessionLock';
 import { getApiErrorMessage, parseApiError, type ParsedApiError } from '../utils/apiError';
 import type { Resident } from '../../presentation/store/auth.store';
 
@@ -57,7 +58,12 @@ const isRateLimitError = (parsed: ParsedApiError): boolean =>
  * el errorLink la invocan automáticamente (proactiva o reactivamente).
  * Retorna el nuevo accessToken, o `null` si el refresh falla (sesión muerta).
  */
-export async function refreshSession(): Promise<string | null> {
+export function refreshSession(): Promise<string | null> {
+  // En la misma cola que el cambio de conjunto: los dos rotan el refresh.
+  return runExclusive(refreshSessionNow);
+}
+
+async function refreshSessionNow(): Promise<string | null> {
   const tokens = await SecureStorageService.getTokens();
   if (!tokens?.refreshToken) return null;
 
