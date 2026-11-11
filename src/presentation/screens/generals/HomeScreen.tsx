@@ -29,6 +29,7 @@ import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { firstName } from '../../utils/names';
 import { ComplexSwitcherSheet } from '../../components/residences/ComplexSwitcherSheet';
 import { fetchMyResidences, type MyResidence } from '../../../infraestructure/services/residences.service';
+import { residentUnitLabel } from '../../utils/unitLabel';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
@@ -365,7 +366,7 @@ export default function HomeScreen() {
         <View style={styles.unitBadge}>
           <Icon name="home" size={14} color={colors.primary} />
           <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
-            {resident?.unit.building.name} · Apto {resident?.unit.number}
+            {residentUnitLabel(resident?.unit)}
           </CustomTextComponent>
         </View>
       </View>
