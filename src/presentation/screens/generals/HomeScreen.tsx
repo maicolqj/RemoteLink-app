@@ -317,7 +317,14 @@ export default function HomeScreen() {
 
         {/* Balance Card */}
         {resident?.complex?.name && (
-          <CustomTextComponent fontSize={FONT_SIZE.lg} fontWeight={FONT_WEIGHT.bold as any} color={colors.textSecondary} textAlign="center" style={styles.complexLabel}>
+          <CustomTextComponent
+            fontSize={FONT_SIZE.lg}
+            fontWeight={FONT_WEIGHT.bold as any}
+            color={colors.textPrimary}
+            textAlign="center"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={styles.complexLabel}>
             {resident.complex.name.toUpperCase()}
           </CustomTextComponent>
         )}
@@ -524,7 +531,8 @@ const styles = StyleSheet.create({
   },
   complexLabel: {
     marginBottom: SPACING.md,
-    marginLeft: SPACING.xs,
+    marginHorizontal: SPACING.sm,
+    letterSpacing: 0.5,
   },
   balanceCard: {
     marginBottom: SPACING.lg,
