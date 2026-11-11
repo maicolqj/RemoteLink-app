@@ -18,6 +18,7 @@ import type { AccountMovement, WalletEntry } from '../../store/finances.store';
 import { formatCOP, formatDate, getLastMonths, MOVEMENT_CONFIG, WALLET_ENTRY_CONFIG } from '../../utils/finances.utils';
 import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
+import { residentUnitLabel } from '../../utils/unitLabel';
 
 type FinancesNavProp = NativeStackNavigationProp<FinancesStackParamList, 'Finances'>;
 type TabKey = 'statement' | 'wallet';
@@ -320,7 +321,7 @@ export default function FinancesScreen() {
 
   return (
     <View style={[gs.screen, { paddingTop: insets.top }]}>
-      <AppHeader title="Finanzas" showBack onBack={() => navigation.goBack()} subtitle={resident ? `${resident.unit.building.name} · Apto ${resident.unit.number}` : undefined} />
+      <AppHeader title="Finanzas" showBack onBack={() => navigation.goBack()} subtitle={resident ? residentUnitLabel(resident.unit) : undefined} />
 
       <ScrollView
         style={gs.flex1}

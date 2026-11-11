@@ -22,6 +22,7 @@ import type { GetUnitResponseModel, GetResidentByUserIdResponseModel } from '../
 import PanicSound from '../../shared/modules/PanicSoundModule';
 import { cancelPanicNotifications } from '../../infraestructure/services/NotifeeService';
 import { PanicLocationMap } from './PanicLocationMap';
+import { prepareComplexForPush } from '../../infraestructure/services/pushComplex';
 
 
 const PANIC_ROLES = [
@@ -94,8 +95,25 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
     { fetchPolicy: 'cache-first', errorPolicy: 'all' },
   );
 
+  // Pánico de otro conjunto donde también vive: la sirena ya suena, pero el
+  // detalle y la confirmación se piden con el conjunto de la sesión, así que
+  // se cambia a ese conjunto. Al terminar, el efecto de abajo vuelve a pedir
+  // los datos con el conjunto correcto.
+  const sessionComplexId = useAuthStore(s => s.resident?.complex?.id);
+  const requestHomeReset = useAuthStore(s => s.requestHomeReset);
+  useEffect(() => {
+    if (!panicData?.complexId) return;
+    // También al llegar la ficha: con la app recién abierta todavía no estaba.
+    prepareComplexForPush(panicData.complexId).then(step => {
+      // La pantalla abierta quedó vaciada por el cambio: volver al Inicio.
+      if (step === 'switch') requestHomeReset();
+    });
+  }, [panicData?.complexId, sessionComplexId, requestHomeReset]);
+
   useEffect(() => {
     if (!panicData) return;
+    // Mientras se cambia de conjunto no hay ficha: esperar al conjunto nuevo.
+    if (!sessionComplexId) return;
 
     if (panicData.unitId && !panicData.unitNumber) {
       fetchUnit({ variables: { id: panicData.unitId } });
@@ -106,7 +124,7 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
     if (panicData.triggeredBy && !panicData.triggeredByName && isResident) {
       fetchResident({ variables: { userId: panicData.triggeredBy } });
     }
-  }, [panicData?.triggeredBy, panicData?.unitId, fetchUnit, fetchResident]);
+  }, [panicData?.triggeredBy, panicData?.unitId, sessionComplexId, fetchUnit, fetchResident]);
 
   const visible = !!panicData && canSee;
 
