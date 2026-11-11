@@ -11,6 +11,10 @@ import { GET_MY_RESIDENCES, SWITCH_RESIDENT_COMPLEX } from '../../domain/graphql
 import SecureStorageService from './SecureStorageService';
 import { parseApiError } from '../utils/apiError';
 import { runExclusive } from './sessionLock';
+import { refreshSessionNow } from './auth.service';
+
+/** Mismo margen que el authLink: con menos de 60 s se renueva antes. */
+const EXPIRY_MARGIN_MS = 60_000;
 
 export type MyResidence = {
   complexId: string;
@@ -39,13 +43,25 @@ export async function fetchMyResidences(): Promise<MyResidence[]> {
  */
 export function requestComplexSwitch(complexId: string): Promise<{ accessToken: string; sessionId?: string }> {
   return runExclusive(async () => {
-    const tokens = await SecureStorageService.getTokens();
-    if (!tokens?.refreshToken) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    const expired = new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    let tokens = await SecureStorageService.getTokens();
+    if (!tokens?.refreshToken) throw expired;
+
+    // Dentro de la cola el authLink no puede renovar (esperaría a esta misma
+    // tarea): si el access token está por vencer se renueva aquí, y el cambio
+    // sale con el token puesto a mano y skipAuth.
+    const expiresAt = tokens.accessTokenExpiresAt;
+    if (!expiresAt || expiresAt - Date.now() < EXPIRY_MARGIN_MS) {
+      if (!(await refreshSessionNow())) throw expired;
+      tokens = await SecureStorageService.getTokens();
+      if (!tokens?.refreshToken) throw expired;
+    }
 
     const { data, error } = await apolloClient.mutate<SwitchResponse>({
       mutation: SWITCH_RESIDENT_COMPLEX,
       variables: { complexId, refreshToken: tokens.refreshToken },
       fetchPolicy: 'no-cache',
+      context: { skipAuth: true, headers: { authorization: `Bearer ${tokens.accessToken}` } },
     });
     const r = data?.switchResidentComplex;
     if (error || !r) {

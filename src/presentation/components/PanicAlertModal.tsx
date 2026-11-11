@@ -100,9 +100,15 @@ export function PanicAlertModal({ panicData, acknowledgedData, onAcknowledged }:
   // se cambia a ese conjunto. Al terminar, el efecto de abajo vuelve a pedir
   // los datos con el conjunto correcto.
   const sessionComplexId = useAuthStore(s => s.resident?.complex?.id);
+  const requestHomeReset = useAuthStore(s => s.requestHomeReset);
   useEffect(() => {
-    if (panicData?.complexId) void prepareComplexForPush(panicData.complexId);
-  }, [panicData?.complexId]);
+    if (!panicData?.complexId) return;
+    // También al llegar la ficha: con la app recién abierta todavía no estaba.
+    prepareComplexForPush(panicData.complexId).then(step => {
+      // La pantalla abierta quedó vaciada por el cambio: volver al Inicio.
+      if (step === 'switch') requestHomeReset();
+    });
+  }, [panicData?.complexId, sessionComplexId, requestHomeReset]);
 
   useEffect(() => {
     if (!panicData) return;

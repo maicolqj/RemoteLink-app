@@ -155,8 +155,14 @@ function ProfileBootstrap() {
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
+    // Si en el camino cambió el token (cambio de conjunto), esta ficha es del
+    // conjunto anterior: no se usa. switchComplex carga la del nuevo.
+    const startToken = useAuthStore.getState().token;
     fetchMyResidentProfile()
-      .then(profile => { if (!cancelled) setResident(profile); })
+      .then(profile => {
+        if (cancelled || useAuthStore.getState().token !== startToken) return;
+        setResident(profile);
+      })
       .catch(err => {
         console.warn('[ProfileBootstrap]', err);
         if (cancelled) return;
@@ -613,6 +619,32 @@ function NotificationBootstrap({
   return null;
 }
 
+// ─── Vuelta al Inicio tras un cambio de conjunto ───────────────────────────────
+
+/**
+ * El pánico de otro conjunto cambia de conjunto desde fuera de la navegación
+ * (el modal vive en SocketProvider). La pantalla que estaba abierta quedó con
+ * los datos vaciados y no se vuelve a pedir sola: se lleva al Inicio.
+ */
+function HomeResetOnComplexSwitch({
+  navigationRef,
+}: {
+  navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>;
+}) {
+  const homeResetRequest = useAuthStore(s => s.homeResetRequest);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const nav = navigationRef.current;
+    if (!nav?.isReady()) return;
+    nav.reset({ index: 0, routes: [{ name: 'Main' }] });
+  }, [homeResetRequest, navigationRef]);
+  return null;
+}
+
 // ─── Inner navigator (has access to ThemeContext) ─────────────────────────────
 
 /** Pantalla vista para PostHog; solo el nombre de la ruta, sin parámetros. */
@@ -648,6 +680,7 @@ function ThemedNavigator() {
         {/* Apagar un módulo tiene que sacar de sus pantallas a quien ya estaba
             adentro, no solo esconder el acceso del inicio. */}
         <ModuleRouteGuard navigationRef={navigationRef} />
+        <HomeResetOnComplexSwitch navigationRef={navigationRef} />
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {isAuthenticated ? (
             <>

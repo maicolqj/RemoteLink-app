@@ -16,6 +16,17 @@ jest.mock('../src/presentation/store/auth.store', () => ({
   },
 }));
 
+// JWT de prueba: solo importa el payload (complexId).
+declare function btoa(data: string): string;
+const jwtWith = (complexId: string) => `h.${btoa(JSON.stringify({ complexId }))}.s`;
+let mockStoredToken: string | null = jwtWith('a');
+jest.mock('../src/infraestructure/services/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    getTokens: jest.fn(async () => (mockStoredToken ? { accessToken: mockStoredToken, refreshToken: 'r' } : null)),
+  },
+}));
+
 import { prepareComplexForPush } from '../src/infraestructure/services/pushComplex';
 
 const mine = [
@@ -52,8 +63,23 @@ describe('prepareComplexForPush', () => {
     await expect(prepareComplexForPush('b')).resolves.toBe('inbox');
   });
 
-  it('sin sesión cargada todavía: no hace nada', async () => {
+  it('app recién abierta, sin ficha: compara contra el conjunto del token guardado', async () => {
     mockCurrent = undefined;
+    mockStoredToken = jwtWith('a');
+    await expect(prepareComplexForPush('b')).resolves.toBe('switch');
+    expect(mockSwitch).toHaveBeenCalledWith('b', 'Mirador');
+  });
+
+  it('app recién abierta y el aviso es del conjunto del token: no cambia', async () => {
+    mockCurrent = undefined;
+    mockStoredToken = jwtWith('b');
+    await expect(prepareComplexForPush('b')).resolves.toBe('none');
+    expect(mockFetchMyResidences).not.toHaveBeenCalled();
+  });
+
+  it('sin ficha ni token: no hace nada', async () => {
+    mockCurrent = undefined;
+    mockStoredToken = null;
     await expect(prepareComplexForPush('b')).resolves.toBe('none');
     expect(mockFetchMyResidences).not.toHaveBeenCalled();
   });

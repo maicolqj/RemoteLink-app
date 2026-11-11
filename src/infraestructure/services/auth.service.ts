@@ -63,7 +63,12 @@ export function refreshSession(): Promise<string | null> {
   return runExclusive(refreshSessionNow);
 }
 
-async function refreshSessionNow(): Promise<string | null> {
+/**
+ * Renovación sin pasar por la cola. Solo para quien YA está dentro de
+ * `runExclusive` (el cambio de conjunto): llamar a `refreshSession` desde ahí
+ * esperaría a la propia cola y no terminaría nunca.
+ */
+export async function refreshSessionNow(): Promise<string | null> {
   const tokens = await SecureStorageService.getTokens();
   if (!tokens?.refreshToken) return null;
 

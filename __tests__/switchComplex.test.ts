@@ -31,12 +31,13 @@ jest.mock('../src/infraestructure/services/SecureStorageService', () => ({
 }));
 
 const mockMutate = jest.fn();
+const mockQuery = jest.fn();
 const mockClearStore = jest.fn(async () => []);
 jest.mock('../src/data/lib/apollo/client', () => ({
   __esModule: true,
   default: {
     mutate: (...a: unknown[]) => mockMutate(...a),
-    query: jest.fn(),
+    query: (...a: unknown[]) => mockQuery(...a),
     clearStore: () => mockClearStore(),
   },
   isTerminalAuthCode: () => false,
@@ -60,7 +61,8 @@ function dirtyAllStores() {
 describe('useAuthStore.switchComplex', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockVault = { accessToken: 'a-0', refreshToken: 'r-0', sessionId: 's-1' };
+    mockVault = { accessToken: 'a-0', refreshToken: 'r-0', sessionId: 's-1', accessTokenExpiresAt: Date.now() + 600_000 };
+    mockQuery.mockResolvedValue({ data: { myResidentProfile: { id: 'res-2', complex: { id: 'complex-2' } } } });
     useAuthStore.setState({
       token: 'a-0',
       sessionId: 's-1',
@@ -86,16 +88,46 @@ describe('useAuthStore.switchComplex', () => {
     expect(mockClearStore).toHaveBeenCalled();
   });
 
-  it('queda con el token nuevo y sin ficha, para que la app recargue el conjunto', async () => {
+  it('termina con el token nuevo y la ficha del conjunto nuevo ya cargada', async () => {
     mockMutate.mockResolvedValueOnce(switchOk('1'));
 
     await useAuthStore.getState().switchComplex('complex-2', 'Mirador');
 
     const s = useAuthStore.getState();
     expect(s.token).toBe('a-1');
-    expect(s.resident).toBeNull();
+    expect(s.resident?.complex?.id).toBe('complex-2');
     expect(s.isAuthenticated).toBe(true);
     expect(s.switchingTo).toBeNull();
+  });
+
+  it('si la ficha nueva no carga, la deja en null para que ProfileBootstrap reintente', async () => {
+    mockMutate.mockResolvedValueOnce(switchOk('1'));
+    mockQuery.mockRejectedValueOnce(new Error('sin red'));
+
+    await useAuthStore.getState().switchComplex('complex-2', 'Mirador');
+
+    const s = useAuthStore.getState();
+    expect(s.token).toBe('a-1');
+    expect(s.resident).toBeNull();
+  });
+
+  it('una respuesta tardía del conjunto anterior no sobrevive al cambio', async () => {
+    mockMutate.mockResolvedValueOnce(switchOk('1'));
+    // Llega mientras se carga la ficha nueva.
+    mockQuery.mockImplementationOnce(async () => {
+      COMPLEX_SCOPED_STORES[0].setState({ __conjuntoAnterior: true } as any);
+      return { data: { myResidentProfile: { id: 'res-2', complex: { id: 'complex-2' } } } };
+    });
+
+    await useAuthStore.getState().switchComplex('complex-2', 'Mirador');
+
+    expect(COMPLEX_SCOPED_STORES[0].getState()).toEqual(COMPLEX_SCOPED_STORES[0].getInitialState());
+  });
+
+  it('requestHomeReset sube el contador que hace volver al Inicio', () => {
+    const before = useAuthStore.getState().homeResetRequest;
+    useAuthStore.getState().requestHomeReset();
+    expect(useAuthStore.getState().homeResetRequest).toBe(before + 1);
   });
 
   it('si el servidor rechaza, nada cambia y el error sube', async () => {
@@ -116,7 +148,7 @@ describe('useAuthStore.switchComplex', () => {
 describe('refresh y cambio de conjunto en paralelo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockVault = { accessToken: 'a-0', refreshToken: 'r-0', sessionId: 's-1' };
+    mockVault = { accessToken: 'a-0', refreshToken: 'r-0', sessionId: 's-1', accessTokenExpiresAt: Date.now() + 600_000 };
   });
 
   it('corren en serie: el cambio usa el refresh que acaba de guardar la renovación', async () => {

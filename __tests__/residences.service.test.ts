@@ -17,12 +17,22 @@ jest.mock('../src/infraestructure/services/SecureStorageService', () => ({
   },
 }));
 
+const mockRefreshNow = jest.fn();
+jest.mock('../src/infraestructure/services/auth.service', () => ({
+  refreshSessionNow: (...a: unknown[]) => mockRefreshNow(...a),
+}));
+
 import { fetchMyResidences, requestComplexSwitch } from '../src/infraestructure/services/residences.service';
 
 describe('residences.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetTokens.mockResolvedValue({ accessToken: 'a-viejo', refreshToken: 'r-viejo', sessionId: 's-1' });
+    mockGetTokens.mockResolvedValue({
+      accessToken: 'a-viejo',
+      refreshToken: 'r-viejo',
+      sessionId: 's-1',
+      accessTokenExpiresAt: Date.now() + 10 * 60_000,
+    });
     mockSaveTokens.mockResolvedValue(true);
   });
 
@@ -66,5 +76,43 @@ describe('residences.service', () => {
 
     await expect(fetchMyResidences()).resolves.toEqual(list);
     expect(mockQuery).toHaveBeenCalledWith(expect.objectContaining({ fetchPolicy: 'no-cache' }));
+  });
+  it('manda el cambio con el token puesto a mano y skipAuth: no pasa por el authLink (que esperaría la cola)', async () => {
+    mockMutate.mockResolvedValueOnce({
+      data: { switchResidentComplex: { accessToken: 'a-nuevo', refreshToken: 'r-nuevo', expiresIn: 900, sessionId: 's-1' } },
+    });
+
+    await requestComplexSwitch('complex-2');
+
+    expect(mockMutate.mock.calls[0][0].context).toEqual({
+      skipAuth: true,
+      headers: { authorization: 'Bearer a-viejo' },
+    });
+    expect(mockRefreshNow).not.toHaveBeenCalled();
+  });
+
+  it('con el access token por vencer, renueva primero dentro de la cola y usa el par nuevo', async () => {
+    mockGetTokens
+      .mockResolvedValueOnce({ accessToken: 'a-viejo', refreshToken: 'r-viejo', sessionId: 's-1', accessTokenExpiresAt: Date.now() + 5_000 })
+      .mockResolvedValueOnce({ accessToken: 'a-renovado', refreshToken: 'r-renovado', sessionId: 's-1', accessTokenExpiresAt: Date.now() + 900_000 });
+    mockRefreshNow.mockResolvedValueOnce('a-renovado');
+    mockMutate.mockResolvedValueOnce({
+      data: { switchResidentComplex: { accessToken: 'a-nuevo', refreshToken: 'r-nuevo', expiresIn: 900, sessionId: 's-1' } },
+    });
+
+    await requestComplexSwitch('complex-2');
+
+    expect(mockRefreshNow).toHaveBeenCalledTimes(1);
+    const call = mockMutate.mock.calls[0][0];
+    expect(call.variables).toEqual({ complexId: 'complex-2', refreshToken: 'r-renovado' });
+    expect(call.context.headers).toEqual({ authorization: 'Bearer a-renovado' });
+  });
+
+  it('si la renovación previa falla, no intenta el cambio', async () => {
+    mockGetTokens.mockResolvedValueOnce({ accessToken: 'a-viejo', refreshToken: 'r-viejo', sessionId: 's-1', accessTokenExpiresAt: Date.now() + 5_000 });
+    mockRefreshNow.mockResolvedValueOnce(null);
+
+    await expect(requestComplexSwitch('complex-2')).rejects.toThrow();
+    expect(mockMutate).not.toHaveBeenCalled();
   });
 });

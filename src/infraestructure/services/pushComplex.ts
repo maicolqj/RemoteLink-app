@@ -4,9 +4,27 @@
 // pide con el conjunto de la sesión, y el detalle de otro conjunto falla).
 // =============================================================================
 
+// Hermes trae atob; los tipos de RN no lo declaran (igual que en apollo/client).
+declare function atob(data: string): string;
+
 import { useAuthStore } from '../../presentation/store/auth.store';
 import { complexSwitchTarget } from '../../presentation/utils/complexSwitchTarget';
 import { fetchMyResidences } from './residences.service';
+import SecureStorageService from './SecureStorageService';
+
+/** El conjunto de la sesión según el access token guardado (sin verificar firma: solo para comparar). */
+async function complexIdFromStoredToken(): Promise<string | undefined> {
+  try {
+    const token = (await SecureStorageService.getTokens())?.accessToken;
+    const part = token?.split('.')[1];
+    if (!part) return undefined;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const complexId = (JSON.parse(json) as { complexId?: unknown }).complexId;
+    return typeof complexId === 'string' ? complexId : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * - `none`: es del conjunto abierto (o no se sabe): abrir normal.
@@ -17,9 +35,11 @@ export async function prepareComplexForPush(
   pushComplexId: string | undefined,
 ): Promise<'none' | 'switch' | 'inbox'> {
   const { resident, switchComplex } = useAuthStore.getState();
-  const currentId = resident?.complex?.id;
-  // Sin ficha todavía (arranque en frío) no hay contra qué comparar.
-  if (!currentId || !pushComplexId || pushComplexId === currentId) return 'none';
+  if (!pushComplexId) return 'none';
+  // App recién abierta desde la notificación: la ficha todavía no llegó, pero
+  // el token guardado ya dice en qué conjunto está la sesión.
+  const currentId = resident?.complex?.id ?? (await complexIdFromStoredToken());
+  if (!currentId || pushComplexId === currentId) return 'none';
 
   try {
     const residences = await fetchMyResidences();
