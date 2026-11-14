@@ -1,5 +1,6 @@
 import { INTERCOM_PUSH, cancelCallNotification, isIntercomPush } from './intercomPush';
 import { intercomCallService } from './intercomCall.service';
+import { prepareComplexForPush } from './pushComplex';
 import {
   getMessaging,
   getToken,
@@ -134,12 +135,34 @@ export function navigateToApprovalIfNeeded(
   return true;
 }
 
-function navigateFromPayload(
+// Un aviso de otro conjunto donde vive el residente primero cambia de
+// conjunto: la pantalla destino pide sus datos con el conjunto de la sesión.
+async function navigateFromPayload(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   data: FCMData,
 ) {
   if (!navigationRef.isReady()) return;
+  // La aprobación de un equipo nuevo es de la cuenta, no de un conjunto.
   if (navigateToApprovalIfNeeded(navigationRef, data)) return;
+  const step = await prepareComplexForPush(data.complexId);
+  if (step === 'inbox') {
+    navigateToInbox(navigationRef);
+    return;
+  }
+  navigateFromPayloadInComplex(navigationRef, data);
+}
+
+/** Aviso que no se puede abrir en su conjunto: a la bandeja. */
+function navigateToInbox(navigationRef: NavigationContainerRef<RootStackParamList>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (navigationRef as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Notifications' } });
+}
+
+function navigateFromPayloadInComplex(
+  navigationRef: NavigationContainerRef<RootStackParamList>,
+  data: FCMData,
+) {
+  if (!navigationRef.isReady()) return;
 
   const chatId = chatConversationFromData(
     data as unknown as Record<string, string | undefined>,
@@ -335,7 +358,7 @@ export function initNotificationListeners(
       onPanic?.(data);
     } else {
       onNewNotification(buildNotification(remoteMessage));
-      navigateFromPayload(navigationRef, data);
+      void navigateFromPayload(navigationRef, data);
     }
   });
 
@@ -368,6 +391,6 @@ export async function handleInitialNotification(
     onPanic?.(data);
   } else {
     onNewNotification(buildNotification(remoteMessage));
-    navigateFromPayload(navigationRef, data);
+    void navigateFromPayload(navigationRef, data);
   }
 }

@@ -17,6 +17,7 @@ import { SPACING, RADIUS } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 // Versión enlazada a package.json (se actualiza con `yarn version`).
 import { version as APP_VERSION } from '../../../../package.json';
+import { residentUnitLabel } from '../../utils/unitLabel';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList, 'Profile'>;
 
@@ -82,7 +83,7 @@ export default function ProfileScreen() {
           <View style={[styles.unitBadge, { backgroundColor: colors.primarySurface }]}>
             <Icon name="home" size={14} color={colors.primary} />
             <CustomTextComponent fontSize={FONT_SIZE.sm} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
-              {resident?.unit.building.name} · Apto {resident?.unit.number}
+              {residentUnitLabel(resident?.unit)}
             </CustomTextComponent>
           </View>
         </View>
