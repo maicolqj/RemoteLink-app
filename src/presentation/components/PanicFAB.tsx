@@ -16,12 +16,14 @@ import { useCoachmarkTarget } from '../providers/context/CoachmarkContext';
 import { getApiErrorMessage } from '../../infraestructure/utils/apiError';
 import { PanicTriggerModal } from './PanicTriggerModal';
 import { sharePanicLocation } from '../../infraestructure/services/panic-location.service';
+import { useCommunityAccessStore } from '../store/community-access.store';
 
 const FAB_SIZE = 56;
 const PULSE_SIZE = FAB_SIZE + 20;
 const DELAY_LONG_PRESS = 600;
 
 export function PanicFAB() {
+  const panicAvailable = useCommunityAccessStore(s => s.access?.panicAvailable !== false);
   const resident = useAuthStore(s => s.resident);
   // Una pantalla con barra fija abajo (el chat) sube el botón por encima de
   // ella: el pánico sigue a mano sin tapar lo que se está escribiendo.
@@ -109,6 +111,8 @@ export function PanicFAB() {
   }, [resident, triggerPanic, showError, showSuccess]);
 
   const handleCancel = useCallback(() => setModalVisible(false), []);
+
+  if (!panicAvailable) return null;
 
   return (
     <>

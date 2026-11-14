@@ -5759,6 +5759,91 @@ type SubscriptionPlanPriceView {
   updatedAt: DateTime
 }
 
+"""Acceso de la comunidad según la suscripción del conjunto"""
+type CommunityAccess {
+  """La comunidad perdió el acceso por no renovar"""
+  accessCut: Boolean!
+
+  """El botón de pánico sigue funcionando"""
+  panicAvailable: Boolean!
+
+  """Fecha del corte: ya ocurrió si accessCut, si no es la prevista"""
+  cutAt: DateTime
+}
+
+"""Conjunto que llegó por una recomendación"""
+type ReferredComplex {
+  id: ID!
+  name: String!
+  status: ComplexStatus!
+
+  """Cuándo se registró"""
+  registeredAt: DateTime!
+
+  """
+  Cuándo se otorgó la cortesía por esta recomendación. Vacío = aún no hace su primer pago.
+  """
+  rewardedAt: DateTime
+}
+
+"""Código de recomendación de un conjunto y lo que ha traído"""
+type ComplexReferralSummary {
+  """Código que el conjunto comparte para recomendarnos"""
+  code: String!
+
+  """
+  Días gratis que recibe por cada conjunto recomendado que hace su primer pago
+  """
+  rewardDays: Int!
+
+  """Conjunto que recomendó a este"""
+  referredBy: ReferredComplex
+
+  """Conjuntos que se registraron con su código"""
+  referrals: [ReferredComplex!]!
+}
+
+"""Soporte de pago enviado por el conjunto"""
+type SubscriptionPaymentSubmission {
+  id: ID!
+  complexId: String!
+  complex: ResidentialComplex
+  plan: ComplexPlan!
+  cycle: BillingCycle!
+
+  """Días para vencer; 0 o negativo si ya venció"""
+  daysLeft: Int
+
+  """Hasta cuándo corre la gracia antes de suspender"""
+  graceEndsAt: DateTime
+  currentPeriod: SubscriptionPeriod
+
+  """Cómo se le cobra a este conjunto"""
+  pricing: SubscriptionPricing!
+
+  """Valor de la próxima renovación con el plan y ciclo del conjunto"""
+  quote: SubscriptionQuote!
+
+  """Si ya usó la prueba gratis"""
+  trialUsed: Boolean!
+
+  """Historial, el más reciente primero"""
+  periods: [SubscriptionPeriod!]!
+}
+
+"""Precio vigente de un plan"""
+type SubscriptionPlanPriceView {
+  plan: ComplexPlan!
+  monthlyPrice: Float!
+
+  """Precio anual efectivo"""
+  annualPrice: Float!
+
+  """true si el anual se fijó a mano; false = 10 mensualidades"""
+  annualPriceIsCustom: Boolean!
+  updatedAt: DateTime
+}
+
 """Conjunto que llegó por una recomendación"""
 type ReferredComplex {
   id: ID!
@@ -7318,6 +7403,11 @@ type Query {
 
   """Precios vigentes de los planes pagos."""
   subscriptionPlanPrices: [SubscriptionPlanPriceView!]!
+
+  """
+  Si la comunidad del conjunto de la sesión conserva el acceso y el botón de pánico.
+  """
+  myCommunityAccess: CommunityAccess!
 
   """Suscripción e historial de un complejo. Solo plataforma."""
   complexSubscription(complexId: ID!): SubscriptionSummary!
