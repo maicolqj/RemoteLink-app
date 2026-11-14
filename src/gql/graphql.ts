@@ -557,6 +557,11 @@ export type AnnouncementTargetPreview = {
   withEmailCount: Scalars['Int']['output'];
 };
 
+export type AnswerIntercomCallInput = {
+  callId: Scalars['String']['input'];
+  deviceId?: InputMaybe<Scalars['String']['input']>;
+};
+
 /** Resultado de revisar la versión instalada */
 export type AppVersionCheck = {
   __typename?: 'AppVersionCheck';
@@ -852,6 +857,11 @@ export type BulkNotificationActionResult = {
   skipped: Scalars['Int']['output'];
 };
 
+/** Canal de la llamada: línea del celular (SIM) o por internet */
+export type CallChannel =
+  | 'INTERNET'
+  | 'SIM';
+
 /** Dirección de la llamada */
 export type CallDirection =
   | 'INCOMING'
@@ -866,6 +876,8 @@ export type CallLog = {
   agentUserId?: Maybe<Scalars['String']['output']>;
   answeredAt?: Maybe<Scalars['DateTime']['output']>;
   buildingName?: Maybe<Scalars['String']['output']>;
+  /** SIM = línea del celular de portería; INTERNET = por la app */
+  channel: CallChannel;
   complex?: Maybe<ResidentialComplex>;
   complexId: Scalars['String']['output'];
   createdAt: Scalars['DateTime']['output'];
@@ -878,19 +890,27 @@ export type CallLog = {
   phoneNumber: Scalars['String']['output'];
   residentId?: Maybe<Scalars['String']['output']>;
   residentName?: Maybe<Scalars['String']['output']>;
+  residentUserId?: Maybe<Scalars['String']['output']>;
+  securityPostId?: Maybe<Scalars['String']['output']>;
+  securityPostName?: Maybe<Scalars['String']['output']>;
   startedAt: Scalars['DateTime']['output'];
   unitId?: Maybe<Scalars['String']['output']>;
   unitNumber?: Maybe<Scalars['String']['output']>;
+  voiceState?: Maybe<VoiceCallState>;
 };
 
 export type CallLogsInput = {
   agentUserId?: InputMaybe<Scalars['String']['input']>;
+  /** SIM o INTERNET. Sin filtro, las dos */
+  channel?: InputMaybe<CallChannel>;
   complexId: Scalars['String']['input'];
   dateFrom?: InputMaybe<Scalars['String']['input']>;
   dateTo?: InputMaybe<Scalars['String']['input']>;
   direction?: InputMaybe<CallDirection>;
   outcome?: InputMaybe<CallOutcome>;
   pagination?: InputMaybe<PaginationInput>;
+  /** Solo esa portería */
+  securityPostId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CallLogsPage = {
@@ -2062,6 +2082,15 @@ export type CreateRoleInput = {
   permissionIds: Array<Scalars['String']['input']>;
 };
 
+export type CreateSecurityPostInput = {
+  complexId: Scalars['String']['input'];
+  /** Ej. "Portería norte" */
+  name: Scalars['String']['input'];
+  /** Línea del celular de esa portería (opcional) */
+  phoneNumber?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type CreateSpecialNumberInput = {
   category: SpecialNumberCategory;
   /** Requerido para números de complejo; omitir para números globales (solo SUPER_ADMIN) */
@@ -2766,6 +2795,13 @@ export type HierarchyStats = {
   effectivePermissionCount: Scalars['Int']['output'];
 };
 
+export type IceServer = {
+  __typename?: 'IceServer';
+  credential?: Maybe<Scalars['String']['output']>;
+  urls: Array<Scalars['String']['output']>;
+  username?: Maybe<Scalars['String']['output']>;
+};
+
 /** Categoría de ingreso directo (caja/banco) del complejo */
 export type IncomeCategory =
   /** Donaciones y aportes */
@@ -2788,6 +2824,46 @@ export type IncomeCategoryBreakdown = {
   category: IncomeCategory;
   count: Scalars['Float']['output'];
   total: Scalars['Float']['output'];
+};
+
+export type IntercomAdoption = {
+  __typename?: 'IntercomAdoption';
+  /** Unidades con residentes activos */
+  totalUnits: Scalars['Int']['output'];
+  /** Unidades con al menos un residente con la app */
+  unitsWithApp: Scalars['Int']['output'];
+  /** Unidades donde nadie tiene la app */
+  unitsWithoutApp: Array<IntercomUnitAdoption>;
+};
+
+export type IntercomCallSession = {
+  __typename?: 'IntercomCallSession';
+  call: CallLog;
+  /** Servidores STUN/TURN con credenciales temporales */
+  iceServers: Array<IceServer>;
+};
+
+/** Citofonía del conjunto: por línea celular o por internet */
+export type IntercomMode =
+  | 'INTERNET'
+  | 'SIM';
+
+export type IntercomSignalInput = {
+  callId: Scalars['String']['input'];
+  /** offer | answer | candidate */
+  kind: Scalars['String']['input'];
+  payload: Scalars['String']['input'];
+};
+
+export type IntercomUnitAdoption = {
+  __typename?: 'IntercomUnitAdoption';
+  buildingName?: Maybe<Scalars['String']['output']>;
+  /** Residentes activos de la unidad */
+  residents: Scalars['Int']['output'];
+  /** De ellos, cuántos tienen la app instalada */
+  residentsWithApp: Scalars['Int']['output'];
+  unitId: Scalars['String']['output'];
+  unitNumber: Scalars['String']['output'];
 };
 
 /** Audiencia de un documento legal (público o solo complejos registrados) */
@@ -3712,6 +3788,7 @@ export type Mutation = {
   adjustComplexSubscription: SubscriptionSummary;
   /** Asigna una contraseña inicial que el usuario debe cambiar al entrar. El SUPER_ADMIN puede hacerlo con cualquier cargo que entra con contraseña (incluido el oficial de cumplimiento); el administrador del complejo, con su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP. */
   adminResetUserPassword: SetPasswordResponse;
+  answerIntercomCall: IntercomCallSession;
   /** Vuelve a enviar a Google la política de kiosco de portería */
   applyKioskPolicy: DeviceManagementStatus;
   applyMoraAllPeriods: MoraApplicationResult;
@@ -3793,6 +3870,7 @@ export type Mutation = {
   createRecurringCharge: RecurringCharge;
   createResident: Resident;
   createRole: SimpleRoleResponse;
+  createSecurityPost: SecurityPost;
   createSpecialNumber: SpecialNumber;
   /** Crea personal del complejo: guardia (SECURITY_ROL), contador (ACCOUNTANT_ROL) o aseo y mantenimiento (MAINTENANCE_ROL). El campo `role` determina el tipo. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL. */
   createStaffMember: CreateStaffMemberResponse;
@@ -3828,6 +3906,7 @@ export type Mutation = {
   denyDeviceApproval: Scalars['Boolean']['output'];
   denyVisitEntry: Visit;
   dismissPetIncident: PetIncident;
+  endIntercomCall: CallLog;
   endorseMaintenanceTicket: MaintenanceTicket;
   executeNotificationAction: NotificationEntitySnapshot;
   executeRotation: RotationStatusResponse;
@@ -3903,6 +3982,7 @@ export type Mutation = {
   /** Rechaza la solicitud de acceso de un supervisor con un motivo opcional. */
   rejectAccessRequest: SupervisorAccessRequest;
   rejectAmenityBooking: AmenityBooking;
+  rejectIntercomCall: CallLog;
   rejectListing: MarketplaceListing;
   rejectMaintenanceTicket: MaintenanceTicket;
   rejectPet: Pet;
@@ -3922,6 +4002,7 @@ export type Mutation = {
   removeResident: Scalars['Boolean']['output'];
   /** Soft delete a role by setting status to false */
   removeRole: RemoveRoleResponse;
+  removeSecurityPost: Scalars['Boolean']['output'];
   removeSpecialNumber: Scalars['Boolean']['output'];
   /** Elimina a un miembro del personal del complejo. Si el usuario tiene residencia activa en algún complejo, solo se le quita el rol de personal. Si no tiene ninguna residencia activa, se elimina del sistema. Requiere rol COMPLEX_ROL o SUPER_ADMIN_ROL. */
   removeStaffMember: RemoveStaffMemberResponse;
@@ -4001,6 +4082,10 @@ export type Mutation = {
   saveSubscriptionTax: SubscriptionTax;
   scheduleVisit: Visit;
   seedPucAccounts: Array<PucAccount>;
+  /** El vigilante dice en qué portería está (null = en ninguna). Solo le llega lo de esa portería */
+  selectSecurityPost?: Maybe<SecurityPost>;
+  /** Pasa offer/answer/candidate WebRTC a la otra parte */
+  sendIntercomSignal: Scalars['Boolean']['output'];
   sendMarketplaceMessage: MarketplaceMessage;
   sendNotification: SendNotificationResult;
   setAmenitySchedules: Amenity;
@@ -4029,6 +4114,10 @@ export type Mutation = {
   starPlatformAnnouncements: AnnouncementBulkResult;
   /** Paso 1: enlace de Google para vincular la cuenta de la empresa */
   startEnterpriseSignup: EnterpriseSignup;
+  /** Portería llama por internet a un residente */
+  startResidentIntercomCall: IntercomCallSession;
+  /** El residente llama por internet a la portería */
+  startSecurityIntercomCall: IntercomCallSession;
   submitListing: MarketplaceListing;
   /** Registra el check-in del supervisor en un complejo residencial. Requiere asignación activa al complejo y validación GPS. Solo puede existir una visita ACTIVA por complejo a la vez. */
   supervisorCheckIn: SupervisorVisit;
@@ -4061,6 +4150,8 @@ export type Mutation = {
   updateComplexContact: ComplexContact;
   updateComplexDocument: ComplexDocument;
   updateComplexInfoSettings: ComplexInfoSettings;
+  /** Citofonía del conjunto (SIM o INTERNET). Solo SUPER_ADMIN */
+  updateComplexIntercomSettings: ResidentialComplex;
   updateComplexModules: ResidentialComplex;
   updateComplexSchedule: ComplexSchedule;
   updateFeeConfig: FeeConfig;
@@ -4079,6 +4170,7 @@ export type Mutation = {
   updateRecurringCharge: RecurringCharge;
   updateResident: Resident;
   updateRole: Role;
+  updateSecurityPost: SecurityPost;
   updateSpecialNumber: SpecialNumber;
   /** Corrige el valor, la fecha o la referencia de un pago registrado, con motivo. */
   updateSubscriptionPayment: SubscriptionSummary;
@@ -4138,6 +4230,11 @@ export type MutationAdjustComplexSubscriptionArgs = {
 
 export type MutationAdminResetUserPasswordArgs = {
   input: AdminResetUserPasswordInput;
+};
+
+
+export type MutationAnswerIntercomCallArgs = {
+  input: AnswerIntercomCallInput;
 };
 
 
@@ -4480,6 +4577,11 @@ export type MutationCreateRoleArgs = {
 };
 
 
+export type MutationCreateSecurityPostArgs = {
+  input: CreateSecurityPostInput;
+};
+
+
 export type MutationCreateSpecialNumberArgs = {
   input: CreateSpecialNumberInput;
 };
@@ -4631,6 +4733,11 @@ export type MutationDenyVisitEntryArgs = {
 export type MutationDismissPetIncidentArgs = {
   incidentId: Scalars['String']['input'];
   reason: Scalars['String']['input'];
+};
+
+
+export type MutationEndIntercomCallArgs = {
+  callId: Scalars['String']['input'];
 };
 
 
@@ -4918,6 +5025,11 @@ export type MutationRejectAmenityBookingArgs = {
 };
 
 
+export type MutationRejectIntercomCallArgs = {
+  callId: Scalars['String']['input'];
+};
+
+
 export type MutationRejectListingArgs = {
   input: ModerateListingInput;
 };
@@ -4994,6 +5106,11 @@ export type MutationRemoveResidentArgs = {
 
 
 export type MutationRemoveRoleArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationRemoveSecurityPostArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -5118,6 +5235,7 @@ export type MutationRequestPasswordResetArgs = {
 
 export type MutationRequestSecurityCallArgs = {
   complexId: Scalars['String']['input'];
+  securityPostId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -5279,6 +5397,16 @@ export type MutationSeedPucAccountsArgs = {
 };
 
 
+export type MutationSelectSecurityPostArgs = {
+  securityPostId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationSendIntercomSignalArgs = {
+  input: IntercomSignalInput;
+};
+
+
 export type MutationSendMarketplaceMessageArgs = {
   input: SendMarketplaceMessageInput;
 };
@@ -5373,6 +5501,16 @@ export type MutationStarPlatformAnnouncementsArgs = {
 
 export type MutationStartEnterpriseSignupArgs = {
   input: StartEnterpriseSignupInput;
+};
+
+
+export type MutationStartResidentIntercomCallArgs = {
+  input: StartResidentIntercomCallInput;
+};
+
+
+export type MutationStartSecurityIntercomCallArgs = {
+  input: StartSecurityIntercomCallInput;
 };
 
 
@@ -5515,6 +5653,11 @@ export type MutationUpdateComplexInfoSettingsArgs = {
 };
 
 
+export type MutationUpdateComplexIntercomSettingsArgs = {
+  input: UpdateIntercomSettingsInput;
+};
+
+
 export type MutationUpdateComplexModulesArgs = {
   complexId: Scalars['String']['input'];
   modules: Array<ComplexModule>;
@@ -5598,6 +5741,11 @@ export type MutationUpdateResidentArgs = {
 export type MutationUpdateRoleArgs = {
   id: Scalars['String']['input'];
   input: UpdateRoleInput;
+};
+
+
+export type MutationUpdateSecurityPostArgs = {
+  input: UpdateSecurityPostInput;
 };
 
 
@@ -7187,6 +7335,8 @@ export type Query = {
   complexSupervisors: Array<ComplexSupervisor>;
   complexSuspension: ComplexSuspensionInfo;
   complexes: PaginatedComplexesResponse;
+  /** Llamada sonando o en curso de quien pregunta (al abrir la app desde el push) */
+  currentIntercomCall?: Maybe<IntercomCallSession>;
   /** Últimas 20 descargas de datos del complejo */
   dataExportHistory: Array<DataExportHistoryEntry>;
   /** Módulos cuyos datos se pueden descargar en el complejo */
@@ -7198,6 +7348,8 @@ export type Query = {
   feeConfigs: Array<FeeConfig>;
   findnotes: PaginatedNotesResponse;
   getRoleHierarchy: RoleHierarchyResponse;
+  /** Unidades que quedarían sin citofonía al pasar a INTERNET */
+  intercomAdoption: IntercomAdoption;
   /** Todos los documentos legales (incluidos no publicados). Solo SUPER_ADMIN. */
   legalDocumentsAdmin: Array<LegalDocument>;
   listingAudience: PaginatedListingAudienceResponse;
@@ -7239,6 +7391,8 @@ export type Query = {
   myAmenityCouncilQuota: AmenityCouncilQuotaResponse;
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
+  /** Si la comunidad del conjunto de la sesión conserva el acceso y el botón de pánico. */
+  myCommunityAccess: CommunityAccess;
   /** Un documento publicado, con su texto completo. Abrirlo cuenta como leído si pide acuse */
   myComplexDocument: MyComplexDocument;
   /** Mi Conjunto: datos, contactos, horarios y documentos para el residente */
@@ -7259,6 +7413,8 @@ export type Query = {
   /** Lista los dispositivos vinculados del residente autenticado. */
   myResidentDevices: Array<ResidentDevice>;
   myResidentProfile: Resident;
+  /** Portería en la que está el vigilante */
+  mySecurityPost?: Maybe<SecurityPost>;
   /** Suscripción del complejo de la sesión (administración). */
   mySubscription: SubscriptionSummary;
   /** Soportes de pago enviados por el conjunto de la sesión */
@@ -7325,6 +7481,8 @@ export type Query = {
   scheduledVisitsToday: Array<Visit>;
   /** Salidas de los vigilantes de la app de portería, de la más reciente a la más antigua. Las que no tienen returnedAt siguen abiertas. */
   securityAppExits: PaginatedSecurityAppExitsResponse;
+  /** Porterías del conjunto. Vacío = una sola portería, no hay que elegir */
+  securityPosts: Array<SecurityPost>;
   sentMessages: PaginatedSentMessagesResponse;
   sentNotifications: SentNotificationPaginatedResult;
   specialNumbers: Array<SpecialNumber>;
@@ -7657,6 +7815,11 @@ export type QueryFindnotesArgs = {
 
 export type QueryGetRoleHierarchyArgs = {
   roleId: Scalars['String']['input'];
+};
+
+
+export type QueryIntercomAdoptionArgs = {
+  complexId: Scalars['String']['input'];
 };
 
 
@@ -8125,6 +8288,11 @@ export type QuerySecurityAppExitsArgs = {
   complexId: Scalars['String']['input'];
   filters?: InputMaybe<FilterSecurityAppExitsInput>;
   pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QuerySecurityPostsArgs = {
+  complexId: Scalars['String']['input'];
 };
 
 
@@ -8930,6 +9098,8 @@ export type ResidentialComplex = {
   /** Minutos que el vigilante debe llevar fuera de la app para avisar. 0 = de inmediato */
   guardExitAlertMinutes: Scalars['Int']['output'];
   id: Scalars['String']['output'];
+  /** Citofonía de portería: por la línea del celular o por internet */
+  intercomMode: IntercomMode;
   /** Date of last password change */
   lastPasswordChange?: Maybe<Scalars['DateTime']['output']>;
   /** Latitud GPS del complejo para validación de presencia */
@@ -9013,6 +9183,8 @@ export type ResidentialComplex = {
   referralRewardedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Conjunto que recomendó a este */
   referredByComplexId?: Maybe<Scalars['String']['output']>;
+  /** El residente puede llamar a portería por internet */
+  residentIntercomCallsEnabled: Scalars['Boolean']['output'];
   /** Rol fijo del complejo residencial */
   roles: Array<ValidRoles>;
   /** URL del RUT del complejo (R2) */
@@ -9365,6 +9537,26 @@ export type SecurityAppExit = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+/** Portería del conjunto */
+export type SecurityPost = {
+  __typename?: 'SecurityPost';
+  complexId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  /** Vigilantes que dijeron estar en esta portería */
+  guardsOnDuty: Scalars['Int']['output'];
+  /** De ellos, cuántos pueden recibir llamadas por internet (tienen la app) */
+  guardsWithApp: Scalars['Int']['output'];
+  id: Scalars['String']['output'];
+  /** Inactiva: no aparece para elegir ni recibe nada */
+  isActive: Scalars['Boolean']['output'];
+  /** Nombre que ve el residente */
+  name: Scalars['String']['output'];
+  phoneNumber?: Maybe<Scalars['String']['output']>;
+  /** Orden en la lista (ascendente) */
+  sortOrder: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type SendMarketplaceMessageInput = {
   body: Scalars['String']['input'];
   conversationId: Scalars['String']['input'];
@@ -9610,6 +9802,22 @@ export type StaffMemberAction =
 export type StartEnterpriseSignupInput = {
   /** Página del panel a la que Google regresa con ?enterpriseToken=…; debe ser de un dominio permitido */
   callbackUrl: Scalars['String']['input'];
+};
+
+export type StartResidentIntercomCallInput = {
+  complexId: Scalars['String']['input'];
+  /** Usuario del residente al que se llama */
+  residentUserId: Scalars['String']['input'];
+  /** Unidad desde la que se eligió al residente (si vive en varias del conjunto) */
+  unitId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type StartSecurityIntercomCallInput = {
+  complexId: Scalars['String']['input'];
+  /** Portería a la que llama. Obligatoria si el conjunto tiene más de una */
+  securityPostId?: InputMaybe<Scalars['String']['input']>;
+  /** Unidad desde la que llama (si vive en varias del conjunto) */
+  unitId?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Datos para pagar la suscripción */
@@ -10290,6 +10498,13 @@ export type UpdateFeeConfigInput = {
   triggerType?: InputMaybe<FeeConfigTriggerType>;
 };
 
+export type UpdateIntercomSettingsInput = {
+  complexId: Scalars['String']['input'];
+  mode: IntercomMode;
+  /** El residente puede llamar a portería por la app (solo aplica en INTERNET) */
+  residentCallsEnabled: Scalars['Boolean']['input'];
+};
+
 export type UpdateLegalDocumentInput = {
   audience?: InputMaybe<LegalAudience>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -10494,6 +10709,15 @@ export type UpdateRoleInput = {
   name?: InputMaybe<ValidRoles>;
   parentId?: InputMaybe<Scalars['String']['input']>;
   permissionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type UpdateSecurityPostInput = {
+  id: Scalars['String']['input'];
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** Vacío ("") para quitar el teléfono */
+  phoneNumber?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateSpecialNumberInput = {
@@ -11446,6 +11670,12 @@ export type VisitorVehicle = {
   vehicleType: VehicleType;
 };
 
+/** Estado en vivo de una llamada por internet */
+export type VoiceCallState =
+  | 'ACTIVE'
+  | 'ENDED'
+  | 'RINGING';
+
 /** Voto nominal (se sabe quién votó qué) o secreto (solo totales) */
 export type VoteSecrecy =
   | 'NOMINAL'
@@ -11911,6 +12141,60 @@ export type GetUnitWalletQueryVariables = Exact<{
 
 
 export type GetUnitWalletQuery = { __typename: 'Query', unitWallet: { __typename: 'UnitWalletResponse', unitId: string, unitNumber: string, building?: string | null, currentBalance: number, totalCredits: number, totalDebits: number, entries: Array<{ __typename: 'WalletEntryObject', id: string, type: string, amount: number, description: string, chargeId?: string | null, createdAt: string }> } };
+
+export type ResidentSecurityPostsQueryVariables = Exact<{
+  complexId: Scalars['String']['input'];
+}>;
+
+
+export type ResidentSecurityPostsQuery = { __typename: 'Query', securityPosts: Array<{ __typename: 'SecurityPost', id: string, name: string, phoneNumber?: string | null, guardsOnDuty: number, guardsWithApp: number }> };
+
+export type ResidentIntercomSettingsQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type ResidentIntercomSettingsQuery = { __typename: 'Query', complex: { __typename: 'ResidentialComplex', id: string, intercomMode: IntercomMode, residentIntercomCallsEnabled: boolean } };
+
+export type StartSecurityIntercomCallMutationVariables = Exact<{
+  input: StartSecurityIntercomCallInput;
+}>;
+
+
+export type StartSecurityIntercomCallMutation = { __typename: 'Mutation', startSecurityIntercomCall: { __typename: 'IntercomCallSession', call: { __typename: 'CallLog', id: string, direction: CallDirection, voiceState?: VoiceCallState | null, agentName: string, securityPostName?: string | null, unitNumber?: string | null, buildingName?: string | null }, iceServers: Array<{ __typename: 'IceServer', urls: Array<string>, username?: string | null, credential?: string | null }> } };
+
+export type ResidentAnswerIntercomCallMutationVariables = Exact<{
+  input: AnswerIntercomCallInput;
+}>;
+
+
+export type ResidentAnswerIntercomCallMutation = { __typename: 'Mutation', answerIntercomCall: { __typename: 'IntercomCallSession', call: { __typename: 'CallLog', id: string, direction: CallDirection, voiceState?: VoiceCallState | null, agentName: string, securityPostName?: string | null }, iceServers: Array<{ __typename: 'IceServer', urls: Array<string>, username?: string | null, credential?: string | null }> } };
+
+export type ResidentRejectIntercomCallMutationVariables = Exact<{
+  callId: Scalars['String']['input'];
+}>;
+
+
+export type ResidentRejectIntercomCallMutation = { __typename: 'Mutation', rejectIntercomCall: { __typename: 'CallLog', id: string, voiceState?: VoiceCallState | null } };
+
+export type ResidentEndIntercomCallMutationVariables = Exact<{
+  callId: Scalars['String']['input'];
+}>;
+
+
+export type ResidentEndIntercomCallMutation = { __typename: 'Mutation', endIntercomCall: { __typename: 'CallLog', id: string, voiceState?: VoiceCallState | null } };
+
+export type ResidentSendIntercomSignalMutationVariables = Exact<{
+  input: IntercomSignalInput;
+}>;
+
+
+export type ResidentSendIntercomSignalMutation = { __typename: 'Mutation', sendIntercomSignal: boolean };
+
+export type ResidentCurrentIntercomCallQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ResidentCurrentIntercomCallQuery = { __typename: 'Query', currentIntercomCall?: { __typename: 'IntercomCallSession', call: { __typename: 'CallLog', id: string, direction: CallDirection, voiceState?: VoiceCallState | null, agentName: string, securityPostName?: string | null, startedAt: any }, iceServers: Array<{ __typename: 'IceServer', urls: Array<string>, username?: string | null, credential?: string | null }> } | null };
 
 export type MaintenanceTicketFieldsFragment = { __typename: 'MaintenanceTicket', id: string, code: string, title: string, description: string, category: MaintenanceCategory, priority: MaintenancePriority, status: MaintenanceTicketStatus, visibility: MaintenanceVisibility, photoUrls?: Array<string> | null, videoUrl?: string | null, occurredAt: any, locationType: MaintenanceLocationType, locationText?: string | null, floor?: number | null, lat?: number | null, lng?: number | null, buildingId?: string | null, amenityId?: string | null, locationTagId?: string | null, endorsementCount: number, scheduledFor?: any | null, slaDueAt?: any | null, slaBreachedAt?: any | null, resolutionNotes?: string | null, closurePhotoUrls?: Array<string> | null, resolvedAt?: any | null, rating?: number | null, ratingComment?: string | null, reopenCount: number, reportedByUserId?: string | null, reportedByName?: string | null, createdAt: any, building?: { __typename: 'Building', id: string, name: string } | null, amenity?: { __typename: 'Amenity', id: string, name: string } | null, locationTag?: { __typename: 'MaintenanceLocationTag', id: string, code: string, name: string } | null };
 
@@ -12415,6 +12699,7 @@ export type SwitchResidentComplexMutation = { __typename: 'Mutation', switchResi
 
 export type RequestSecurityCallMutationVariables = Exact<{
   complexId: Scalars['String']['input'];
+  securityPostId?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
@@ -12565,6 +12850,14 @@ export const GetUnitBalanceDocument = {"__meta__":{"hash":"0a3db1a45d1ac35946efb
 export const GetUnitAccountStatementDocument = {"__meta__":{"hash":"aab6d9193340b3e5bfef730192e06477059195edf1c8bcd25bda95cb6d65cfd6"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitAccountStatement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"period"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"unitAccountStatement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"period"},"value":{"kind":"Variable","name":{"kind":"Name","value":"period"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"walletBalance"}},{"kind":"Field","name":{"kind":"Name","value":"movements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"debit"}},{"kind":"Field","name":{"kind":"Name","value":"credit"}},{"kind":"Field","name":{"kind":"Name","value":"balance"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitAccountStatementQuery, GetUnitAccountStatementQueryVariables>;
 export const GetPaymentsByChargeDocument = {"__meta__":{"hash":"e19e728edc566c6fa155b9b05fa39a6b0d9a7ffc1315d917a81edc48ea6a1fbf"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPaymentsByCharge"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"paymentsByCharge"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"chargeId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"chargeId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"method"}},{"kind":"Field","name":{"kind":"Name","value":"reference"}},{"kind":"Field","name":{"kind":"Name","value":"receiptUrl"}},{"kind":"Field","name":{"kind":"Name","value":"paidAt"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"isReversed"}},{"kind":"Field","name":{"kind":"Name","value":"reversalReason"}},{"kind":"Field","name":{"kind":"Name","value":"reversedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<GetPaymentsByChargeQuery, GetPaymentsByChargeQueryVariables>;
 export const GetUnitWalletDocument = {"__meta__":{"hash":"d973df989fcf69a21504875bca855e34f4e01fd964430a3e73c8bf834283e720"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetUnitWallet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"unitWallet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"unitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"unitId"}}},{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"building"}},{"kind":"Field","name":{"kind":"Name","value":"currentBalance"}},{"kind":"Field","name":{"kind":"Name","value":"totalCredits"}},{"kind":"Field","name":{"kind":"Name","value":"totalDebits"}},{"kind":"Field","name":{"kind":"Name","value":"entries"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"amount"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"chargeId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]}}]} as unknown as DocumentNode<GetUnitWalletQuery, GetUnitWalletQueryVariables>;
+export const ResidentSecurityPostsDocument = {"__meta__":{"hash":"fc43da4773130292f5e42af5bd859b66a5a46f07fd742aac9441b0183c7b2063"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResidentSecurityPosts"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"securityPosts"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"phoneNumber"}},{"kind":"Field","name":{"kind":"Name","value":"guardsOnDuty"}},{"kind":"Field","name":{"kind":"Name","value":"guardsWithApp"}}]}}]}}]} as unknown as DocumentNode<ResidentSecurityPostsQuery, ResidentSecurityPostsQueryVariables>;
+export const ResidentIntercomSettingsDocument = {"__meta__":{"hash":"dc37fb5aec69e00dd7f990e75d7c7e256fa3fd4d9a2aecc85d78e038e2663838"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResidentIntercomSettings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"complex"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"intercomMode"}},{"kind":"Field","name":{"kind":"Name","value":"residentIntercomCallsEnabled"}}]}}]}}]} as unknown as DocumentNode<ResidentIntercomSettingsQuery, ResidentIntercomSettingsQueryVariables>;
+export const StartSecurityIntercomCallDocument = {"__meta__":{"hash":"e3aa4c2e97de49696e75bc1e627ef5a29609d9fb726d4d2a2264cfbd8c98c5fc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"StartSecurityIntercomCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"StartSecurityIntercomCallInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"startSecurityIntercomCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"call"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"direction"}},{"kind":"Field","name":{"kind":"Name","value":"voiceState"}},{"kind":"Field","name":{"kind":"Name","value":"agentName"}},{"kind":"Field","name":{"kind":"Name","value":"securityPostName"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"buildingName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"iceServers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"urls"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"credential"}}]}}]}}]}}]} as unknown as DocumentNode<StartSecurityIntercomCallMutation, StartSecurityIntercomCallMutationVariables>;
+export const ResidentAnswerIntercomCallDocument = {"__meta__":{"hash":"b435d0b22af86af099717985df98621c8945752d2cf33047f7083f0dc2e2d897"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResidentAnswerIntercomCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AnswerIntercomCallInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"answerIntercomCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"call"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"direction"}},{"kind":"Field","name":{"kind":"Name","value":"voiceState"}},{"kind":"Field","name":{"kind":"Name","value":"agentName"}},{"kind":"Field","name":{"kind":"Name","value":"securityPostName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"iceServers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"urls"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"credential"}}]}}]}}]}}]} as unknown as DocumentNode<ResidentAnswerIntercomCallMutation, ResidentAnswerIntercomCallMutationVariables>;
+export const ResidentRejectIntercomCallDocument = {"__meta__":{"hash":"08e773d8a9ccacab154f840fba00a54f2d1227bd096895b8c26cf4c6f057c636"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResidentRejectIntercomCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"callId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"rejectIntercomCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"callId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"callId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"voiceState"}}]}}]}}]} as unknown as DocumentNode<ResidentRejectIntercomCallMutation, ResidentRejectIntercomCallMutationVariables>;
+export const ResidentEndIntercomCallDocument = {"__meta__":{"hash":"e951a07cbc412b260d0113f98582696f372d87e0d8f511b30eb554017d105974"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResidentEndIntercomCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"callId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"endIntercomCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"callId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"callId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"voiceState"}}]}}]}}]} as unknown as DocumentNode<ResidentEndIntercomCallMutation, ResidentEndIntercomCallMutationVariables>;
+export const ResidentSendIntercomSignalDocument = {"__meta__":{"hash":"4da25c72f8790531297b9ff85196de913225c7a0a8e9e0fb7de5d7108ce361bc"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResidentSendIntercomSignal"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"IntercomSignalInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"sendIntercomSignal"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<ResidentSendIntercomSignalMutation, ResidentSendIntercomSignalMutationVariables>;
+export const ResidentCurrentIntercomCallDocument = {"__meta__":{"hash":"498cc854513c459ed25abec3b05d326d9716b8c65adfaa16e9c27c890f65ef0f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResidentCurrentIntercomCall"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentIntercomCall"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"call"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"direction"}},{"kind":"Field","name":{"kind":"Name","value":"voiceState"}},{"kind":"Field","name":{"kind":"Name","value":"agentName"}},{"kind":"Field","name":{"kind":"Name","value":"securityPostName"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"iceServers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"urls"}},{"kind":"Field","name":{"kind":"Name","value":"username"}},{"kind":"Field","name":{"kind":"Name","value":"credential"}}]}}]}}]}}]} as unknown as DocumentNode<ResidentCurrentIntercomCallQuery, ResidentCurrentIntercomCallQueryVariables>;
 export const MaintenanceTicketsDocument = {"__meta__":{"hash":"b36d9065388087f7e268e4a3f29be9a48a24b45e177c0b1e1e318c3d6611dc67"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MaintenanceTickets"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PaginationInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filters"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterMaintenanceTicketsInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"maintenanceTickets"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"pagination"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pagination"}}},{"kind":"Argument","name":{"kind":"Name","value":"filters"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filters"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MaintenanceTicketFields"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pagination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"currentPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalPages"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<MaintenanceTicketsQuery, MaintenanceTicketsQueryVariables>;
 export const MaintenanceTicketDocument = {"__meta__":{"hash":"0da1baf31e5db620e49899f1f36cfda0f0f72afd2b52c581df39679663967f36"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MaintenanceTicket"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"maintenanceTicket"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"MaintenanceTicketFields"}},{"kind":"Field","name":{"kind":"Name","value":"vendor"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"assignedUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lastName"}}]}},{"kind":"Field","name":{"kind":"Name","value":"events"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"fromStatus"}},{"kind":"Field","name":{"kind":"Name","value":"toStatus"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrls"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"authorRole"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MaintenanceTicketFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MaintenanceTicket"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"videoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"occurredAt"}},{"kind":"Field","name":{"kind":"Name","value":"locationType"}},{"kind":"Field","name":{"kind":"Name","value":"locationText"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"lat"}},{"kind":"Field","name":{"kind":"Name","value":"lng"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}},{"kind":"Field","name":{"kind":"Name","value":"amenity"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"locationTagId"}},{"kind":"Field","name":{"kind":"Name","value":"locationTag"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"endorsementCount"}},{"kind":"Field","name":{"kind":"Name","value":"scheduledFor"}},{"kind":"Field","name":{"kind":"Name","value":"slaDueAt"}},{"kind":"Field","name":{"kind":"Name","value":"slaBreachedAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolutionNotes"}},{"kind":"Field","name":{"kind":"Name","value":"closurePhotoUrls"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"ratingComment"}},{"kind":"Field","name":{"kind":"Name","value":"reopenCount"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByUserId"}},{"kind":"Field","name":{"kind":"Name","value":"reportedByName"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<MaintenanceTicketQuery, MaintenanceTicketQueryVariables>;
 export const MaintenanceReportOptionsDocument = {"__meta__":{"hash":"c30c81c9ccaf6f34c224d0a5690ed3014dda0ff848545e9d09e08a7616714309"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MaintenanceReportOptions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"maintenanceReportOptions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"residentReportingEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"gpsAccuracyMeters"}},{"kind":"Field","name":{"kind":"Name","value":"qrEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"nfcEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"buildings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floors"}}]}},{"kind":"Field","name":{"kind":"Name","value":"amenities"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"tags"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"floor"}},{"kind":"Field","name":{"kind":"Name","value":"defaultCategory"}},{"kind":"Field","name":{"kind":"Name","value":"buildingId"}},{"kind":"Field","name":{"kind":"Name","value":"amenityId"}}]}}]}}]}}]} as unknown as DocumentNode<MaintenanceReportOptionsQuery, MaintenanceReportOptionsQueryVariables>;
@@ -12631,7 +12924,7 @@ export const ResolvePqrfDocument = {"__meta__":{"hash":"225718b67da891bab8d4fc34
 export const CreatePqrfDocument = {"__meta__":{"hash":"685a5909c43915df1847f031853b61c525354f2ec88f2c96c61b3474b7d8b7ef"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreatePqrf"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreatePqrfInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"createPqrf"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"PqrfFields"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PqrfFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Pqrf"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"addressee"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"requestedByName"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"dueAt"}},{"kind":"Field","name":{"kind":"Name","value":"resolvedBySilence"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"unit"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"building"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]} as unknown as DocumentNode<CreatePqrfMutation, CreatePqrfMutationVariables>;
 export const MyResidencesDocument = {"__meta__":{"hash":"d03f26f84c7caa44bd2d118069052bcdec900e75eadb5aad4644d7eac54c842e"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyResidences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"myResidences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"complexName"}},{"kind":"Field","name":{"kind":"Name","value":"buildingName"}},{"kind":"Field","name":{"kind":"Name","value":"unitNumber"}},{"kind":"Field","name":{"kind":"Name","value":"isCurrent"}},{"kind":"Field","name":{"kind":"Name","value":"unreadCount"}}]}}]}}]} as unknown as DocumentNode<MyResidencesQuery, MyResidencesQueryVariables>;
 export const SwitchResidentComplexDocument = {"__meta__":{"hash":"4cea0f53aad9a8955059cc73715da66cf546d1b8535357b5948d1749476b1b0f"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SwitchResidentComplex"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"switchResidentComplex"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"refreshToken"},"value":{"kind":"Variable","name":{"kind":"Name","value":"refreshToken"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"accessToken"}},{"kind":"Field","name":{"kind":"Name","value":"refreshToken"}},{"kind":"Field","name":{"kind":"Name","value":"expiresIn"}},{"kind":"Field","name":{"kind":"Name","value":"sessionId"}}]}}]}}]} as unknown as DocumentNode<SwitchResidentComplexMutation, SwitchResidentComplexMutationVariables>;
-export const RequestSecurityCallDocument = {"__meta__":{"hash":"315cf2e495a316d894627d06c6a054505a54270f4c1b08341f9fc63b6c99d8a2"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestSecurityCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"requestSecurityCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<RequestSecurityCallMutation, RequestSecurityCallMutationVariables>;
+export const RequestSecurityCallDocument = {"__meta__":{"hash":"a804cf7499d6f46732ef922e391a5de56b5e18fae8dbcfdb1d5157efd33badc4"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RequestSecurityCall"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"securityPostId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"requestSecurityCall"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"complexId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"complexId"}}},{"kind":"Argument","name":{"kind":"Name","value":"securityPostId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"securityPostId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<RequestSecurityCallMutation, RequestSecurityCallMutationVariables>;
 export const VehicleDocument = {"__meta__":{"hash":"9aae3292cb520e5b0ba0d8770121148f8aba47f331a2c39cef9f2082ea32bc97"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Vehicle"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"vehicle"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"plate"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"brand"}},{"kind":"Field","name":{"kind":"Name","value":"model"}},{"kind":"Field","name":{"kind":"Name","value":"year"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"fuelType"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"parkingSpot"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"approvedAt"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"residentId"}},{"kind":"Field","name":{"kind":"Name","value":"unitId"}},{"kind":"Field","name":{"kind":"Name","value":"complexId"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}}]}}]}}]} as unknown as DocumentNode<VehicleQuery, VehicleQueryVariables>;
 export const ScheduleVisitDocument = {"__meta__":{"hash":"10b10a3397ef21005aabb96b14a90c5ccca50fe8e418bf73b2ffd0921a8cb497"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ScheduleVisit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ScheduleVisitInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"scheduleVisit"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"qrToken"}},{"kind":"Field","name":{"kind":"Name","value":"qrExpiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalAt"}},{"kind":"Field","name":{"kind":"Name","value":"expectedArrivalUntil"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"visitor"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fullName"}},{"kind":"Field","name":{"kind":"Name","value":"identity"}},{"kind":"Field","name":{"kind":"Name","value":"identityType"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}}]}}]}}]}}]} as unknown as DocumentNode<ScheduleVisitMutation, ScheduleVisitMutationVariables>;
 export const ApproveVisitDocument = {"__meta__":{"hash":"2d306e3128e2b7e60fe18bb1d0e9121b7d94a33072cafa8eb93b352382492293"},"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ApproveVisit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"visitId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"approveVisitEntry"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"visitId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"visitId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"approvedByResidentAt"}}]}}]}}]} as unknown as DocumentNode<ApproveVisitMutation, ApproveVisitMutationVariables>;

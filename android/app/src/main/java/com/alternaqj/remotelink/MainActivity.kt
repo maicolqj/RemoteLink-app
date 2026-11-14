@@ -1,6 +1,8 @@
 package com.alternaqj.remotelink
 
+import android.content.Intent
 import android.os.Bundle
+import com.alternaqj.remotelink.intercom.IntercomLaunch
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -30,5 +32,14 @@ class MainActivity : ReactActivity() {
    */
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
+    // Abrió la app desde la notificación de una llamada de portería.
+    IntercomLaunch.capture(this, intent)
+  }
+
+  /** Con la app ya abierta (singleTask), tocar la notificación llega aquí. */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    IntercomLaunch.capture(this, intent)
   }
 }

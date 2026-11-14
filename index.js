@@ -10,6 +10,7 @@ import {
   createNotificationChannels,
 } from './src/infraestructure/services/NotifeeService';
 import PanicSound from './src/shared/modules/PanicSoundModule';
+import { handleIntercomPushInBackground } from './src/infraestructure/services/intercomPush';
 import { reportPanicDelivered } from './src/infraestructure/services/panicAck';
 import { getPanicAlertsEnabled } from './src/presentation/store/settings.store';
 import {
@@ -69,6 +70,10 @@ setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
   // pintaría como notificación en blanco, porque el push de prueba no lleva
   // título ni cuerpo.
   if (remoteMessage.data?.type === 'PUSH_HEALTH_CHECK') return;
+
+  // Llamada con portería por la app: notificación de llamada a pantalla
+  // completa con Contestar / Rechazar (o se quita si ya no suena).
+  if (await handleIntercomPushInBackground(remoteMessage.data ?? {})) return;
 
   // Non-panic (visits, payments, packages, …). When the message is data-only the
   // OS shows nothing on its own, so we must render it via Notifee here — otherwise

@@ -27,6 +27,7 @@ import {
   type SocketNotificationPayload,
 } from '../../infraestructure/services/notifications.service';
 import { clearStalePanicAlert } from '../../infraestructure/services/NotifeeService';
+import { intercomCallService } from '../../infraestructure/services/intercomCall.service';
 
 interface Props {
   children: React.ReactNode;
@@ -139,6 +140,16 @@ export function SocketProvider({ children }: Props) {
       } catch (err) {
         if (__DEV__) console.warn('[Socket] activePanicAlerts error:', (err as Error)?.message);
       }
+    }
+
+    // Llamadas con portería por la app: el servicio maneja todo el ciclo.
+    for (const event of [
+      'intercom:call:incoming',
+      'intercom:call:accepted',
+      'intercom:call:ended',
+      'intercom:signal',
+    ]) {
+      socket.on(event, (payload: unknown) => intercomCallService.handleSocketEvent(event, payload));
     }
 
     socket.on('connect_error', (err) => {

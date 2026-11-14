@@ -6,6 +6,8 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.alternaqj.remotelink.intercom.IntercomCallNotifications
+import com.alternaqj.remotelink.intercom.IntercomCallPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -16,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           add(PanicSoundPackage())
           add(WhatsAppLauncherPackage())
+          add(IntercomCallPackage())
         },
     )
   }
@@ -26,6 +29,8 @@ class MainApplication : Application(), ReactApplication {
     // killed, and the channel has to already exist when the notification is
     // posted — waiting for the JS bundle would be too late.
     PanicChannels.ensure(this)
+    // Igual de temprano: la llamada de portería puede llegar con la app cerrada.
+    IntercomCallNotifications.ensureChannel(this)
     // Igual de temprano, y por lo mismo: PanicAlertReceiver consulta si hay una
     // pantalla visible para decidir si se aparta, y puede correr antes de que
     // React arranque.
