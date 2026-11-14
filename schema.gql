@@ -160,6 +160,32 @@ enum ValidPermissions {
   MODERATE_LISTINGS
   MANAGE_LISTING_REPORTS
   MANAGE_MARKETPLACE_SETTINGS
+  VIEW_GROWTH_TEAM
+  MANAGE_GROWTH_TEAM
+  VIEW_GROWTH_ACTIVITY
+  VIEW_GROWTH_SOURCES
+  MANAGE_GROWTH_SOURCES
+  REVIEW_GROWTH_SOURCES_LEGAL
+  APPROVE_GROWTH_PAID_SOURCES
+  VIEW_GROWTH_SUPPRESSIONS
+  ADD_GROWTH_SUPPRESSIONS
+  LIFT_GROWTH_SUPPRESSIONS
+  VIEW_GROWTH_PRIVACY_REQUESTS
+  MANAGE_GROWTH_PRIVACY_REQUESTS
+  MANAGE_GROWTH_LEGAL_HOLDS
+  VIEW_GROWTH_PROSPECTS
+  VIEW_ALL_GROWTH_PROSPECTS
+  EDIT_GROWTH_PROSPECTS
+  VIEW_GROWTH_CONTACT_DATA
+  VALIDATE_GROWTH_PROSPECTS
+  ASSIGN_GROWTH_PROSPECTS
+  REVIEW_GROWTH_LEGAL_BASIS
+  AUTHORIZE_GROWTH_CONTACT
+  MERGE_GROWTH_DUPLICATES
+  MANAGE_GROWTH_SCORING
+  IMPORT_GROWTH_DATA
+  MANAGE_GROWTH_IMPORT_TEMPLATES
+  APPROVE_GROWTH_SCORING
   SUPERADMIN
 }
 
@@ -349,6 +375,16 @@ type ResidentialComplex {
   """
   supervisorInactivityDays: Int!
 
+  """
+  Avisar a la administración cuando un vigilante sale de la app de portería
+  """
+  guardExitAlertEnabled: Boolean!
+
+  """
+  Minutos que el vigilante debe llevar fuera de la app para avisar. 0 = de inmediato
+  """
+  guardExitAlertMinutes: Int!
+
   """Consejeros que responden los PQRF. Vacío = todo el consejo"""
   pqrfCouncilResolverUserIds: [String!]!
 
@@ -479,6 +515,29 @@ type ResidentialComplex {
   """Fecha en que el SUPER_ADMIN revisó (aprobó/rechazó) el DPA firmado"""
   signedDpaReviewedAt: DateTime
 
+  """Tipo de vinculación: prueba piloto o comercial"""
+  engagement: ComplexEngagement!
+
+  """Días de prueba que se otorgan solos al activar un piloto. Vacío = 30."""
+  pilotTrialDays: Int
+
+  """Nombre del acuerdo de piloto firmado (archivado)"""
+  pilotAgreementFileName: String
+
+  """Cuándo se subió el acuerdo de piloto archivado"""
+  pilotAgreementSignedAt: DateTime
+
+  """Cuándo el piloto pasó a contrato comercial"""
+  convertedToCommercialAt: DateTime
+
+  """Conjunto que recomendó a este"""
+  referredByComplexId: String
+
+  """
+  Cuándo se otorgó la cortesía al conjunto que lo recomendó (primer pago)
+  """
+  referralRewardedAt: DateTime
+
   """URL del logo del complejo"""
   logoUrl: String
 
@@ -570,6 +629,15 @@ enum DpaValidationStatus {
   REJECTED
 }
 
+"""Tipo de vinculación del conjunto: prueba piloto o comercial"""
+enum ComplexEngagement {
+  """Prueba piloto (firma el acuerdo de piloto)"""
+  PILOT
+
+  """Comercial (firma el Anexo B2B / DPA)"""
+  COMMERCIAL
+}
+
 """Roles de la paltaforma"""
 enum ValidRoles {
   SUPER_ADMIN_ROL
@@ -581,6 +649,9 @@ enum ValidRoles {
   SECURITY_ROL
   COUNCIL_ROL
   MAINTENANCE_ROL
+  GROWTH_MANAGER_ROL
+  SALES_ROL
+  GROWTH_RESEARCHER_ROL
 }
 
 """
@@ -831,6 +902,9 @@ type User {
 
   """token version"""
   tokenVersion: String
+
+  """Debe cambiar la contraseña asignada por el administrador"""
+  mustChangePassword: Boolean!
 
   """Permissions created by this user"""
   createdPermissions: [Permission!]
@@ -1877,6 +1951,7 @@ enum NotificationType {
   ACCESS_REQUEST_APPROVED
   ACCESS_REQUEST_REJECTED
   ACCESS_REVOKED_INACTIVITY
+  SECURITY_APP_EXIT
   COMPLEX_REGISTERED
   DPA_SIGNED
   DPA_APPROVED
@@ -1885,6 +1960,9 @@ enum NotificationType {
   SUBSCRIPTION_EXPIRED
   SUBSCRIPTION_SUSPENDED
   SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_PAYMENT_SUBMITTED
+  SUBSCRIPTION_PAYMENT_REJECTED
+  PLATFORM_ANNOUNCEMENT
 }
 
 """Prioridad de entrega de la notificación"""
@@ -2142,6 +2220,150 @@ type DeviceInfo {
   appVersion: String
 }
 
+"""Permiso dado o quitado a un usuario por encima de sus roles"""
+type UserPermissionOverride {
+  id: String!
+  userId: String!
+  permissionId: String!
+  effect: PermissionOverrideEffect!
+
+  """Por qué se dio o se quitó, para quien lo revise después"""
+  reason: String
+  createdById: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  permission: Permission!
+}
+
+"""GRANT da un permiso extra; DENY quita uno de los de sus roles"""
+enum PermissionOverrideEffect {
+  GRANT
+  DENY
+}
+
+"""Impuesto aplicado a un cobro"""
+type SubscriptionTaxLine {
+  name: String!
+
+  """Tarifa en porcentaje (19 = 19 %)"""
+  rate: Float!
+
+  """CHARGE se sumó al cobro; WITHHOLDING lo retuvo el conjunto"""
+  kind: SubscriptionTaxKind!
+  amount: Float!
+}
+
+"""Si el impuesto se suma al cobro o lo retiene el conjunto"""
+enum SubscriptionTaxKind {
+  """Se suma al subtotal (IVA)"""
+  CHARGE
+
+  """Lo retiene el conjunto: se descuenta de lo que paga"""
+  WITHHOLDING
+}
+
+"""Periodo de suscripción de un complejo"""
+type SubscriptionPeriod {
+  id: ID!
+  complexId: String!
+  kind: SubscriptionPeriodKind!
+  plan: ComplexPlan!
+
+  """Ciclo pagado. Vacío en la prueba gratis y el periodo inicial."""
+  cycle: BillingCycle
+  startsAt: DateTime!
+  endsAt: DateTime!
+
+  """Valor pagado (COP): subtotal + impuestos − retenciones del conjunto"""
+  amount: Float
+
+  """Modalidad con la que se calculó el cobro"""
+  pricingMode: SubscriptionPricingMode
+
+  """Unidades cobradas (modalidad por unidad)"""
+  unitCount: Int
+
+  """Valor por unidad"""
+  unitPrice: Float
+
+  """Valor antes de impuestos"""
+  subtotal: Float
+
+  """Total de impuestos"""
+  taxAmount: Float
+
+  """Total retenido por el conjunto (retención en la fuente…)"""
+  withholdingAmount: Float
+
+  """Impuestos aplicados, con la tarifa vigente al pagar"""
+  taxes: [SubscriptionTaxLine!]
+
+  """Motivo de los días gratis (prueba y cortesía)"""
+  freeReason: FreePeriodReason
+  paidAt: DateTime
+
+  """Referencia del pago (número de transferencia, consignación…)"""
+  paymentReference: String
+  notes: String
+  createdById: String
+
+  """Quién corrigió el pago por última vez"""
+  updatedById: String
+  paymentUpdatedAt: DateTime
+  createdAt: DateTime!
+}
+
+"""Origen de un periodo de suscripción"""
+enum SubscriptionPeriodKind {
+  """Periodo inicial al lanzar las suscripciones"""
+  INITIAL
+
+  """Prueba gratis"""
+  TRIAL
+
+  """Días gratis de cortesía"""
+  COURTESY
+
+  """Periodo pagado"""
+  PAID
+}
+
+"""Ciclo de cobro de la suscripción"""
+enum BillingCycle {
+  """Mensual"""
+  MONTHLY
+
+  """Anual"""
+  ANNUAL
+}
+
+"""Modalidad de cobro de la suscripción del conjunto"""
+enum SubscriptionPricingMode {
+  """Valor por unidad × unidades"""
+  PER_UNIT
+
+  """Precio de lista del plan"""
+  PLAN
+
+  """Valor fijo acordado con el conjunto"""
+  FIXED
+}
+
+"""Motivo de los días gratis"""
+enum FreePeriodReason {
+  """Prueba gratis (una vez por complejo)"""
+  TRIAL
+
+  """Por recomendar a otro conjunto"""
+  REFERRAL
+
+  """Promoción"""
+  PROMOTION
+
+  """Otro motivo (explicarlo en las notas)"""
+  OTHER
+}
+
 type ChangePasswordResponse {
   success: Boolean!
   message: String!
@@ -2394,6 +2616,20 @@ type NearbyComplexResponse {
   gpsRadius: Int
 }
 
+"""Estado de suspensión manual de un complejo"""
+type ComplexSuspensionInfo {
+  complexId: String!
+  complexName: String!
+  status: ComplexStatus!
+
+  """true si la plataforma suspendió la cuenta del conjunto"""
+  suspended: Boolean!
+
+  """Motivo que escribió la plataforma al suspender"""
+  reason: String
+  suspendedAt: DateTime
+}
+
 type PaginatedBuildingsResponse {
   items: [Building!]!
   pagination: PaginationReponse!
@@ -2402,121 +2638,6 @@ type PaginatedBuildingsResponse {
 type PaginatedUnitsResponse {
   items: [Unit!]!
   pagination: PaginationReponse!
-}
-
-type PushHealthCheckResult {
-  healthId: String!
-  sentAt: DateTime!
-}
-
-type DevicePushHealthStatus {
-  healthId: String!
-  isHealthy: Boolean!
-  lastCheckAcknowledged: Boolean!
-  lastTestSentAt: DateTime
-  lastTestAckAt: DateTime
-  consecutiveFailures: Int!
-  onboardingCompletedAt: DateTime
-}
-
-type PaginatedNotificationsResponse {
-  items: [Notification!]!
-  pagination: PaginationReponse!
-}
-
-type UnreadCountResponse {
-  count: Int!
-}
-
-type PushSubscriptionResult {
-  success: Boolean!
-}
-
-type SendNotificationResult {
-  id: ID!
-  title: String!
-  body: String!
-  createdAt: DateTime!
-}
-
-"""Notificación masiva enviada por el administrador"""
-type SentNotification {
-  id: ID!
-  type: NotificationType!
-  priority: NotificationPriority!
-  title: String!
-  body: String!
-
-  """Total de destinatarios al momento del envío"""
-  recipientsCount: Int!
-
-  """Roles destinatarios. Vacío = todos los usuarios."""
-  targetRoles: [String!]
-  createdAt: DateTime!
-}
-
-type SentNotificationPaginatedResult {
-  items: [SentNotification!]!
-  pagination: PaginationReponse!
-}
-
-type TriggerPanicAlertResult {
-  success: Boolean!
-  panicAlertId: String
-}
-
-type RequestSecurityCallResult {
-  success: Boolean!
-  message: String
-}
-
-type NotificationUserInfo {
-  id: ID!
-  name: String!
-  lastName: String!
-  fullName: String!
-  email: String!
-  phoneNumber: String
-  identity: String
-  profilePicture: String
-  roles: [String!]!
-}
-
-type NotificationDetailResponse {
-  id: ID!
-  type: NotificationType!
-  priority: NotificationPriority!
-  title: String!
-  body: String!
-  metadata: JSON
-  isBroadcast: Boolean!
-  targetRoles: [String!]
-  isRead: Boolean!
-  readAt: DateTime
-  recipientUserId: String
-  recipientUser: NotificationUserInfo
-  complexId: String!
-  entityId: String
-  entityType: String
-  entity: NotificationEntitySnapshot
-  createdByUserId: String
-  createdByUser: NotificationUserInfo
-  isStarred: Boolean!
-  isActionable: Boolean!
-  actionType: NotificationActionType
-  actionLabel: String
-  actionTakenAt: DateTime
-  actionTakenByUserId: String
-  actionTakenByUser: NotificationUserInfo
-  actionResult: NotificationActionResult
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"""Resultado de una acción en lote sobre la bandeja"""
-type BulkNotificationActionResult {
-  affected: Int!
-  skipped: Int!
 }
 
 """Respuesta de autenticación exitosa con tokens JWT"""
@@ -2684,6 +2805,146 @@ type PendingDeviceApproval {
   requestedFromIp: String
   expiresAt: DateTime!
   createdAt: DateTime!
+}
+
+type PushHealthCheckResult {
+  healthId: String!
+  sentAt: DateTime!
+}
+
+type DevicePushHealthStatus {
+  healthId: String!
+  isHealthy: Boolean!
+  lastCheckAcknowledged: Boolean!
+  lastTestSentAt: DateTime
+  lastTestAckAt: DateTime
+  consecutiveFailures: Int!
+  onboardingCompletedAt: DateTime
+}
+
+type PaginatedNotificationsResponse {
+  items: [Notification!]!
+  pagination: PaginationReponse!
+}
+
+type UnreadCountResponse {
+  count: Int!
+}
+
+type PushSubscriptionResult {
+  success: Boolean!
+}
+
+type SendNotificationResult {
+  id: ID!
+  title: String!
+  body: String!
+  createdAt: DateTime!
+}
+
+"""Notificación masiva enviada por el administrador"""
+type SentNotification {
+  id: ID!
+  type: NotificationType!
+  priority: NotificationPriority!
+  title: String!
+  body: String!
+
+  """Total de destinatarios al momento del envío"""
+  recipientsCount: Int!
+
+  """Roles destinatarios. Vacío = todos los usuarios."""
+  targetRoles: [String!]
+  createdAt: DateTime!
+}
+
+type SentNotificationPaginatedResult {
+  items: [SentNotification!]!
+  pagination: PaginationReponse!
+}
+
+type TriggerPanicAlertResult {
+  success: Boolean!
+  panicAlertId: String
+}
+
+type RequestSecurityCallResult {
+  success: Boolean!
+  message: String
+}
+
+type NotificationUserInfo {
+  id: ID!
+  name: String!
+  lastName: String!
+  fullName: String!
+  email: String!
+  phoneNumber: String
+  identity: String
+  profilePicture: String
+  roles: [String!]!
+}
+
+type NotificationDetailResponse {
+  id: ID!
+  type: NotificationType!
+  priority: NotificationPriority!
+  title: String!
+  body: String!
+  metadata: JSON
+  isBroadcast: Boolean!
+  targetRoles: [String!]
+  isRead: Boolean!
+  readAt: DateTime
+  recipientUserId: String
+  recipientUser: NotificationUserInfo
+  complexId: String!
+  entityId: String
+  entityType: String
+  entity: NotificationEntitySnapshot
+  createdByUserId: String
+  createdByUser: NotificationUserInfo
+  isStarred: Boolean!
+  isActionable: Boolean!
+  actionType: NotificationActionType
+  actionLabel: String
+  actionTakenAt: DateTime
+  actionTakenByUserId: String
+  actionTakenByUser: NotificationUserInfo
+  actionResult: NotificationActionResult
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Resultado de una acción en lote sobre la bandeja"""
+type BulkNotificationActionResult {
+  affected: Int!
+  skipped: Int!
+}
+
+"""Permiso que el usuario recibe de sus roles"""
+type RolePermissionSource {
+  permission: Permission!
+
+  """Roles que le dan este permiso"""
+  roles: [String!]!
+}
+
+"""
+Permisos de un usuario: los de sus roles, sus excepciones y el resultado
+"""
+type UserPermissionsSummary {
+  userId: String!
+  rolePermissions: [RolePermissionSource!]!
+  overrides: [UserPermissionOverride!]!
+
+  """Nombres de los permisos con que sale su sesión: roles + GRANT − DENY"""
+  effectivePermissions: [String!]!
+
+  """
+  true si es SUPER_ADMIN: pasa todos los controles y las excepciones no lo afectan
+  """
+  isSuperAdmin: Boolean!
 }
 
 """Evento de visita: entrada, salida, estado y QR de acceso"""
@@ -4131,6 +4392,11 @@ type LegalDocument {
   """Audiencia: PUBLIC (/legal) o COMPLEX (solo complejos registrados)"""
   audience: LegalAudience!
 
+  """
+  Vinculación a la que va dirigido (PILOT / COMMERCIAL). Vacío = a todos los complejos.
+  """
+  engagement: ComplexEngagement
+
   """Si ofrece un archivo descargable (PDF)"""
   isDownloadable: Boolean!
 
@@ -5368,129 +5634,6 @@ type ComplexDocumentAckReport {
   units: [ComplexDocumentAckEntry!]!
 }
 
-"""Impuesto aplicado a un cobro"""
-type SubscriptionTaxLine {
-  name: String!
-
-  """Tarifa en porcentaje (19 = 19 %)"""
-  rate: Float!
-
-  """CHARGE se sumó al cobro; WITHHOLDING lo retuvo el conjunto"""
-  kind: SubscriptionTaxKind!
-  amount: Float!
-}
-
-"""Si el impuesto se suma al cobro o lo retiene el conjunto"""
-enum SubscriptionTaxKind {
-  """Se suma al subtotal (IVA)"""
-  CHARGE
-
-  """Lo retiene el conjunto: se descuenta de lo que paga"""
-  WITHHOLDING
-}
-
-"""Periodo de suscripción de un complejo"""
-type SubscriptionPeriod {
-  id: ID!
-  complexId: String!
-  kind: SubscriptionPeriodKind!
-  plan: ComplexPlan!
-
-  """Ciclo pagado. Vacío en la prueba gratis y el periodo inicial."""
-  cycle: BillingCycle
-  startsAt: DateTime!
-  endsAt: DateTime!
-
-  """Valor pagado (COP): subtotal + impuestos − retenciones del conjunto"""
-  amount: Float
-
-  """Modalidad con la que se calculó el cobro"""
-  pricingMode: SubscriptionPricingMode
-
-  """Unidades cobradas (modalidad por unidad)"""
-  unitCount: Int
-
-  """Valor por unidad"""
-  unitPrice: Float
-
-  """Valor antes de impuestos"""
-  subtotal: Float
-
-  """Total de impuestos"""
-  taxAmount: Float
-
-  """Total retenido por el conjunto (retención en la fuente…)"""
-  withholdingAmount: Float
-
-  """Impuestos aplicados, con la tarifa vigente al pagar"""
-  taxes: [SubscriptionTaxLine!]
-
-  """Motivo de los días gratis (prueba y cortesía)"""
-  freeReason: FreePeriodReason
-  paidAt: DateTime
-
-  """Referencia del pago (número de transferencia, consignación…)"""
-  paymentReference: String
-  notes: String
-  createdById: String
-
-  """Quién corrigió el pago por última vez"""
-  updatedById: String
-  paymentUpdatedAt: DateTime
-  createdAt: DateTime!
-}
-
-"""Origen de un periodo de suscripción"""
-enum SubscriptionPeriodKind {
-  """Periodo inicial al lanzar las suscripciones"""
-  INITIAL
-
-  """Prueba gratis"""
-  TRIAL
-
-  """Días gratis de cortesía"""
-  COURTESY
-
-  """Periodo pagado"""
-  PAID
-}
-
-"""Ciclo de cobro de la suscripción"""
-enum BillingCycle {
-  """Mensual"""
-  MONTHLY
-
-  """Anual"""
-  ANNUAL
-}
-
-"""Modalidad de cobro de la suscripción del conjunto"""
-enum SubscriptionPricingMode {
-  """Valor por unidad × unidades"""
-  PER_UNIT
-
-  """Precio de lista del plan"""
-  PLAN
-
-  """Valor fijo acordado con el conjunto"""
-  FIXED
-}
-
-"""Motivo de los días gratis"""
-enum FreePeriodReason {
-  """Prueba gratis (una vez por complejo)"""
-  TRIAL
-
-  """Por recomendar a otro conjunto"""
-  REFERRAL
-
-  """Promoción"""
-  PROMOTION
-
-  """Otro motivo (explicarlo en las notas)"""
-  OTHER
-}
-
 """Impuesto aplicado a la suscripción"""
 type SubscriptionTax {
   id: ID!
@@ -5597,6 +5740,104 @@ type SubscriptionPlanPriceView {
   """true si el anual se fijó a mano; false = 10 mensualidades"""
   annualPriceIsCustom: Boolean!
   updatedAt: DateTime
+}
+
+"""Acceso de la comunidad según la suscripción del conjunto"""
+type CommunityAccess {
+  """La comunidad perdió el acceso por no renovar"""
+  accessCut: Boolean!
+
+  """El botón de pánico sigue funcionando"""
+  panicAvailable: Boolean!
+
+  """Fecha del corte: ya ocurrió si accessCut, si no es la prevista"""
+  cutAt: DateTime
+}
+
+"""Conjunto que llegó por una recomendación"""
+type ReferredComplex {
+  id: ID!
+  name: String!
+  status: ComplexStatus!
+
+  """Cuándo se registró"""
+  registeredAt: DateTime!
+
+  """
+  Cuándo se otorgó la cortesía por esta recomendación. Vacío = aún no hace su primer pago.
+  """
+  rewardedAt: DateTime
+}
+
+"""Código de recomendación de un conjunto y lo que ha traído"""
+type ComplexReferralSummary {
+  """Código que el conjunto comparte para recomendarnos"""
+  code: String!
+
+  """
+  Días gratis que recibe por cada conjunto recomendado que hace su primer pago
+  """
+  rewardDays: Int!
+
+  """Conjunto que recomendó a este"""
+  referredBy: ReferredComplex
+
+  """Conjuntos que se registraron con su código"""
+  referrals: [ReferredComplex!]!
+}
+
+"""Soporte de pago enviado por el conjunto"""
+type SubscriptionPaymentSubmission {
+  id: ID!
+  complexId: String!
+  complex: ResidentialComplex
+  plan: ComplexPlan!
+  cycle: BillingCycle!
+
+  """Lo que debía pagar según su cotización"""
+  amountDue: Float!
+
+  """Valor que el conjunto dice haber pagado"""
+  amountPaid: Float!
+  paidAt: DateTime!
+  reference: String
+  receiptName: String!
+  receiptMimeType: String!
+  status: SubscriptionPaymentStatus!
+
+  """Motivo del rechazo"""
+  reviewNote: String
+  reviewedByUserId: String
+  reviewedAt: DateTime
+
+  """Periodo pagado que se creó al aprobar"""
+  periodId: String
+  submittedByUserId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Estado del soporte de pago enviado por el conjunto"""
+enum SubscriptionPaymentStatus {
+  """Pendiente de revisión"""
+  PENDING
+
+  """Aprobado: suscripción renovada"""
+  APPROVED
+
+  """Rechazado con motivo"""
+  REJECTED
+}
+
+"""Datos para pagar la suscripción"""
+type SubscriptionPaymentInfo {
+  qrImageUrl: String
+
+  """Cuenta, titular y lo que haga falta saber para pagar"""
+  instructions: String
+
+  """Días antes del vencimiento desde los que se puede renovar"""
+  renewalWindowDays: Int!
 }
 
 """Versión mínima obligatoria de una app"""
@@ -6662,6 +6903,159 @@ type DataExportHistoryEntry {
   to: String
 }
 
+"""Salida de un vigilante de la app de portería (segundo plano)"""
+type SecurityAppExit {
+  id: String!
+  complexId: String!
+  guardId: String!
+
+  """Cuándo sacó la app a segundo plano"""
+  leftAt: DateTime!
+
+  """Cuándo volvió a la app. null = sigue fuera"""
+  returnedAt: DateTime
+
+  """Segundos fuera de la app. null mientras siga fuera"""
+  durationSeconds: Int
+
+  """Cuándo se avisó a la administración. null = no se avisó"""
+  alertSentAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  guard: User
+}
+
+type PaginatedSecurityAppExitsResponse {
+  items: [SecurityAppExit!]!
+  pagination: PaginationReponse!
+}
+
+type AnnouncementAttachment {
+  name: String!
+  mimeType: String!
+  size: Int!
+}
+
+"""Comunicado de la plataforma a los conjuntos"""
+type PlatformAnnouncement {
+  id: ID!
+  category: AnnouncementCategory!
+  title: String!
+  body: String!
+  imageUrls: [String!]!
+  attachments: [AnnouncementAttachment!]!
+  channels: [AnnouncementChannel!]!
+  audience: AnnouncementAudience!
+  targetMode: AnnouncementTargetMode!
+  complexIds: [String!]!
+  targetPlans: [String!]!
+  targetStatuses: [String!]!
+  targetEngagements: [String!]!
+  status: AnnouncementStatus!
+  complexesCount: Int!
+  recipientsCount: Int!
+  emailsCount: Int!
+  sentAt: DateTime
+  createdByUserId: String
+  createdBy: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  isStarred: Boolean!
+  isArchived: Boolean!
+}
+
+"""Tipo de comunicado de la plataforma"""
+enum AnnouncementCategory {
+  """Informativo"""
+  INFORMATIVE
+
+  """Promoción"""
+  PROMOTION
+
+  """Noticia"""
+  NEWS
+
+  """Otro"""
+  OTHER
+}
+
+"""Canal por el que sale el comunicado"""
+enum AnnouncementChannel {
+  """Aviso en el panel/app y push"""
+  NOTIFICATION
+
+  """Correo al email registrado del conjunto"""
+  EMAIL
+}
+
+"""Destinatarios del comunicado dentro de cada conjunto"""
+enum AnnouncementAudience {
+  """Solo la administración del conjunto"""
+  ADMINISTRATION
+
+  """Solo los residentes activos"""
+  RESIDENTS
+
+  """Administración y residentes"""
+  ALL
+}
+
+"""Cómo se eligen los conjuntos que reciben el comunicado"""
+enum AnnouncementTargetMode {
+  """Todos los conjuntos aprobados"""
+  ALL_COMPLEXES
+
+  """Los conjuntos elegidos uno a uno"""
+  SELECTED
+
+  """Los conjuntos que cumplen plan/estado/vinculación"""
+  FILTERED
+}
+
+"""Estado del reparto del comunicado"""
+enum AnnouncementStatus {
+  SENDING
+  SENT
+  FAILED
+}
+
+type AnnouncementTargetComplex {
+  id: ID!
+  name: String!
+}
+
+type AnnouncementTargetPreview {
+  complexesCount: Int!
+  withEmailCount: Int!
+  complexes: [AnnouncementTargetComplex!]!
+}
+
+type AnnouncementRecipientComplex {
+  id: ID!
+  name: String!
+  email: String
+  noticesCount: Int!
+  readCount: Int!
+}
+
+type PlatformAnnouncementPaginatedResult {
+  items: [PlatformAnnouncement!]!
+  pagination: PaginationReponse!
+}
+
+type AnnouncementFolderCounts {
+  sent: Int!
+  starred: Int!
+  archived: Int!
+  trash: Int!
+}
+
+type AnnouncementBulkResult {
+  affected: Int!
+  noticesRemoved: Int!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -6722,6 +7116,8 @@ type Query {
   availableModules: [ComplexModule!]!
   complexes(pagination: PaginationInput, filters: FilterComplexInput): PaginatedComplexesResponse!
   complex(id: String!): ResidentialComplex!
+  myComplexSuspension: ComplexSuspensionInfo!
+  complexSuspension(complexId: String!): ComplexSuspensionInfo!
   nearbyComplexes(lat: Float!, lng: Float!, radiusMeters: Float = 200): [NearbyComplexResponse!]!
   buildings(complexId: String!, pagination: PaginationInput): PaginatedBuildingsResponse!
   building(id: String!): Building!
@@ -6730,7 +7126,7 @@ type Query {
   coefficientWeighting(complexId: String!): CoefficientWeighting
 
   """
-  Historial de auditoría paginado. SUPER_ADMIN ve todo el sistema. COMPLEX_ROL solo ve las acciones de ACCOUNTANT_ROL, SUPERVISOR_ROL y SECURITY_ROL de su complejo.
+  Historial de auditoría paginado. SUPER_ADMIN y el oficial de cumplimiento ven todo el sistema. COMPLEX_ROL solo ve las acciones de ACCOUNTANT_ROL, SUPERVISOR_ROL y SECURITY_ROL de su complejo.
   """
   auditLogs(filter: FilterAuditLogsInput): PaginatedAuditLogsResponse!
 
@@ -6752,6 +7148,11 @@ type Query {
   Perfil completo del usuario autenticado (usuario o complejo residencial)
   """
   me: MeResponse!
+
+  """
+  Permisos de un usuario: los de sus roles, sus excepciones y con cuáles sale su sesión
+  """
+  userPermissions(userId: String!): UserPermissionsSummary!
   visitors(complexId: String!, pagination: PaginationInput, search: String, onlyBlacklisted: Boolean): PaginatedVisitorsResponse!
   visitor(id: String!): Visitor!
   myVisits(pagination: PaginationInput, filters: FilterVisitsInput): PaginatedVisitsResponse!
@@ -6840,9 +7241,9 @@ type Query {
   legalDocumentsAdmin: [LegalDocument!]!
 
   """
-  Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). Ej: Anexo B2B / DPA a firmar. Disponible para complejos autenticados.
+  Documentos legales dirigidos a complejos registrados (audience COMPLEX, publicados). El complejo recibe los de su vinculación (piloto: acuerdo de piloto; comercial: Anexo B2B) más los que van a todos. La plataforma puede filtrar con `engagement`.
   """
-  complexLegalDocuments: [LegalDocument!]!
+  complexLegalDocuments(engagement: ComplexEngagement): [LegalDocument!]!
   amenityScheduleExceptions(amenityId: String!, from: String!, to: String!): [AmenityScheduleException!]!
   amenities(complexId: String!, pagination: PaginationInput, filters: FilterAmenitiesInput): PaginatedAmenitiesResponse!
   amenity(amenityId: String!): Amenity!
@@ -6882,7 +7283,9 @@ type Query {
   """Mi Conjunto: datos, contactos, horarios y documentos para el residente"""
   myComplexInfo(complexId: String!): MyComplexInfoResponse!
 
-  """Un documento publicado, con su texto completo"""
+  """
+  Un documento publicado, con su texto completo. Abrirlo cuenta como leído si pide acuse
+  """
   myComplexDocument(id: ID!): MyComplexDocument!
 
   """Todos los documentos del conjunto, incluidos los borradores"""
@@ -6906,6 +7309,11 @@ type Query {
   """Precios vigentes de los planes pagos."""
   subscriptionPlanPrices: [SubscriptionPlanPriceView!]!
 
+  """
+  Si la comunidad del conjunto de la sesión conserva el acceso y el botón de pánico.
+  """
+  myCommunityAccess: CommunityAccess!
+
   """Suscripción e historial de un complejo. Solo plataforma."""
   complexSubscription(complexId: ID!): SubscriptionSummary!
 
@@ -6918,6 +7326,30 @@ type Query {
   Impuestos de la suscripción. Sin complexId: los globales. Con complexId: los locales de ese conjunto.
   """
   subscriptionTaxes(complexId: ID): [SubscriptionTax!]!
+
+  """
+  Código de recomendación del complejo de la sesión y los conjuntos que llegaron con él.
+  """
+  myComplexReferral: ComplexReferralSummary!
+
+  """
+  Código de recomendación de un complejo, quién lo recomendó y a quiénes recomendó. Solo plataforma.
+  """
+  complexReferral(complexId: ID!): ComplexReferralSummary!
+
+  """QR e instrucciones para pagar la suscripción"""
+  subscriptionPaymentInfo: SubscriptionPaymentInfo!
+
+  """
+  Lo que el conjunto de la sesión debe pagar para renovar (el valor contra el que se valida el soporte)
+  """
+  myRenewalQuote: SubscriptionQuote!
+
+  """Soportes de pago enviados por el conjunto de la sesión"""
+  mySubscriptionPayments: [SubscriptionPaymentSubmission!]!
+
+  """Soportes de pago de un conjunto (personal de la plataforma)"""
+  complexSubscriptionPayments(complexId: ID!): [SubscriptionPaymentSubmission!]!
 
   """
   ¿La versión instalada debe actualizarse obligatoriamente? (cambios que rompen compatibilidad)
@@ -7011,6 +7443,23 @@ type Query {
 
   """Últimas 20 descargas de datos del complejo"""
   dataExportHistory(complexId: String!): [DataExportHistoryEntry!]!
+
+  """
+  Salidas de los vigilantes de la app de portería, de la más reciente a la más antigua. Las que no tienen returnedAt siguen abiertas.
+  """
+  securityAppExits(complexId: String!, pagination: PaginationInput, filters: FilterSecurityAppExitsInput): PaginatedSecurityAppExitsResponse!
+
+  """Historial de comunicados enviados a los conjuntos"""
+  platformAnnouncements(pagination: PaginationInput, filter: PlatformAnnouncementFilterInput): PlatformAnnouncementPaginatedResult!
+
+  """Cuántos comunicados hay en cada carpeta para quien consulta"""
+  platformAnnouncementFolderCounts: AnnouncementFolderCounts!
+
+  """Conjuntos que recibirían el comunicado con estos filtros"""
+  platformAnnouncementTargetPreview(target: AnnouncementTargetInput!): AnnouncementTargetPreview!
+
+  """Conjuntos que recibieron el comunicado, con avisos creados y leídos"""
+  platformAnnouncementRecipients(id: ID!): [AnnouncementRecipientComplex!]!
 
   """Verifica conectividad con el backend. Siempre retorna "pong"."""
   ping: String!
@@ -7421,6 +7870,49 @@ enum MarketplaceAudienceKind {
   INTERESTED
 }
 
+input FilterSecurityAppExitsInput {
+  """Solo este vigilante"""
+  guardId: String
+
+  """Salidas desde esta hora"""
+  from: DateTime
+
+  """Salidas hasta esta hora"""
+  to: DateTime
+
+  """true = solo los vigilantes que siguen fuera de la app"""
+  onlyOpen: Boolean
+}
+
+input PlatformAnnouncementFilterInput {
+  folder: AnnouncementFolder! = SENT
+  search: String
+  channel: AnnouncementChannel
+}
+
+"""Carpeta del historial de comunicados"""
+enum AnnouncementFolder {
+  """Enviados (sin archivados ni borrados)"""
+  SENT
+
+  """Destacados por quien consulta"""
+  STARRED
+
+  """Archivados por quien consulta"""
+  ARCHIVED
+
+  """Papelera: se eliminan solos a los 30 días"""
+  TRASH
+}
+
+input AnnouncementTargetInput {
+  mode: AnnouncementTargetMode!
+  complexIds: [String!]
+  plans: [ComplexPlan!]
+  statuses: [ComplexStatus!]
+  engagements: [ComplexEngagement!]
+}
+
 type Mutation {
   """
   Inicia sesión con email y contraseña. Disponible para: SUPER_ADMIN_ROL, COMPILANCE_OFFICER_ROL, COMPLEX_ROL, ACCOUNTANT_ROL
@@ -7595,7 +8087,13 @@ type Mutation {
   updateMyComplexProfile(input: UpdateComplexProfileInput!): ResidentialComplex!
   uploadSignedDpa(pdfBase64: String!, fileName: String): ResidentialComplex!
   reviewSignedDpa(complexId: String!, status: DpaValidationStatus!, reason: String): ResidentialComplex!
-  changeComplexStatus(id: String!, status: ComplexStatus!): ResidentialComplex!
+  changeComplexStatus(
+    id: String!
+    status: ComplexStatus!
+
+    """Motivo de la suspensión (obligatorio con SUSPENDED)"""
+    reason: String
+  ): ResidentialComplex!
   removeComplex(id: String!): Boolean!
   restoreComplex(id: String!): ResidentialComplex!
   updateComplexModules(complexId: String!, modules: [ComplexModule!]!): ResidentialComplex!
@@ -7664,7 +8162,12 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): ChangePasswordResponse!
 
   """
-  Permite al administrador del complejo (o SUPER_ADMIN) restablecer directamente la contraseña de un miembro de su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP.
+  Reemplaza la contraseña inicial que asignó un administrador (solo si la cuenta está marcada para cambiarla)
+  """
+  completeRequiredPasswordChange(input: CompleteRequiredPasswordChangeInput!): ChangePasswordResponse!
+
+  """
+  Asigna una contraseña inicial que el usuario debe cambiar al entrar. El SUPER_ADMIN puede hacerlo con cualquier cargo que entra con contraseña (incluido el oficial de cumplimiento); el administrador del complejo, con su personal (SECURITY_ROL, SUPERVISOR_ROL, ACCOUNTANT_ROL). Uso: el empleado olvidó su contraseña y no tiene forma de solicitar el reset por email/OTP.
   """
   adminResetUserPassword(input: AdminResetUserPasswordInput!): SetPasswordResponse!
   updateUser(updateUserInput: UpdateUserInput!): User!
@@ -7685,6 +8188,16 @@ type Mutation {
   Restaura un usuario previamente eliminado (soft delete), dejándolo activo
   """
   restoreUser(userId: String!): User!
+
+  """
+  Da (GRANT) o quita (DENY) un permiso a un usuario por encima de sus roles. Aplica en su próxima renovación de sesión, sin cerrarla
+  """
+  setUserPermissionOverride(input: SetUserPermissionOverrideInput!): UserPermissionOverride!
+
+  """
+  Quita la excepción: el usuario vuelve a tener exactamente los permisos de sus roles
+  """
+  removeUserPermissionOverride(userId: String!, permissionId: String!): Boolean!
   blacklistVisitor(input: BlacklistVisitorInput!): Visitor!
   removeVisitorFromBlacklist(visitorId: String!): Visitor!
   registerWalkIn(input: RegisterWalkInInput!): Visit!
@@ -7854,7 +8367,9 @@ type Mutation {
   sanctionPetIncident(input: SanctionPetIncidentInput!): PetIncident!
   addPetIncidentStatement(input: CreatePetIncidentStatementInput!): PetIncident!
 
-  """El residente confirma que leyó la versión vigente"""
+  """
+  El residente confirma que leyó la versión vigente. Ya no hace falta: abrir el documento lo registra (se mantiene para versiones viejas de la app)
+  """
   acknowledgeComplexDocument(id: ID!): MyComplexDocument!
   createComplexDocument(input: CreateComplexDocumentInput!): ComplexDocument!
   updateComplexDocument(id: ID!, input: UpdateComplexDocumentInput!): ComplexDocument!
@@ -7898,6 +8413,17 @@ type Mutation {
 
   """Elimina un impuesto de la suscripción."""
   deleteSubscriptionTax(id: ID!): Boolean!
+
+  """
+  Asigna o quita el conjunto que recomendó a otro. La cortesía se otorga con el siguiente pago registrado; ya otorgada, no se cambia.
+  """
+  setComplexReferrer(input: SetComplexReferrerInput!): ComplexReferralSummary!
+
+  """Aprueba el soporte: registra el pago y renueva"""
+  approveSubscriptionPayment(id: ID!): SubscriptionPaymentSubmission!
+
+  """Rechaza el soporte con motivo; el conjunto puede reenviar"""
+  rejectSubscriptionPayment(id: ID!, reason: String!): SubscriptionPaymentSubmission!
 
   """
   Fija la versión mínima: las instalaciones anteriores quedan bloqueadas hasta actualizar.
@@ -7978,6 +8504,33 @@ type Mutation {
   reportMarketplaceConversation(input: ReportConversationInput!): Boolean!
   resolveMarketplaceConversationReport(input: ResolveConversationReportInput!): ConversationReportView!
   unblockConversationCounterpart(conversationId: String!): MarketplaceConversationView!
+
+  """
+  EntryLink pasó a segundo plano. Abre la salida del vigilante; si ya hay una abierta la devuelve sin duplicarla.
+  """
+  reportAppBackground(input: ReportAppStateInput): SecurityAppExit!
+
+  """
+  EntryLink volvió a primer plano (o arrancó). Cierra la salida abierta del vigilante; null si no había ninguna.
+  """
+  reportAppForeground(input: ReportAppStateInput): SecurityAppExit
+
+  """Destaca o quita el destacado (solo para quien lo hace)"""
+  starPlatformAnnouncements(ids: [ID!]!, starred: Boolean!): AnnouncementBulkResult!
+
+  """Archiva o devuelve a Enviados (solo para quien lo hace)"""
+  archivePlatformAnnouncements(ids: [ID!]!, archived: Boolean!): AnnouncementBulkResult!
+
+  """
+  Manda a la papelera y retira los avisos de las bandejas de los conjuntos
+  """
+  trashPlatformAnnouncements(ids: [ID!]!): AnnouncementBulkResult!
+
+  """Saca de la papelera (los avisos retirados no vuelven)"""
+  restorePlatformAnnouncements(ids: [ID!]!): AnnouncementBulkResult!
+
+  """Elimina para siempre lo que está en la papelera"""
+  purgePlatformAnnouncements(ids: [ID!]!): AnnouncementBulkResult!
 }
 
 """Credenciales para inicio de sesión con email y contraseña"""
@@ -8281,6 +8834,24 @@ input CreateComplexInput {
   zipCode: String
   type: ComplexType! = APARTMENT_COMPLEX
   plan: ComplexPlan! = FREE
+
+  """
+  Prueba piloto o comercial. Vacío = COMMERCIAL. Define qué documento firma el conjunto.
+  """
+  engagement: ComplexEngagement
+
+  """
+  Días de prueba que se otorgan solos al activar el piloto (1 a 365). Vacío = 30.
+  """
+  pilotTrialDays: Int
+
+  """
+  Unidades que declara el conjunto. En un piloto es el tope de unidades que puede cargar.
+  """
+  totalUnits: Int
+
+  """Número de torres (APARTMENT_COMPLEX / MIXED_COMPLEX)"""
+  numberOfTowers: Int
   countryCode: CountryCode
   phoneNumber: String
   email: String
@@ -8318,6 +8889,16 @@ input CreateComplexInput {
   Días sin visita tras los cuales el sistema le retira el acceso a un supervisor
   """
   supervisorInactivityDays: Int
+
+  """
+  Avisar a la administración cuando un vigilante sale de la app de portería
+  """
+  guardExitAlertEnabled: Boolean
+
+  """
+  Minutos que el vigilante debe llevar fuera de la app para avisar. 0 = de inmediato
+  """
+  guardExitAlertMinutes: Int
 }
 
 """Código de país para el número de teléfono"""
@@ -8334,10 +8915,28 @@ input UpdateComplexInput {
   address: String
   city: String
   state: String
-  country: String = "Colombia"
+  country: String
   zipCode: String
-  type: ComplexType = APARTMENT_COMPLEX
-  plan: ComplexPlan = FREE
+  type: ComplexType
+  plan: ComplexPlan
+
+  """
+  Prueba piloto o comercial. Vacío = COMMERCIAL. Define qué documento firma el conjunto.
+  """
+  engagement: ComplexEngagement
+
+  """
+  Días de prueba que se otorgan solos al activar el piloto (1 a 365). Vacío = 30.
+  """
+  pilotTrialDays: Int
+
+  """
+  Unidades que declara el conjunto. En un piloto es el tope de unidades que puede cargar.
+  """
+  totalUnits: Int
+
+  """Número de torres (APARTMENT_COMPLEX / MIXED_COMPLEX)"""
+  numberOfTowers: Int
   countryCode: CountryCode
   phoneNumber: String
   email: String
@@ -8378,6 +8977,16 @@ input UpdateComplexInput {
   """
   supervisorInactivityDays: Int
 
+  """
+  Avisar a la administración cuando un vigilante sale de la app de portería
+  """
+  guardExitAlertEnabled: Boolean
+
+  """
+  Minutos que el vigilante debe llevar fuera de la app para avisar. 0 = de inmediato
+  """
+  guardExitAlertMinutes: Int
+
   """ID del complejo a actualizar"""
   id: String!
 }
@@ -8408,7 +9017,7 @@ input UpdateBuildingInput {
   name: String
 
   """Número de pisos"""
-  floors: Int = 1
+  floors: Int
   description: String
 
   """ID del complejo"""
@@ -8469,10 +9078,10 @@ input UpdateUnitInput {
   number: String
 
   """Piso donde se ubica la unidad"""
-  floor: Int = 1
+  floor: Int
 
   """Tipo de unidad"""
-  type: UnitType = APARTMENT
+  type: UnitType
 
   """Área en m²"""
   area: Float
@@ -8484,10 +9093,10 @@ input UpdateUnitInput {
   bathrooms: Int
 
   """Cupos de parqueadero"""
-  parkingSpots: Int = 0
+  parkingSpots: Int
 
   """Cuartos de bodega"""
-  storageRooms: Int = 0
+  storageRooms: Int
 
   """Si la unidad usa/paga ascensor"""
   hasElevator: Boolean
@@ -8591,10 +9200,10 @@ input UpdatePermissionInput {
   dependsOn: [PermissionDependencyInput!]
 
   """Estado inicial del permiso"""
-  status: Boolean = true
+  status: Boolean
 
   """Si es true, no podrá borrarse por API"""
-  isSystem: Boolean = false
+  isSystem: Boolean
   id: Int!
 }
 
@@ -8735,6 +9344,11 @@ input ChangePasswordInput {
   confirmPassword: String!
 }
 
+input CompleteRequiredPasswordChangeInput {
+  """Nueva contraseña"""
+  newPassword: String!
+}
+
 """
 Datos para que un administrador restablezca la contraseña de un miembro del personal
 """
@@ -8766,6 +9380,16 @@ input UpdateUserIdentityInput {
 
   """Número de documento de identidad"""
   identity: String!
+}
+
+"""Da o quita un permiso a un usuario por encima de sus roles"""
+input SetUserPermissionOverrideInput {
+  userId: String!
+  permissionId: String!
+  effect: PermissionOverrideEffect!
+
+  """Por qué se dio o se quitó"""
+  reason: String
 }
 
 input BlacklistVisitorInput {
@@ -8884,7 +9508,7 @@ input RegisterVehicleInput {
 
 input UpdateVehicleInput {
   """Tipo de vehículo"""
-  type: VehicleType = CAR
+  type: VehicleType
 
   """Marca. Ej: Toyota, Renault"""
   brand: String
@@ -9402,6 +10026,11 @@ input CreateLegalDocumentInput {
   """PUBLIC por defecto"""
   audience: LegalAudience
 
+  """
+  Solo para audience COMPLEX: a qué vinculación va dirigido (PILOT o COMMERCIAL). Vacío = a todos los complejos.
+  """
+  engagement: ComplexEngagement
+
   """Si ofrece descarga (requiere pdfBase64)"""
   isDownloadable: Boolean
 
@@ -9422,6 +10051,11 @@ input UpdateLegalDocumentInput {
   """
   docxBase64: String
   audience: LegalAudience
+
+  """
+  Solo para audience COMPLEX: a qué vinculación va dirigido (PILOT o COMMERCIAL). Vacío = a todos los complejos.
+  """
+  engagement: ComplexEngagement
   isDownloadable: Boolean
 
   """Nuevo PDF descargable en base64. Reemplaza el anterior."""
@@ -10059,6 +10693,16 @@ input SaveSubscriptionTaxInput {
   sortOrder: Int
 }
 
+"""
+Asigna (o quita) el conjunto que recomendó a otro, para los que se registraron sin el código
+"""
+input SetComplexReferrerInput {
+  complexId: ID!
+
+  """Código del conjunto que lo recomendó. Vacío = quitarlo."""
+  referralCode: String
+}
+
 """Fijar la versión mínima obligatoria de una app"""
 input SetAppVersionPolicyInput {
   app: ClientApp!
@@ -10300,4 +10944,11 @@ enum MarketplaceChatReportAction {
 
   """Procede: la conversación queda cerrada para los dos"""
   CLOSE_CONVERSATION
+}
+
+input ReportAppStateInput {
+  """
+  Hora del cambio en el equipo. Solo para eventos que quedaron en cola sin conexión; si no se envía se usa la hora del servidor
+  """
+  occurredAt: DateTime
 }
