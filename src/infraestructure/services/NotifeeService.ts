@@ -1,4 +1,5 @@
 import { useVisitsStore } from '../../presentation/store/visits.store';
+import { prepareComplexForPush } from './pushComplex';
 import { usePanicStore } from '../../presentation/store/panic.store';
 import { useSettingsStore } from '../../presentation/store/settings.store';
 import notifee, {
@@ -232,13 +233,20 @@ export async function displayForegroundNotification(
 
 // ─── Navigate based on notification data ─────────────────────────────────────
 
-function navigateFromData(
+async function navigateFromData(
   navigationRef: NavigationContainerRef<RootStackParamList>,
   data: Record<string, string>,
 ) {
   if (!navigationRef.isReady()) return;
   const d = data as FCMData;
   if (navigateToApprovalIfNeeded(navigationRef, d)) return;
+  // Aviso de otro conjunto donde vive: cambiar antes de abrirlo.
+  const step = await prepareComplexForPush(d.complexId);
+  if (step === 'inbox') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (navigationRef as any).navigate('Main', { screen: 'HomeTab', params: { screen: 'Notifications' } });
+    return;
+  }
 
   const chatId = chatConversationFromData(data);
   if (chatId) {
@@ -303,7 +311,7 @@ export function initNotifeeForegroundListener(
         if (data.type === 'PANIC_ALERT') {
           showPanicFromNotificationData(data);
         } else {
-          navigateFromData(navigationRef, data);
+          void navigateFromData(navigationRef, data);
         }
         break;
       case EventType.ACTION_PRESS: {

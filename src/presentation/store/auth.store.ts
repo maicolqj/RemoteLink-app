@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import SecureStorageService from '../../infraestructure/services/SecureStorageService';
 import { clearPanicSelfUserId } from '../../infraestructure/services/panicSelfIdentity';
+import { requestComplexSwitch } from '../../infraestructure/services/residences.service';
+import { fetchMyResidentProfile } from '../../infraestructure/services/auth.service';
+// Ciclo a propósito (los stores del conjunto importan este store): solo se usa
+// dentro de switchComplex, nunca al cargar el módulo.
+import { resetComplexScopedState } from './resetComplexScope';
 
 export interface ResidentUser {
   id: string;
@@ -65,6 +70,15 @@ interface AuthState {
    * saber qué pasó.
    */
   logoutNotice: string | null;
+  /** Nombre del conjunto al que se está cambiando (pantalla de carga); null si no. */
+  switchingTo: string | null;
+  /**
+   * Sube cuando hay que llevar al residente al Inicio tras un cambio de
+   * conjunto que no inició él desde el Inicio (p. ej. un pánico de otro
+   * conjunto): la pantalla abierta quedó con los datos vaciados.
+   */
+  homeResetRequest: number;
+  requestHomeReset: () => void;
 
   setSession: (accessToken: string, sessionId: string) => void;
   setResident: (resident: Resident) => void;
@@ -73,6 +87,11 @@ interface AuthState {
   /** ¿El conjunto tiene encendido este módulo? */
   isModuleEnabled: (module: string) => boolean;
   logout: () => Promise<void>;
+  /**
+   * Cambia el conjunto de la sesión sin cerrarla (residente con varias
+   * residencias). Si el servidor lo rechaza, nada cambia y el error sube.
+   */
+  switchComplex: (complexId: string, complexName: string) => Promise<void>;
   setLogoutNotice: (notice: string | null) => void;
   /** Devuelve el aviso pendiente y lo borra: se muestra una sola vez. */
   consumeLogoutNotice: () => string | null;
@@ -109,6 +128,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hydrating: true,
   sessionRestored: false,
   logoutNotice: null,
+  switchingTo: null,
+  homeResetRequest: 0,
+
+  requestHomeReset: () => set(state => ({ homeResetRequest: state.homeResetRequest + 1 })),
 
   setSession: (token, sessionId) =>
     set({ token, sessionId, isAuthenticated: true }),
@@ -141,6 +164,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // cuenta que entre después en este equipo.
     await clearPanicSelfUserId();
     set({ resident: null, token: null, sessionId: null, isAuthenticated: false, sessionRestored: false });
+  },
+
+  switchComplex: async (complexId, complexName) => {
+    set({ switchingTo: complexName });
+    try {
+      const { accessToken, sessionId } = await requestComplexSwitch(complexId);
+      await resetComplexScopedState();
+      // Token nuevo → el socket se reconecta a las salas del conjunto nuevo.
+      set({
+        token: accessToken,
+        sessionId: sessionId ?? get().sessionId,
+        isAuthenticated: true,
+        resident: null,
+      });
+      // La ficha nueva se carga aquí y no en ProfileBootstrap: quien espera el
+      // cambio (push, pánico) abre su pantalla ya con el conjunto correcto.
+      try {
+        const profile = await fetchMyResidentProfile();
+        // Una respuesta del conjunto anterior que llegó mientras tanto no
+        // puede quedar a la vista.
+        await resetComplexScopedState();
+        set({ resident: profile });
+      } catch {
+        // Sin la ficha, ProfileBootstrap reintenta (resident sigue en null).
+      }
+    } finally {
+      set({ switchingTo: null });
+    }
   },
 
   setLogoutNotice: (notice) => set({ logoutNotice: notice }),

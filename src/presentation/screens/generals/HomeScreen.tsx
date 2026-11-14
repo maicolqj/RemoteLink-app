@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -27,6 +27,9 @@ import { useVotingStore } from '../../store/voting.store';
 import { SPACING, RADIUS, ICON_SIZE } from '../../constants/spacing';
 import { FONT_SIZE, FONT_WEIGHT } from '../../constants/typography';
 import { firstName } from '../../utils/names';
+import { ComplexSwitcherSheet } from '../../components/residences/ComplexSwitcherSheet';
+import { fetchMyResidences, type MyResidence } from '../../../infraestructure/services/residences.service';
+import { residentUnitLabel } from '../../utils/unitLabel';
 
 const { width: wp, height: hp } = Dimensions.get('screen');
 type HomeNavProp = NativeStackNavigationProp<any>;
@@ -80,6 +83,7 @@ export default function HomeScreen() {
   const gs = useGlobalStyles();
 
   const resident = useAuthStore(s => s.resident);
+  const switchComplex = useAuthStore(s => s.switchComplex);
   /**
    * La LISTA, no la función.
    *
@@ -211,6 +215,32 @@ export default function HomeScreen() {
     }, [complexId, chatEnabled, refreshChatUnread]),
   );
 
+  // Selector de conjunto: solo aparece si vive en más de uno. Se pide al
+  // volver al inicio para que los avisos sin leer de los otros estén al día.
+  const [residences, setResidences] = useState<MyResidence[]>([]);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!complexId) return;
+      let alive = true;
+      fetchMyResidences()
+        .then(list => { if (alive) setResidences(list); })
+        .catch(() => { /* sin respuesta, el nombre queda sin selector */ });
+      return () => { alive = false; };
+    }, [complexId]),
+  );
+  const canSwitchComplex = residences.length > 1;
+  const othersUnread = residences.some(r => !r.isCurrent && r.unreadCount > 0);
+
+  const handleSelectComplex = useCallback(async (r: MyResidence) => {
+    try {
+      await switchComplex(r.complexId, r.complexName);
+      setSwitcherOpen(false);
+    } catch (err) {
+      showError(err instanceof Error && err.message ? err.message : 'No se pudo cambiar de conjunto.');
+    }
+  }, [switchComplex, showError]);
+
   const recentNotifications = notifications.slice(0, 3);
   // El filtro por módulo va acá y no solo en el render: lo que el store trajo
   // antes de que apagaran el módulo sigue en memoria hasta el próximo arranque,
@@ -336,7 +366,7 @@ export default function HomeScreen() {
         <View style={styles.unitBadge}>
           <Icon name="home" size={14} color={colors.primary} />
           <CustomTextComponent fontSize={FONT_SIZE.xs} fontWeight={FONT_WEIGHT.medium as any} color={colors.primary}>
-            {resident?.unit.building.name} · Apto {resident?.unit.number}
+            {residentUnitLabel(resident?.unit)}
           </CustomTextComponent>
         </View>
       </View>
@@ -345,9 +375,30 @@ export default function HomeScreen() {
 
         {/* Balance Card */}
         {resident?.complex?.name && (
-          <CustomTextComponent fontSize={FONT_SIZE.lg} fontWeight={FONT_WEIGHT.bold as any} color={colors.textSecondary} textAlign="center" style={styles.complexLabel}>
-            {resident.complex.name.toUpperCase()}
-          </CustomTextComponent>
+          <TouchableOpacity
+            style={styles.complexRow}
+            disabled={!canSwitchComplex}
+            onPress={() => setSwitcherOpen(true)}
+            activeOpacity={0.7}
+            accessibilityRole={canSwitchComplex ? 'button' : undefined}
+            accessibilityHint={canSwitchComplex ? 'Cambiar de conjunto' : undefined}>
+            <CustomTextComponent
+              fontSize={FONT_SIZE.lg}
+              fontWeight={FONT_WEIGHT.bold as any}
+              color={colors.textPrimary}
+              textAlign="center"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.complexLabel}>
+              {resident.complex.name.toUpperCase()}
+            </CustomTextComponent>
+            {canSwitchComplex && (
+              <View>
+                <Icon name="expand-more" size={22} color={colors.textPrimary} />
+                {othersUnread && <View style={[styles.complexDot, { backgroundColor: colors.error, borderColor: colors.background }]} />}
+              </View>
+            )}
+          </TouchableOpacity>
         )}
         {/* El saldo solo existe si el conjunto lleva finanzas en la plataforma:
             con el módulo apagado, mostrar "$0" sería afirmar que no debe nada. */}
@@ -505,6 +556,13 @@ export default function HomeScreen() {
           </Card>
         )}
       </ScrollView>
+
+      <ComplexSwitcherSheet
+        visible={switcherOpen}
+        residences={residences}
+        onClose={() => setSwitcherOpen(false)}
+        onSelect={handleSelectComplex}
+      />
     </View>
   );
 }
@@ -542,9 +600,26 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.xxl,
   },
+  complexRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.md,
+    marginHorizontal: SPACING.sm,
+  },
   complexLabel: {
-    marginBottom: SPACING.xxl,
-    marginLeft: SPACING.xs,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  complexDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5,
   },
   balanceCard: {
     marginBottom: SPACING.lg,

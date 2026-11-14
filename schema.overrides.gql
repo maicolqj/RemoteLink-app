@@ -47,3 +47,22 @@
 #
 # Si vuelve a pasar, el arreglo es restaurar el espejo, no parchear aquí.
 # =============================================================================
+
+# ── Selector de conjunto (backend feat/selector-conjunto-residente, 0.47.0) ──
+# Borrar este bloque cuando el backend esté fusionado y el espejo lo traiga.
+type MyResidence {
+  complexId: String!
+  complexName: String!
+  buildingName: String
+  unitNumber: String
+  isCurrent: Boolean!
+  unreadCount: Int!
+}
+
+extend type Query {
+  myResidences: [MyResidence!]!
+}
+
+extend type Mutation {
+  switchResidentComplex(complexId: String!, refreshToken: String!): AuthResponse!
+}
