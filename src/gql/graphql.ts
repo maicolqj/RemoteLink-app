@@ -672,6 +672,8 @@ export type AuditAction =
   | 'CALL_OUTGOING'
   /** Llamada rechazada */
   | 'CALL_REJECTED'
+  /** Residente cambió de conjunto en la app */
+  | 'COMPLEX_SWITCH'
   /** Creación de un registro */
   | 'CREATE'
   /** Eliminación (soft o hard delete) */
@@ -4037,6 +4039,7 @@ export type Mutation = {
   /** Suspende la cuenta de un usuario */
   suspendUser: User;
   suspendVehicle: Vehicle;
+  /** Cambia el conjunto de la sesión de residente sin cerrarla. Devuelve tokens nuevos con ese conjunto. */
   switchResidentComplex: AuthResponse;
   toggleBuildingStatus: Building;
   toggleFeeConfig: FeeConfig;
@@ -5741,13 +5744,16 @@ export type MyComplexInfoResponse = {
   settings: ComplexInfoSettings;
 };
 
+/** Un conjunto donde vive la persona, para el selector de RemoteLink. */
 export type MyResidence = {
   __typename?: 'MyResidence';
   buildingName?: Maybe<Scalars['String']['output']>;
   complexId: Scalars['String']['output'];
   complexName: Scalars['String']['output'];
+  /** Es el conjunto de la sesión actual */
   isCurrent: Scalars['Boolean']['output'];
   unitNumber?: Maybe<Scalars['String']['output']>;
+  /** Avisos sin leer en ese conjunto */
   unreadCount: Scalars['Int']['output'];
 };
 
@@ -7233,8 +7239,6 @@ export type Query = {
   myAmenityCouncilQuota: AmenityCouncilQuotaResponse;
   /** Retorna los complejos con asignación activa del supervisor. Solo puede hacer check-in en estos complejos. */
   myAssignedComplexes: Array<ResidentialComplex>;
-  /** Si la comunidad del conjunto de la sesión conserva el acceso y el botón de pánico. */
-  myCommunityAccess: CommunityAccess;
   /** Un documento publicado, con su texto completo. Abrirlo cuenta como leído si pide acuse */
   myComplexDocument: MyComplexDocument;
   /** Mi Conjunto: datos, contactos, horarios y documentos para el residente */
@@ -7250,6 +7254,8 @@ export type Query = {
   myPqrfRequests: PaginatedPqrfResponse;
   /** Lo que el conjunto de la sesión debe pagar para renovar (el valor contra el que se valida el soporte) */
   myRenewalQuote: SubscriptionQuote;
+  /** Conjuntos donde vive el residente, con sus avisos sin leer. Alimenta el selector de conjunto de RemoteLink. */
+  myResidences: Array<MyResidence>;
   /** Lista los dispositivos vinculados del residente autenticado. */
   myResidentDevices: Array<ResidentDevice>;
   myResidentProfile: Resident;
